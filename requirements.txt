@@ -5,3 +5,4 @@ fastdtw
 scipy
 numpy
 dtaidistance
+pytest

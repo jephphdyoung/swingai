@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "description": "Example ground truth annotations for P-position evaluation",
+    "version": "1.0",
+    "annotator": "auto-detected (needs manual verification)",
+    "date": "2025-01-25",
+    "notes": "Using timestamps (ms) for frame-rate independence. These are approximate values - replace with manually verified ground truth."
+  },
+  "videos": [
+    {
+      "path": "../sample_videos/GW_faceon.mp4",
+      "notes": "Face-on view, ~19s video. Timestamps based on 29.97fps original.",
+      "positions": {
+        "P1": {"timestamp_ms": 11645, "description": "Address position - frame 349 @ 29.97fps"},
+        "P4": {"timestamp_ms": 14848, "description": "Top of backswing - frame 445 @ 29.97fps"},
+        "P6": {"timestamp_ms": 15716, "description": "Impact - frame 471 @ 29.97fps"},
+        "P9": {"timestamp_ms": 17117, "description": "Finish position - frame 513 @ 29.97fps"}
+      }
+    },
+    {
+      "path": "../sample_videos/GW_DTL.mp4",
+      "notes": "Down-the-line view, ~18s video. Timestamps based on 29.97fps original.",
+      "positions": {
+        "P1": {"timestamp_ms": 8408, "description": "Address position - frame 252 @ 29.97fps"},
+        "P4": {"timestamp_ms": 9409, "description": "Top of backswing - frame 282 @ 29.97fps"},
+        "P6": {"timestamp_ms": 11445, "description": "Impact - frame 343 @ 29.97fps"},
+        "P9": {"timestamp_ms": 12613, "description": "Finish position - frame 378 @ 29.97fps"}
+      }
+    }
+  ]
+}

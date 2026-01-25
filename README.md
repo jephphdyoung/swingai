@@ -113,13 +113,88 @@ If running in a container, the file appears in your mounted volume.
 - fastdtw
 
 ---
+
+## 🎯 P-Position Detection Pipeline
+
+This project includes a comprehensive P-position detection improvement pipeline. See the step-by-step implementation guides:
+
+### Pipeline Overview
+
+```
+Input Video
+    │
+    ▼
+┌─────────────────────────┐
+│  Step 1: Preprocess     │  Extract timestamps, transcode to CFR 60fps
+└───────────┬─────────────┘
+            ▼
+┌─────────────────────────┐
+│  Step 2: Trim Waggle    │  Detect swing window, remove practice swings
+└───────────┬─────────────┘
+            ▼
+┌─────────────────────────┐
+│  Step 3: Resample 60Hz  │  Uniform sampling for comparison
+└───────────┬─────────────┘
+            ▼
+┌─────────────────────────┐
+│  Step 4: DTW Features   │  Normalize coords, extract angles, smooth
+└───────────┬─────────────┘
+            ▼
+┌─────────────────────────┐
+│  Step 5: DTW Alignment  │  Align to reference, transfer labels, refine
+└───────────┬─────────────┘
+            ▼
+┌─────────────────────────┐
+│  Step 6: Club Tracking  │  Refine P2/P6/P7 with shaft angle
+└───────────┬─────────────┘
+            ▼
+      P-Positions (P1-P9)
+```
+
+### Implementation Steps
+
+| Step | Description | Files | Tests |
+|------|-------------|-------|-------|
+| [Step 0](docs/step0.md) | **Evaluation Harness** - MAE metrics for ground truth comparison | `scripts/eval_positions.py` | 23 |
+| [Step 1](docs/step1.md) | **Time Normalization** - ffprobe timestamps, CFR 60fps transcode | `utils/video_preprocessor.py` | 14 |
+| [Step 2](docs/step2.md) | **Waggle Trimming** - Detect swing start with wrist speed hysteresis | `utils/swing_detector.py` | 19 |
+| [Step 3](docs/step3.md) | **Feature Resampling** - Interpolate to uniform 60Hz | `utils/feature_resampler.py` | 23 |
+| [Step 4](docs/step4.md) | **DTW Features** - Pelvis-centered coords, angles, Savitzky-Golay smoothing | `utils/dtw_features.py` | 26 |
+| [Step 5](docs/step5.md) | **DTW Alignment** - Label transfer from reference + local refinement | `utils/dtw_alignment.py` | 19 |
+| [Step 6](docs/step6.md) | **Club Tracking** - Shaft angle detection for P2/P6/P7 | `utils/club_positions.py` | 16 |
+
+**Total: 140 tests**
+
+### Quick Start
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Evaluate P-position accuracy
+python scripts/eval_positions.py --ground-truth data/ground_truth.json --verbose
+```
+
+### Key Modules
+
+```python
+from utils.video_preprocessor import preprocess_video
+from utils.pose_extractor import extract_pose_with_timestamps
+from utils.swing_detector import trim_to_swing
+from utils.feature_resampler import resample_landmarks
+from utils.dtw_alignment import detect_p_positions_with_dtw
+from utils.club_positions import refine_positions_with_club
+```
+
+---
+
 ## TODOs
 
 *in the user video. p1 is around the 2-2.5 second mark
 in the ref video , p1 is around the 2sec mark
 
-* highlight club shaft and club head
-* show joint angles
+* ✅ highlight club shaft and club head
+* ✅ show joint angles
 * show clubface angle
 * pause as p1- p8 positions
 * show delta between videos
@@ -127,8 +202,9 @@ in the ref video , p1 is around the 2sec mark
 * playback view that will allow users for frame/step by step playback. with p1-p8 markers
 * calculate swing cadence. time from start to top of swing (ms) divided by top of swing to impact (ms)
 * is it possible to calculate/estimate weight distrubition? And the diretion, and accleration of it?
+
 ---
 
 ## 📜 License
 
-MIT License – do whatever you want with this, just don’t blame us if it slices.
+MIT License – do whatever you want with this, just don't blame us if it slices.

@@ -1,7 +1,12 @@
 import numpy as np
+from typing import Optional
 
 
-def detect_p_positions(landmarks, impact_override=None):
+def detect_p_positions(
+    landmarks,
+    impact_override: Optional[int] = None,
+    timestamps_ms: Optional[list[float]] = None,
+):
     """
     Detect golf P positions (P1-P9) based on pose landmarks.
 
@@ -10,10 +15,32 @@ def detect_p_positions(landmarks, impact_override=None):
     2. Find P4 (top of backswing) - combination of hand height + shoulder rotation
     3. Find P1 (address) - stable position before backswing motion begins
     4. Distribute other positions proportionally
+
+    Args:
+        landmarks: List of pose landmarks per frame
+        impact_override: Optional frame number to use as P6 (impact)
+        timestamps_ms: Optional per-frame timestamps in milliseconds.
+                      If provided, velocities are computed using actual dt.
+                      If None, assumes constant frame rate (legacy behavior).
+
+    Returns:
+        Dict mapping position names (P1-P9) to frame numbers
     """
     n = len(landmarks)
     if n < 20:
         return {"P1": 0, "P4": n//3, "P6": n//2, "P9": n-1}
+
+    # Compute time deltas between frames
+    if timestamps_ms is not None and len(timestamps_ms) == n:
+        # Use actual timestamps for accurate velocity calculation
+        dt = np.zeros(n)
+        for i in range(1, n):
+            dt[i] = timestamps_ms[i] - timestamps_ms[i-1]
+            # Clamp to reasonable range (avoid division issues)
+            dt[i] = max(1.0, min(100.0, dt[i]))  # 1ms to 100ms
+    else:
+        # Legacy: assume constant frame rate (~33ms for 30fps)
+        dt = np.ones(n) * 33.33
 
     # Extract body positions
     # Landmark indices: 1,2=shoulders, 3,4=elbows, 5,6=wrists, 13,14=hips
@@ -34,12 +61,19 @@ def detect_p_positions(landmarks, impact_override=None):
 
     # Compute combined upper body velocity (wrists + elbows + shoulders)
     # Weight wrists more heavily as they move most during swing
+    # Velocity = displacement / time (normalized by dt for VFR handling)
     combined_vel = np.zeros(n)
     for i in range(1, n):
-        wrist_vel = np.linalg.norm(avg_wrist[i] - avg_wrist[i-1])
-        elbow_vel = np.linalg.norm(avg_elbow[i] - avg_elbow[i-1])
-        shoulder_vel = np.linalg.norm(avg_shoulder[i] - avg_shoulder[i-1])
-        combined_vel[i] = wrist_vel * 0.5 + elbow_vel * 0.3 + shoulder_vel * 0.2
+        # Displacement in normalized coordinates
+        wrist_disp = np.linalg.norm(avg_wrist[i] - avg_wrist[i-1])
+        elbow_disp = np.linalg.norm(avg_elbow[i] - avg_elbow[i-1])
+        shoulder_disp = np.linalg.norm(avg_shoulder[i] - avg_shoulder[i-1])
+
+        # Convert to velocity (units per ms) then scale to comparable range
+        # Multiply by 33.33 to normalize to ~30fps equivalent
+        time_scale = 33.33 / dt[i]
+        combined_vel[i] = (wrist_disp * 0.5 + elbow_disp * 0.3 + shoulder_disp * 0.2) * time_scale
+
     smooth_vel = np.convolve(combined_vel, np.ones(5)/5, mode='same')
 
     # Compute shoulder rotation (X distance between shoulders relative to hips)
@@ -93,9 +127,12 @@ def detect_p_positions(landmarks, impact_override=None):
     # This works for both videos with and without waggle
 
     # Compute arm height velocity (negative = arms going up, positive = arms going down)
+    # Normalized by time delta for VFR handling
     arm_height_vel = np.zeros(n)
     for i in range(1, n):
-        arm_height_vel[i] = arm_height[i] - arm_height[i-1]  # positive = going down
+        # Displacement / time, scaled to ~30fps equivalent
+        time_scale = 33.33 / dt[i]
+        arm_height_vel[i] = (arm_height[i] - arm_height[i-1]) * time_scale
     smooth_arm_vel = np.convolve(arm_height_vel, np.ones(7)/7, mode='same')
 
     # From P4, go backwards to find where the sustained upward motion (negative arm_height_vel) started

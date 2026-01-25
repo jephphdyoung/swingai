@@ -2,6 +2,8 @@ import cv2
 import mediapipe as mp
 from mediapipe.tasks.python import vision, BaseOptions
 import os
+from dataclasses import dataclass
+from typing import Optional
 
 # MediaPipe pose landmark indices
 # Order matters - used for skeleton connections in video_renderer.py
@@ -22,7 +24,48 @@ SELECTED_LANDMARK_INDICES = [
 # Path to the pose landmarker model
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "pose_landmarker.task")
 
-def extract_pose(video_path):
+
+@dataclass
+class PoseExtractionResult:
+    """Result of pose extraction with timing information."""
+    landmarks: list  # List of frames, each frame is list of (x, y, z) tuples
+    timestamps_ms: list[float]  # Per-frame timestamps in milliseconds
+    fps: float  # Detected/used frame rate
+    frame_count: int
+
+
+def extract_pose(video_path: str, timestamps_ms: Optional[list[float]] = None) -> list:
+    """
+    Extract pose landmarks from video.
+
+    This is the legacy interface that returns just landmarks for backwards compatibility.
+
+    Args:
+        video_path: Path to video file
+        timestamps_ms: Optional pre-computed timestamps (from preprocessor)
+
+    Returns:
+        List of landmarks per frame
+    """
+    result = extract_pose_with_timestamps(video_path, timestamps_ms)
+    return result.landmarks
+
+
+def extract_pose_with_timestamps(
+    video_path: str,
+    timestamps_ms: Optional[list[float]] = None
+) -> PoseExtractionResult:
+    """
+    Extract pose landmarks from video with timing information.
+
+    Args:
+        video_path: Path to video file
+        timestamps_ms: Optional pre-computed timestamps (from video_preprocessor)
+                      If None, timestamps are estimated from fps
+
+    Returns:
+        PoseExtractionResult with landmarks and timestamps
+    """
     options = vision.PoseLandmarkerOptions(
         base_options=BaseOptions(model_asset_path=MODEL_PATH),
         running_mode=vision.RunningMode.VIDEO,
@@ -32,6 +75,7 @@ def extract_pose(video_path):
     pose_landmarker = vision.PoseLandmarker.create_from_options(options)
     cap = cv2.VideoCapture(video_path)
     landmarks = []
+    actual_timestamps = []
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
     frame_idx = 0
@@ -41,11 +85,19 @@ def extract_pose(video_path):
         if not ret:
             break
 
+        # Use provided timestamps or estimate from fps
+        if timestamps_ms is not None and frame_idx < len(timestamps_ms):
+            timestamp = timestamps_ms[frame_idx]
+        else:
+            timestamp = frame_idx * 1000 / fps
+
+        actual_timestamps.append(timestamp)
+
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-        timestamp_ms = int(frame_idx * 1000 / fps)
 
-        results = pose_landmarker.detect_for_video(mp_image, timestamp_ms)
+        # MediaPipe requires integer timestamp
+        results = pose_landmarker.detect_for_video(mp_image, int(timestamp))
 
         if results.pose_landmarks and len(results.pose_landmarks) > 0:
             all_landmarks = results.pose_landmarks[0]
@@ -73,4 +125,10 @@ def extract_pose(video_path):
 
     cap.release()
     pose_landmarker.close()
-    return landmarks
+
+    return PoseExtractionResult(
+        landmarks=landmarks,
+        timestamps_ms=actual_timestamps,
+        fps=fps,
+        frame_count=len(landmarks),
+    )
