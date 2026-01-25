@@ -56,25 +56,27 @@ Then visit: http://localhost:8501
 ---
 
 ## ▶️ Run Without UI (CLI Mode)
-
+```bash
 podman run --rm \
   -v "$PWD/sample_videos:/app/sample_videos" \
   -v "$PWD/my_videos:/app/my_videos" \
   swingai python main.py my_videos/TW_face.mp4 sample_videos/GW_faceon.mp4
-
+```c
 ---
 
 ## 💻 Local Dev (No Container)
 
-### 1. Install dependencies
-
+h### 1. Install dependencies
+```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+```
 
 ### 2. Run the analyzer
-
+```bash
 python main.py my_videos/TW_face.mp4 sample_videos/GW_faceon.mp4
+```
 
 ### 3. Run the UI
 
