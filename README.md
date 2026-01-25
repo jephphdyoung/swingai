@@ -18,12 +18,14 @@ swingai/
 │
 ├── main.py
 ├── streamlit_app.py
+├── pose_landmarker.task   # MediaPipe model (required)
 ├── requirements.txt
 ├── Dockerfile
 ├── sample_videos/
-│   └── reference_swing.mp4
+│   ├── GW_faceon.mp4
+│   └── GW_DTL.mp4
 ├── my_videos/
-│   └── user_swing.mp4
+│   └── TW_face.mp4
 └── utils/
     ├── pose_extractor.py
     ├── video_sync.py
@@ -58,7 +60,7 @@ Then visit: http://localhost:8501
 podman run --rm \
   -v "$PWD/sample_videos:/app/sample_videos" \
   -v "$PWD/my_videos:/app/my_videos" \
-  swingai python main.py my_videos/user_swing.mp4 sample_videos/reference_swing.mp4
+  swingai python main.py my_videos/TW_face.mp4 sample_videos/GW_faceon.mp4
 
 ---
 
@@ -72,7 +74,7 @@ pip install -r requirements.txt
 
 ### 2. Run the analyzer
 
-python main.py my_videos/user_swing.mp4 sample_videos/reference_swing.mp4
+python main.py my_videos/TW_face.mp4 sample_videos/GW_faceon.mp4
 
 ### 3. Run the UI
 
@@ -110,6 +112,21 @@ If running in a container, the file appears in your mounted volume.
 - OpenCV
 - fastdtw
 
+---
+## TODOs
+
+*in the user video. p1 is around the 2-2.5 second mark
+in the ref video , p1 is around the 2sec mark
+
+* highlight club shaft and club head
+* show joint angles
+* show clubface angle
+* pause as p1- p8 positions
+* show delta between videos
+* show sequencing differences
+* playback view that will allow users for frame/step by step playback. with p1-p8 markers
+* calculate swing cadence. time from start to top of swing (ms) divided by top of swing to impact (ms)
+* is it possible to calculate/estimate weight distrubition? And the diretion, and accleration of it?
 ---
 
 ## 📜 License

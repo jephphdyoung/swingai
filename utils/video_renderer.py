@@ -3,39 +3,264 @@ import numpy as np
 import subprocess
 import os
 
+# Landmark indices in our extracted array:
+# 0: nose, 1: L shoulder, 2: R shoulder, 3: L elbow, 4: R elbow,
+# 5: L wrist, 6: R wrist, 7: L pinky, 8: R pinky, 9: L index, 10: R index,
+# 11: L thumb, 12: R thumb, 13: L hip, 14: R hip, 15: L knee, 16: R knee,
+# 17: L ankle, 18: R ankle, 19: L foot, 20: R foot
+
+# Colors (BGR format) for each landmark
+LANDMARK_COLORS = [
+    (0, 255, 255),  # nose/head - yellow
+    (255, 0, 0),    # shoulders - blue
+    (255, 0, 0),
+    (0, 165, 255),  # elbows - orange
+    (0, 165, 255),
+    (0, 255, 255),  # wrists - yellow
+    (0, 255, 255),
+    (255, 0, 255),  # pinky - magenta
+    (255, 0, 255),
+    (0, 255, 0),    # index finger - green
+    (0, 255, 0),
+    (0, 0, 255),    # thumb - red
+    (0, 0, 255),
+    (255, 255, 0),  # hips - cyan
+    (255, 255, 0),
+    (0, 128, 255),  # knees - dark orange
+    (0, 128, 255),
+    (128, 0, 128),  # ankles - purple
+    (128, 0, 128),
+    (255, 128, 0),  # feet - light blue
+    (255, 128, 0),
+]
+
+# Skeleton connections: pairs of landmark indices to connect with lines
+SKELETON_CONNECTIONS = [
+    # Torso
+    (1, 2),    # shoulder to shoulder
+    (13, 14),  # hip to hip
+    (1, 13),   # left shoulder to left hip
+    (2, 14),   # right shoulder to right hip
+    # Left arm
+    (1, 3),    # left shoulder to left elbow
+    (3, 5),    # left elbow to left wrist
+    (5, 7),    # left wrist to left pinky
+    (5, 9),    # left wrist to left index
+    (5, 11),   # left wrist to left thumb
+    # Right arm
+    (2, 4),    # right shoulder to right elbow
+    (4, 6),    # right elbow to right wrist
+    (6, 8),    # right wrist to right pinky
+    (6, 10),   # right wrist to right index
+    (6, 12),   # right wrist to right thumb
+    # Left leg
+    (13, 15),  # left hip to left knee
+    (15, 17),  # left knee to left ankle
+    (17, 19),  # left ankle to left foot
+    # Right leg
+    (14, 16),  # right hip to right knee
+    (16, 18),  # right knee to right ankle
+    (18, 20),  # right ankle to right foot
+]
+
 def draw_landmarks(frame, landmarks):
-    for x, y, _ in landmarks:
-        cv2.circle(frame, (int(x * frame.shape[1]), int(y * frame.shape[0])), 4, (0, 255, 0), -1)
+    h, w = frame.shape[:2]
+
+    # Convert landmarks to pixel coordinates
+    points = [(int(x * w), int(y * h)) for x, y, _ in landmarks]
+
+    # Draw skeleton lines first (so dots appear on top)
+    for i1, i2 in SKELETON_CONNECTIONS:
+        if i1 < len(points) and i2 < len(points):
+            cv2.line(frame, points[i1], points[i2], (200, 200, 200), 2)
+
+    # Draw neck line (nose to midpoint of shoulders)
+    if len(points) > 2:
+        neck_pt = ((points[1][0] + points[2][0]) // 2, (points[1][1] + points[2][1]) // 2)
+        cv2.line(frame, points[0], neck_pt, (200, 200, 200), 2)
+
+    # Draw spine (midpoint shoulders to midpoint hips)
+    if len(points) > 14:
+        shoulder_mid = ((points[1][0] + points[2][0]) // 2, (points[1][1] + points[2][1]) // 2)
+        hip_mid = ((points[13][0] + points[14][0]) // 2, (points[13][1] + points[14][1]) // 2)
+        cv2.line(frame, shoulder_mid, hip_mid, (200, 200, 200), 2)
+
+    # Draw landmark dots
+    for i, pt in enumerate(points):
+        color = LANDMARK_COLORS[i] if i < len(LANDMARK_COLORS) else (0, 255, 0)
+        cv2.circle(frame, pt, 5, color, -1)
+
     return frame
 
-def generate_comparison_video(user_video_path, ref_video_path, alignment, user_poses, ref_poses):
+def interpolate_landmarks(landmarks1, landmarks2, t):
+    """Linearly interpolate between two landmark sets."""
+    return [
+        (l1[0] + t * (l2[0] - l1[0]),
+         l1[1] + t * (l2[1] - l1[1]),
+         l1[2] + t * (l2[2] - l1[2]))
+        for l1, l2 in zip(landmarks1, landmarks2)
+    ]
+
+def blend_frames(frame1, frame2, t):
+    """Blend two frames with weight t (0=frame1, 1=frame2)."""
+    return cv2.addWeighted(frame1, 1 - t, frame2, t, 0)
+
+def draw_p_label(frame, label, position="top"):
+    """Draw P position label on frame."""
+    h, w = frame.shape[:2]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 1.5
+    thickness = 3
+
+    # Get text size
+    (text_w, text_h), baseline = cv2.getTextSize(label, font, font_scale, thickness)
+
+    # Position: top center
+    x = (w - text_w) // 2
+    y = text_h + 30
+
+    # Draw background rectangle
+    cv2.rectangle(frame, (x - 10, y - text_h - 10), (x + text_w + 10, y + 10), (0, 0, 0), -1)
+    # Draw text
+    cv2.putText(frame, label, (x, y), font, font_scale, (255, 255, 255), thickness)
+
+    return frame
+
+
+def generate_comparison_video(user_video_path, ref_video_path, alignment, user_poses, ref_poses,
+                               output_fps=24, slowdown=3, user_p_positions=None, ref_p_positions=None,
+                               pause_duration=5):
+    """
+    Generate side-by-side comparison video with synchronized swings.
+
+    slowdown: multiplier for how many frames to generate per alignment pair (higher = slower playback)
+    user_p_positions: dict of P position names to frame indices for user video
+    ref_p_positions: dict of P position names to frame indices for reference video
+    pause_duration: seconds to pause at each P position
+    """
     cap_user = cv2.VideoCapture(user_video_path)
     cap_ref = cv2.VideoCapture(ref_video_path)
-    output_frames = []
 
-    for u_idx, r_idx in alignment:
-        cap_user.set(cv2.CAP_PROP_POS_FRAMES, u_idx)
-        cap_ref.set(cv2.CAP_PROP_POS_FRAMES, r_idx)
-        ret_u, frame_u = cap_user.read()
-        ret_r, frame_r = cap_ref.read()
-        if not ret_u or not ret_r:
-            continue
-        frame_u = draw_landmarks(frame_u, user_poses[u_idx])
-        frame_r = draw_landmarks(frame_r, ref_poses[r_idx])
-        combined = np.hstack((frame_r, frame_u))
-        output_frames.append(combined)
+    # Pre-read all frames
+    user_frames = []
+    while True:
+        ret, frame = cap_user.read()
+        if not ret:
+            break
+        user_frames.append(frame)
+
+    ref_frames = []
+    while True:
+        ret, frame = cap_ref.read()
+        if not ret:
+            break
+        ref_frames.append(frame)
 
     cap_user.release()
     cap_ref.release()
 
+    print(f"Loaded {len(user_frames)} user frames, {len(ref_frames)} ref frames")
+    print(f"Alignment pairs: {len(alignment)}, slowdown: {slowdown}x")
+
+    # Build lookup of P positions by frame index
+    user_p_lookup = {}
+    ref_p_lookup = {}
+    if user_p_positions:
+        for name, frame_idx in user_p_positions.items():
+            user_p_lookup[frame_idx] = name
+    if ref_p_positions:
+        for name, frame_idx in ref_p_positions.items():
+            ref_p_lookup[frame_idx] = name
+
+    # Track which P positions we've already paused at (use user frames as reference)
+    paused_positions = set()
+    pause_frames = int(pause_duration * output_fps)
+
+    print(f"Will pause for {pause_duration}s ({pause_frames} frames) at each P position")
+
+    output_frames = []
+
+    for i in range(len(alignment) - 1):
+        u_idx, r_idx = alignment[i]
+        u_idx_next, r_idx_next = alignment[i + 1]
+
+        # Bounds check
+        if u_idx >= len(user_frames) or r_idx >= len(ref_frames):
+            continue
+        if u_idx >= len(user_poses) or r_idx >= len(ref_poses):
+            continue
+        if u_idx_next >= len(user_poses) or r_idx_next >= len(ref_poses):
+            continue
+
+        # Check if this is a P position we haven't paused at yet
+        p_label = None
+        if u_idx in user_p_lookup and user_p_lookup[u_idx] not in paused_positions:
+            p_label = user_p_lookup[u_idx]
+            paused_positions.add(p_label)
+
+        # Generate interpolated frames for smooth playback
+        for j in range(slowdown):
+            t = j / slowdown
+
+            # Interpolate landmarks for smooth skeleton motion
+            interp_user_lm = interpolate_landmarks(user_poses[u_idx], user_poses[u_idx_next], t)
+            interp_ref_lm = interpolate_landmarks(ref_poses[r_idx], ref_poses[r_idx_next], t)
+
+            # Use crisp video frames (no blending - avoids ghosting)
+            frame_u = user_frames[u_idx].copy()
+            frame_r = ref_frames[r_idx].copy()
+
+            # Draw interpolated landmarks on crisp frames
+            frame_u = draw_landmarks(frame_u, interp_user_lm)
+            frame_r = draw_landmarks(frame_r, interp_ref_lm)
+
+            # Resize to same height for side-by-side
+            target_height = min(frame_u.shape[0], frame_r.shape[0])
+            if frame_u.shape[0] != target_height:
+                scale = target_height / frame_u.shape[0]
+                frame_u = cv2.resize(frame_u, (int(frame_u.shape[1] * scale), target_height))
+            if frame_r.shape[0] != target_height:
+                scale = target_height / frame_r.shape[0]
+                frame_r = cv2.resize(frame_r, (int(frame_r.shape[1] * scale), target_height))
+
+            combined = np.hstack((frame_r, frame_u))
+            output_frames.append(combined)
+
+        # Insert pause at P position (after the interpolated frames)
+        if p_label:
+            # Create pause frame with label
+            frame_u = user_frames[u_idx].copy()
+            frame_r = ref_frames[r_idx].copy()
+
+            frame_u = draw_landmarks(frame_u, user_poses[u_idx])
+            frame_r = draw_landmarks(frame_r, ref_poses[r_idx])
+
+            # Resize
+            target_height = min(frame_u.shape[0], frame_r.shape[0])
+            if frame_u.shape[0] != target_height:
+                scale = target_height / frame_u.shape[0]
+                frame_u = cv2.resize(frame_u, (int(frame_u.shape[1] * scale), target_height))
+            if frame_r.shape[0] != target_height:
+                scale = target_height / frame_r.shape[0]
+                frame_r = cv2.resize(frame_r, (int(frame_r.shape[1] * scale), target_height))
+
+            combined = np.hstack((frame_r, frame_u))
+            combined = draw_p_label(combined, p_label)
+
+            # Add pause frames
+            print(f"Adding {pause_duration}s pause at {p_label} (user frame {u_idx})")
+            for _ in range(pause_frames):
+                output_frames.append(combined.copy())
+
     if not output_frames:
         raise RuntimeError("No frames were processed.")
+
+    print(f"Output frames: {len(output_frames)}")
 
     height, width, _ = output_frames[0].shape
     temp_path = "temp.avi"
     fourcc = cv2.VideoWriter_fourcc(*"XVID")
-    fps = 30
-    out = cv2.VideoWriter(temp_path, fourcc, fps, (width, height))
+    out = cv2.VideoWriter(temp_path, fourcc, output_fps, (width, height))
 
     for frame in output_frames:
         out.write(frame)
@@ -43,10 +268,11 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
 
     final_path = "comparison_output.mp4"
 
-    # Convert using libx264 (more commonly available and supported than libopenh264)
+    # Convert using libx264 with settings optimized for smooth playback
     ffmpeg_cmd = [
         "ffmpeg", "-y", "-i", temp_path,
-        "-vcodec", "libx264", "-crf", "23", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+        "-vcodec", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
         final_path
     ]
     subprocess.run(ffmpeg_cmd, check=True)
