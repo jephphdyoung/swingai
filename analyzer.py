@@ -1,4 +1,5 @@
 import sys
+from dataclasses import dataclass
 from typing import Callable, Optional
 
 from utils.pose_extractor import extract_pose_with_timestamps
@@ -9,6 +10,13 @@ from utils.video_sync import sync_on_p_positions
 from utils.video_renderer import generate_comparison_video
 
 TOTAL_STEPS = 5
+
+
+@dataclass
+class AnalysisResult:
+    output_path: str
+    output_path_no_skeleton: str
+    p_timestamps: dict[str, float]  # P-name -> seconds in output video
 
 
 def analyze_swing(user_video_path, reference_video_path,
@@ -65,13 +73,28 @@ def analyze_swing(user_video_path, reference_video_path,
     report(4, "Synchronizing swings...")
     alignment = sync_on_p_positions(user_p, ref_p)
 
-    # Step 5: Render
+    # Step 5: Render (with skeleton)
     report(5, "Generating comparison video...")
-    output_path = generate_comparison_video(
+    output_path, p_timestamps = generate_comparison_video(
         user_video_path, reference_video_path,
         alignment, user_result.landmarks, ref_result.landmarks,
         user_p_positions=user_p, ref_p_positions=ref_p,
+        draw_skeleton=True, output_filename="comparison_output.mp4",
     )
 
-    log(f"Saved: {output_path}")
-    return output_path
+    # Also generate version without skeleton
+    log("Generating version without skeleton...")
+    output_path_no_skeleton, _ = generate_comparison_video(
+        user_video_path, reference_video_path,
+        alignment, user_result.landmarks, ref_result.landmarks,
+        user_p_positions=user_p, ref_p_positions=ref_p,
+        draw_skeleton=False, output_filename="comparison_output_no_skeleton.mp4",
+    )
+
+    log(f"Saved: {output_path}, {output_path_no_skeleton}")
+    log(f"P-position timestamps: {p_timestamps}")
+    return AnalysisResult(
+        output_path=output_path,
+        output_path_no_skeleton=output_path_no_skeleton,
+        p_timestamps=p_timestamps,
+    )

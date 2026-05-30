@@ -129,7 +129,7 @@ def draw_p_label(frame, label, position="top"):
 
 def generate_comparison_video(user_video_path, ref_video_path, alignment, user_poses, ref_poses,
                                output_fps=24, slowdown=3, user_p_positions=None, ref_p_positions=None,
-                               pause_duration=5):
+                               pause_duration=5, draw_skeleton=True, output_filename="comparison_output.mp4"):
     """
     Generate side-by-side comparison video with synchronized swings.
 
@@ -137,6 +137,11 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
     user_p_positions: dict of P position names to frame indices for user video
     ref_p_positions: dict of P position names to frame indices for reference video
     pause_duration: seconds to pause at each P position
+    draw_skeleton: whether to draw pose landmarks on the video
+    output_filename: name of the output file
+
+    Returns:
+        tuple: (output_path, p_timestamps) where p_timestamps maps P-names to seconds in output video
     """
     cap_user = cv2.VideoCapture(user_video_path)
     cap_ref = cv2.VideoCapture(ref_video_path)
@@ -194,6 +199,8 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
     print(f"Will pause for {pause_duration}s ({pause_frames} frames) at each P position")
 
     output_frames = []
+    p_timestamps = {}  # Maps P-name to timestamp (seconds) in output video
+    output_frame_count = 0
 
     for i in range(len(alignment) - 1):
         u_idx, r_idx = alignment[i]
@@ -224,8 +231,9 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
             frame_u = user_frames[u_idx].copy()
             frame_r = ref_frames[r_idx].copy()
 
-            frame_u = draw_landmarks(frame_u, interp_user_lm)
-            frame_r = draw_landmarks(frame_r, interp_ref_lm)
+            if draw_skeleton:
+                frame_u = draw_landmarks(frame_u, interp_user_lm)
+                frame_r = draw_landmarks(frame_r, interp_ref_lm)
 
             target_height = min(frame_u.shape[0], frame_r.shape[0])
             if frame_u.shape[0] != target_height:
@@ -239,14 +247,19 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
             if current_label:
                 combined = draw_p_label(combined, current_label)
             output_frames.append(combined)
+            output_frame_count += 1
 
         # Insert pause at P position
         if pause_label:
+            # Record timestamp where this P-position appears in output video
+            p_timestamps[pause_label] = output_frame_count / output_fps
+
             frame_u = user_frames[u_idx].copy()
             frame_r = ref_frames[r_idx].copy()
 
-            frame_u = draw_landmarks(frame_u, user_poses[u_idx])
-            frame_r = draw_landmarks(frame_r, ref_poses[r_idx])
+            if draw_skeleton:
+                frame_u = draw_landmarks(frame_u, user_poses[u_idx])
+                frame_r = draw_landmarks(frame_r, ref_poses[r_idx])
 
             target_height = min(frame_u.shape[0], frame_r.shape[0])
             if frame_u.shape[0] != target_height:
@@ -262,6 +275,7 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
             print(f"Adding {pause_duration}s pause at {pause_label} (user frame {u_idx})")
             for _ in range(pause_frames):
                 output_frames.append(combined.copy())
+                output_frame_count += 1
 
     if not output_frames:
         raise RuntimeError("No frames were processed.")
@@ -277,7 +291,7 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
         out.write(frame)
     out.release()
 
-    final_path = "comparison_output.mp4"
+    final_path = output_filename
 
     # Convert using libx264 with settings optimized for smooth playback
     ffmpeg_cmd = [
@@ -289,4 +303,4 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
     subprocess.run(ffmpeg_cmd, check=True)
 
     os.remove(temp_path)
-    return final_path
+    return final_path, p_timestamps

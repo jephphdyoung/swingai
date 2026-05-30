@@ -8,7 +8,7 @@ def detect_p_positions(
     timestamps_ms: Optional[list[float]] = None,
 ):
     """
-    Detect golf P positions (P1-P9) based on pose landmarks.
+    Detect golf P positions (P1-P10) based on pose landmarks.
 
     Uses multiple body parts (wrists, elbows, shoulders) for robust detection:
     1. Find P6 (impact) - max combined upper body velocity
@@ -24,11 +24,11 @@ def detect_p_positions(
                       If None, assumes constant frame rate (legacy behavior).
 
     Returns:
-        Dict mapping position names (P1-P9) to frame numbers
+        Dict mapping position names (P1-P10) to frame numbers
     """
     n = len(landmarks)
     if n < 20:
-        return {"P1": 0, "P4": n//3, "P6": n//2, "P9": n-1}
+        return {"P1": 0, "P4": n//3, "P6": n//2, "P9": n-1, "P10": n-1}
 
     # Compute time deltas between frames
     if timestamps_ms is not None and len(timestamps_ms) == n:
@@ -196,6 +196,10 @@ def detect_p_positions(
     p7 = p6 + followthrough_len // 3
     p8 = p6 + 2 * followthrough_len // 3
 
+    # P10 = final finish position (complete hold at end of swing)
+    # Place it at 90% of the way from P9 to the end of video, or 15 frames after P9
+    p10 = min(n - 1, max(p9 + 15, p9 + (n - 1 - p9) * 9 // 10))
+
     positions = {
         "P1": max(0, p1),
         "P2": max(p1+1, p2),
@@ -206,8 +210,9 @@ def detect_p_positions(
         "P7": max(p6+1, p7),
         "P8": max(p7+1, p8),
         "P9": min(p9, n-1),
+        "P10": min(p10, n-1),
     }
 
-    print(f"  P1={p1}, P4={p4}, P6={p6} (backswing={p4-p1} frames, downswing={p6-p4} frames)")
+    print(f"  P1={p1}, P4={p4}, P6={p6}, P9={p9}, P10={p10} (backswing={p4-p1} frames, downswing={p6-p4} frames)")
 
     return positions

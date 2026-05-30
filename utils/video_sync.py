@@ -26,15 +26,17 @@ def find_impact_frame(landmarks):
 def sync_on_p_positions(user_p, ref_p):
     """
     Sync videos based on P positions.
-    Aligns P1->P1, P4->P4, P6->P6, P9->P9.
-    Only includes the swing (P1 to P9), cropping waggle.
+    Aligns P1->P1, P4->P4, P6->P6, P9->P9, P10->P10.
+    Only includes the swing (P1 to P10), cropping waggle.
     """
     # Get key frames
     u_p1, u_p4, u_p6, u_p9 = user_p['P1'], user_p['P4'], user_p['P6'], user_p['P9']
     r_p1, r_p4, r_p6, r_p9 = ref_p['P1'], ref_p['P4'], ref_p['P6'], ref_p['P9']
+    u_p10 = user_p.get('P10', u_p9)
+    r_p10 = ref_p.get('P10', r_p9)
 
-    print(f"User P positions: P1={u_p1}, P4={u_p4}, P6={u_p6}, P9={u_p9}")
-    print(f"Ref P positions:  P1={r_p1}, P4={r_p4}, P6={r_p6}, P9={r_p9}")
+    print(f"User P positions: P1={u_p1}, P4={u_p4}, P6={u_p6}, P9={u_p9}, P10={u_p10}")
+    print(f"Ref P positions:  P1={r_p1}, P4={r_p4}, P6={r_p6}, P9={r_p9}, P10={r_p10}")
 
     alignment = []
 
@@ -68,7 +70,17 @@ def sync_on_p_positions(user_p, ref_p):
             r_idx = r_p6 + int(t * r_followthrough)
             alignment.append((u_idx, r_idx))
 
-    print(f"Alignment: {len(alignment)} pairs (P1 to P9 only, waggle cropped)")
+    # Phase 4: P9 to P10 (finish hold)
+    u_finish = u_p10 - u_p9
+    r_finish = r_p10 - r_p9
+    if u_finish > 0 and r_finish > 0:
+        for i in range(1, u_finish + 1):
+            t = i / u_finish
+            u_idx = u_p9 + i
+            r_idx = r_p9 + int(t * r_finish)
+            alignment.append((u_idx, r_idx))
+
+    print(f"Alignment: {len(alignment)} pairs (P1 to P10, waggle cropped)")
 
     return alignment
 
