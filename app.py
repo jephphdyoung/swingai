@@ -13,5 +13,23 @@ sample_video = st.selectbox("Choose a sample video:", os.listdir(SAMPLE_DIR))
 if st.button("Run Comparison"):
     user_path = os.path.join(MY_DIR, user_video)
     sample_path = os.path.join(SAMPLE_DIR, sample_video)
-    output_path = analyze_swing(user_path, sample_path)
+
+    with st.status("Processing...", expanded=True) as status:
+        progress_bar = st.progress(0)
+
+        def on_progress(step, total, message):
+            st.write(message)
+            progress_bar.progress(step / total)
+
+        output_path = analyze_swing(user_path, sample_path, progress_callback=on_progress)
+        progress_bar.progress(1.0)
+        status.update(label="Complete!", state="complete", expanded=False)
+
     st.video(output_path)
+    with open(output_path, "rb") as f:
+        st.download_button(
+            label="Download comparison video",
+            data=f,
+            file_name=os.path.basename(output_path),
+            mime="video/mp4",
+        )

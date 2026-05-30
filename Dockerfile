@@ -1,17 +1,16 @@
 FROM python:3.12-slim
 
-WORKDIR /app]
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y ffmpeg libgl1-mesa-glx libgles2-mesa libegl1-mesa libglib2.0-0 && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
-# Upgrade pip before installing dependencies
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
-    
-COPY . .
 
-RUN apt-get update && apt-get install -y ffmpeg libgl1-mesa-glx && \
-    pip install --no-cache-dir -r requirements.txt
+COPY . .
 
 EXPOSE 8501
 
