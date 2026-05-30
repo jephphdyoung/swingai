@@ -1,0 +1,88 @@
+{
+  "my_videos/TW_face.mp4": {
+    "P1": {
+      "frame": 81,
+      "timestamp_ms": 2700.0
+    },
+    "P10": {
+      "frame": 121,
+      "timestamp_ms": 4033.3
+    },
+    "P2": {
+      "frame": 93,
+      "timestamp_ms": 3100.0
+    },
+    "P3": {
+      "frame": 96,
+      "timestamp_ms": 3200.0
+    },
+    "P4": {
+      "frame": 102,
+      "timestamp_ms": 3400.0
+    },
+    "P5": {
+      "frame": 107,
+      "timestamp_ms": 3566.7
+    },
+    "P6": {
+      "frame": 109,
+      "timestamp_ms": 3633.3
+    },
+    "P7": {
+      "frame": 111,
+      "timestamp_ms": 3700.0
+    },
+    "P8": {
+      "frame": 112,
+      "timestamp_ms": 3733.3
+    },
+    "P9": {
+      "frame": 114,
+      "timestamp_ms": 3800.0
+    },
+    "_view_angle": "face_on"
+  },
+  "sample_videos/GW_faceon.mp4": {
+    "P1": {
+      "frame": 53,
+      "timestamp_ms": 1768.4
+    },
+    "P10": {
+      "frame": 471,
+      "timestamp_ms": 15715.7
+    },
+    "P2": {
+      "frame": 160,
+      "timestamp_ms": 5338.7
+    },
+    "P3": {
+      "frame": 210,
+      "timestamp_ms": 7007.0
+    },
+    "P4": {
+      "frame": 278,
+      "timestamp_ms": 9275.9
+    },
+    "P5": {
+      "frame": 308,
+      "timestamp_ms": 10276.9
+    },
+    "P6": {
+      "frame": 332,
+      "timestamp_ms": 11077.7
+    },
+    "P7": {
+      "frame": 343,
+      "timestamp_ms": 11444.8
+    },
+    "P8": {
+      "frame": 371,
+      "timestamp_ms": 12379.0
+    },
+    "P9": {
+      "frame": 381,
+      "timestamp_ms": 12712.7
+    },
+    "_view_angle": "face_on"
+  }
+}

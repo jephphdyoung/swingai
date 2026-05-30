@@ -172,7 +172,22 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
         for name, frame_idx in ref_p_positions.items():
             ref_p_lookup[frame_idx] = name
 
-    # Track which P positions we've already paused at (use user frames as reference)
+    # Build sorted list of P-position boundaries for persistent labels
+    p_boundaries = []
+    if user_p_positions:
+        for name, frame_idx in sorted(user_p_positions.items(), key=lambda x: x[1]):
+            p_boundaries.append((frame_idx, name))
+
+    def _current_p_label(u_idx):
+        """Return the most recent P-position label at or before u_idx."""
+        label = None
+        for frame_idx, name in p_boundaries:
+            if frame_idx <= u_idx:
+                label = name
+            else:
+                break
+        return label
+
     paused_positions = set()
     pause_frames = int(pause_duration * output_fps)
 
@@ -184,7 +199,6 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
         u_idx, r_idx = alignment[i]
         u_idx_next, r_idx_next = alignment[i + 1]
 
-        # Bounds check
         if u_idx >= len(user_frames) or r_idx >= len(ref_frames):
             continue
         if u_idx >= len(user_poses) or r_idx >= len(ref_poses):
@@ -192,29 +206,27 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
         if u_idx_next >= len(user_poses) or r_idx_next >= len(ref_poses):
             continue
 
-        # Check if this is a P position we haven't paused at yet
-        p_label = None
+        # Check if this exact frame is a P position (for pausing)
+        pause_label = None
         if u_idx in user_p_lookup and user_p_lookup[u_idx] not in paused_positions:
-            p_label = user_p_lookup[u_idx]
-            paused_positions.add(p_label)
+            pause_label = user_p_lookup[u_idx]
+            paused_positions.add(pause_label)
 
-        # Generate interpolated frames for smooth playback
+        # Persistent label: show which P-position range we're in
+        current_label = _current_p_label(u_idx)
+
         for j in range(slowdown):
             t = j / slowdown
 
-            # Interpolate landmarks for smooth skeleton motion
             interp_user_lm = interpolate_landmarks(user_poses[u_idx], user_poses[u_idx_next], t)
             interp_ref_lm = interpolate_landmarks(ref_poses[r_idx], ref_poses[r_idx_next], t)
 
-            # Use crisp video frames (no blending - avoids ghosting)
             frame_u = user_frames[u_idx].copy()
             frame_r = ref_frames[r_idx].copy()
 
-            # Draw interpolated landmarks on crisp frames
             frame_u = draw_landmarks(frame_u, interp_user_lm)
             frame_r = draw_landmarks(frame_r, interp_ref_lm)
 
-            # Resize to same height for side-by-side
             target_height = min(frame_u.shape[0], frame_r.shape[0])
             if frame_u.shape[0] != target_height:
                 scale = target_height / frame_u.shape[0]
@@ -224,18 +236,18 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
                 frame_r = cv2.resize(frame_r, (int(frame_r.shape[1] * scale), target_height))
 
             combined = np.hstack((frame_r, frame_u))
+            if current_label:
+                combined = draw_p_label(combined, current_label)
             output_frames.append(combined)
 
-        # Insert pause at P position (after the interpolated frames)
-        if p_label:
-            # Create pause frame with label
+        # Insert pause at P position
+        if pause_label:
             frame_u = user_frames[u_idx].copy()
             frame_r = ref_frames[r_idx].copy()
 
             frame_u = draw_landmarks(frame_u, user_poses[u_idx])
             frame_r = draw_landmarks(frame_r, ref_poses[r_idx])
 
-            # Resize
             target_height = min(frame_u.shape[0], frame_r.shape[0])
             if frame_u.shape[0] != target_height:
                 scale = target_height / frame_u.shape[0]
@@ -245,10 +257,9 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
                 frame_r = cv2.resize(frame_r, (int(frame_r.shape[1] * scale), target_height))
 
             combined = np.hstack((frame_r, frame_u))
-            combined = draw_p_label(combined, p_label)
+            combined = draw_p_label(combined, pause_label)
 
-            # Add pause frames
-            print(f"Adding {pause_duration}s pause at {p_label} (user frame {u_idx})")
+            print(f"Adding {pause_duration}s pause at {pause_label} (user frame {u_idx})")
             for _ in range(pause_frames):
                 output_frames.append(combined.copy())
 
