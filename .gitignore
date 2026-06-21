@@ -1,0 +1,15 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Generated comparison / overlay render outputs
+/comparison_output*.mp4
+/overlay_output*.mp4
+/temp.avi
+
+# Local video libraries: keep the already-tracked demo clips, ignore newly added captures
+my_videos/*.mp4
+sample_videos/*.mp4
+
+# Local backups / scratch
+*.host-backup

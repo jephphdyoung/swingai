@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #222; }
+  #bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .pbtn { padding: 6px 12px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer;
+          background: #e9ecf5; color: #333; }
+  .pbtn.active { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; }
+  .ctl { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  #reset { padding: 6px 12px; border: 1px solid #c9c9c9; border-radius: 6px; background: #fff;
+           cursor: pointer; font-weight: 600; }
+  #stage { position: relative; display: inline-block; line-height: 0; user-select: none;
+           border-radius: 8px; overflow: hidden; background: #000; }
+  #base { display: block; width: 100%; max-width: 560px; }
+  #ref { position: absolute; left: 0; top: 0; cursor: grab; touch-action: none; }
+  #ref.dragging { cursor: grabbing; }
+  #handle { position: absolute; width: 16px; height: 16px; right: -8px; bottom: -8px;
+            background: #f5576c; border: 2px solid #fff; border-radius: 50%; cursor: nwse-resize; }
+  #hint { font-size: 12px; color: #777; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <div id="bar">
+    <span style="font-size:13px;font-weight:600;">Frame:</span>
+    <span id="pbuttons"></span>
+    <label class="ctl">Pro opacity <input id="alpha" type="range" min="0" max="1" step="0.05"></label>
+    <label class="ctl"><input id="mirror" type="checkbox"> Mirror pro</label>
+    <button id="reset">Reset to auto</button>
+  </div>
+  <div id="stage">
+    <img id="base" />
+    <img id="ref" /><div id="handle" style="display:none;"></div>
+  </div>
+  <div id="hint">Drag the pro (red-tinted) swing to reposition; drag the corner dot to resize. Switch frames to check the fit at the top &amp; impact.</div>
+
+<script>
+// ---- Streamlit static component protocol (no build step) ----
+function _post(type, data) {
+  window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data), "*");
+}
+const Streamlit = {
+  ready: () => _post("streamlit:componentReady", { apiVersion: 1 }),
+  setHeight: (h) => _post("streamlit:setFrameHeight", { height: h }),
+  setValue: (v) => _post("streamlit:setComponentValue", { value: v, dataType: "json" }),
+};
+
+let initialized = false;
+let pairs = [];
+let seed = null;                 // auto-registration seed (for Reset)
+let t = null;                    // current transform {left,top,width,mirror,alpha}
+let curIdx = 0;
+
+const baseImg = document.getElementById("base");
+const refImg = document.getElementById("ref");
+const handle = document.getElementById("handle");
+const pbox = document.getElementById("pbuttons");
+const alphaInput = document.getElementById("alpha");
+const mirrorInput = document.getElementById("mirror");
+let refAR = 1;                   // pro width/height for current frame
+
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function layout() {
+  const bw = baseImg.clientWidth;
+  const bh = baseImg.clientHeight;
+  if (!bw || !bh) return;
+  const wpx = t.width * bw;
+  refImg.style.width = wpx + "px";
+  refImg.style.height = (wpx / refAR) + "px";
+  refImg.style.left = (t.left * bw) + "px";
+  refImg.style.top = (t.top * bh) + "px";
+  refImg.style.opacity = t.alpha;
+  refImg.style.transform = t.mirror ? "scaleX(-1)" : "none";
+  refImg.style.filter = "sepia(1) saturate(4) hue-rotate(-20deg)"; // red tint so the pro reads as a ghost
+  // place resize handle at ref's bottom-right
+  handle.style.display = "block";
+  handle.style.left = (t.left * bw + wpx - 8) + "px";
+  handle.style.top = (t.top * bh + wpx / refAR - 8) + "px";
+  updateHeight();
+}
+
+function updateHeight() {
+  Streamlit.setHeight(document.body.scrollHeight + 8);
+}
+
+function commit() { Streamlit.setValue(clone(t)); }
+
+function showPair(i) {
+  curIdx = i;
+  const p = pairs[i];
+  refAR = p.ref_ar || 1;
+  baseImg.src = p.user;
+  refImg.src = p.ref;
+  [...pbox.children].forEach((b, k) => b.classList.toggle("active", k === i));
+}
+
+function buildButtons() {
+  pbox.innerHTML = "";
+  pairs.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.className = "pbtn" + (i === 0 ? " active" : "");
+    b.textContent = p.p;
+    b.onclick = () => showPair(i);
+    pbox.appendChild(b);
+  });
+}
+
+// ---- drag / resize ----
+let mode = null, startX = 0, startY = 0, startT = null;
+
+function onDown(e, m) {
+  e.preventDefault();
+  mode = m;
+  startX = e.clientX; startY = e.clientY;
+  startT = clone(t);
+  refImg.classList.add("dragging");
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+}
+
+function onMove(e) {
+  if (!mode) return;
+  const bw = baseImg.clientWidth, bh = baseImg.clientHeight;
+  const dx = (e.clientX - startX) / bw;
+  const dy = (e.clientY - startY) / bh;
+  if (mode === "drag") {
+    t.left = startT.left + dx;
+    t.top = startT.top + dy;
+  } else if (mode === "resize") {
+    t.width = Math.max(0.05, startT.width + dx);
+  }
+  layout();
+}
+
+function onUp() {
+  if (!mode) return;
+  mode = null;
+  refImg.classList.remove("dragging");
+  document.removeEventListener("mousemove", onMove);
+  document.removeEventListener("mouseup", onUp);
+  commit();
+}
+
+refImg.addEventListener("mousedown", (e) => onDown(e, "drag"));
+handle.addEventListener("mousedown", (e) => onDown(e, "resize"));
+
+alphaInput.addEventListener("input", () => { t.alpha = parseFloat(alphaInput.value); layout(); });
+alphaInput.addEventListener("change", commit);
+mirrorInput.addEventListener("change", () => { t.mirror = mirrorInput.checked; layout(); commit(); });
+document.getElementById("reset").onclick = () => {
+  t = clone(seed);
+  alphaInput.value = t.alpha; mirrorInput.checked = !!t.mirror;
+  layout(); commit();
+};
+
+baseImg.onload = layout;
+window.addEventListener("resize", layout);
+
+// ---- receive args from Streamlit ----
+window.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== "streamlit:render") return;
+  const args = data.args || {};
+  if (!initialized) {
+    initialized = true;
+    pairs = args.pairs || [];
+    seed = args.transform || { left: 0, top: 0, width: 1, mirror: false, alpha: 0.5 };
+    t = clone(seed);
+    alphaInput.value = t.alpha;
+    mirrorInput.checked = !!t.mirror;
+    if (pairs.length) { buildButtons(); showPair(0); }
+    updateHeight();
+  }
+});
+
+Streamlit.ready();
+updateHeight();
+</script>
+</body>
+</html>

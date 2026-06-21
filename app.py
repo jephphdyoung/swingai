@@ -2,8 +2,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 import base64
-from analyzer import analyze_swing
+from analyzer import analyze_swing, render_overlay
 from annotator import render_annotator
+from overlay_component import overlay_editor
 from utils.annotations import has_annotations
 
 SAMPLE_DIR = "sample_videos"
@@ -297,28 +298,80 @@ with tab_analyze:
             progress_bar.progress(1.0)
             status.update(label="Complete!", state="complete", expanded=False)
 
-        # Custom video player with P-position navigation buttons and skeleton toggle
-        player_html = create_video_player_html(
-            result.output_path,
-            result.output_path_no_skeleton,
-            result.p_timestamps
-        )
-        components.html(player_html, height=750, scrolling=False)
+        # Persist so the editor / view switch survive Streamlit reruns.
+        st.session_state["analysis"] = result
+        st.session_state["overlay_transform"] = dict(result.auto_transform)
+        st.session_state.pop("overlay_result", None)
 
-        # Download button
-        with open(result.output_path, "rb") as f:
-            st.download_button(
-                label="Download comparison video",
-                data=f,
-                file_name=os.path.basename(result.output_path),
-                mime="video/mp4",
+    result = st.session_state.get("analysis")
+    if result is not None:
+        view = st.radio("View", ["Side-by-side", "Overlay"],
+                        horizontal=True, key="view_mode")
+
+        if view == "Side-by-side":
+            player_html = create_video_player_html(
+                result.output_path,
+                result.output_path_no_skeleton,
+                result.p_timestamps,
             )
+            components.html(player_html, height=750, scrolling=False)
 
-        # Show P-position timestamps in expander
-        with st.expander("P-Position Timestamps"):
-            for p_name in sorted(result.p_timestamps.keys(), key=lambda x: int(x[1:])):
-                timestamp = result.p_timestamps[p_name]
-                st.write(f"**{p_name}**: {timestamp:.2f}s")
+            with open(result.output_path, "rb") as f:
+                st.download_button(
+                    label="Download comparison video",
+                    data=f,
+                    file_name=os.path.basename(result.output_path),
+                    mime="video/mp4",
+                )
+
+            with st.expander("P-Position Timestamps"):
+                for p_name in sorted(result.p_timestamps.keys(), key=lambda x: int(x[1:])):
+                    st.write(f"**{p_name}**: {result.p_timestamps[p_name]:.2f}s")
+
+        else:  # Overlay
+            if not result.still_pairs:
+                st.info("No P-position still frames available to build an overlay.")
+            else:
+                st.caption("Line the pro up on your swing, then render the moving overlay.")
+                transform = overlay_editor(
+                    result.still_pairs,
+                    st.session_state.get("overlay_transform", dict(result.auto_transform)),
+                    key="overlay_editor",
+                )
+                if transform:
+                    st.session_state["overlay_transform"] = transform
+
+                if st.button("Render overlay video"):
+                    with st.status("Rendering overlay...", expanded=True) as status:
+                        progress_bar = st.progress(0)
+
+                        def on_progress(step, total, message):
+                            st.write(message)
+                            progress_bar.progress(step / total)
+
+                        sk, no_sk, p_ts = render_overlay(
+                            result,
+                            st.session_state["overlay_transform"],
+                            progress_callback=on_progress,
+                        )
+                        progress_bar.progress(1.0)
+                        status.update(label="Overlay ready!", state="complete", expanded=False)
+                    st.session_state["overlay_result"] = (sk, no_sk, p_ts)
+
+                ov = st.session_state.get("overlay_result")
+                if ov:
+                    sk, no_sk, p_ts = ov
+                    components.html(
+                        create_video_player_html(sk, no_sk, p_ts),
+                        height=750, scrolling=False,
+                    )
+                    with open(sk, "rb") as f:
+                        st.download_button(
+                            label="Download overlay video",
+                            data=f,
+                            file_name=os.path.basename(sk),
+                            mime="video/mp4",
+                        )
 
 with tab_annotate:
     source = st.selectbox("Video source:", ["Baseline / Sample", "User"],

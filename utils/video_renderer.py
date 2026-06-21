@@ -3,6 +3,13 @@ import numpy as np
 import subprocess
 import os
 
+from utils.overlay import composite_overlay, transform_points
+
+# Skeleton colors for overlay mode (BGR): user vs reference, distinct so the two
+# swings are easy to tell apart when ghosted on top of each other.
+OVERLAY_USER_COLOR = (255, 170, 0)   # azure/blue
+OVERLAY_REF_COLOR = (0, 80, 255)     # red-orange
+
 # Landmark indices in our extracted array:
 # 0: nose, 1: L shoulder, 2: R shoulder, 3: L elbow, 4: R elbow,
 # 5: L wrist, 6: R wrist, 7: L pinky, 8: R pinky, 9: L index, 10: R index,
@@ -63,34 +70,52 @@ SKELETON_CONNECTIONS = [
     (18, 20),  # right ankle to right foot
 ]
 
-def draw_landmarks(frame, landmarks):
-    h, w = frame.shape[:2]
+def _draw_skeleton_px(frame, points, line_color=(200, 200, 200), dot_color=None):
+    """Draw a skeleton from pre-computed pixel points.
 
-    # Convert landmarks to pixel coordinates
-    points = [(int(x * w), int(y * h)) for x, y, _ in landmarks]
-
+    line_color: color for all connection lines.
+    dot_color:  if None, use the per-landmark LANDMARK_COLORS; otherwise a single
+                uniform color for every joint dot.
+    """
     # Draw skeleton lines first (so dots appear on top)
     for i1, i2 in SKELETON_CONNECTIONS:
         if i1 < len(points) and i2 < len(points):
-            cv2.line(frame, points[i1], points[i2], (200, 200, 200), 2)
+            cv2.line(frame, points[i1], points[i2], line_color, 2)
 
     # Draw neck line (nose to midpoint of shoulders)
     if len(points) > 2:
         neck_pt = ((points[1][0] + points[2][0]) // 2, (points[1][1] + points[2][1]) // 2)
-        cv2.line(frame, points[0], neck_pt, (200, 200, 200), 2)
+        cv2.line(frame, points[0], neck_pt, line_color, 2)
 
     # Draw spine (midpoint shoulders to midpoint hips)
     if len(points) > 14:
         shoulder_mid = ((points[1][0] + points[2][0]) // 2, (points[1][1] + points[2][1]) // 2)
         hip_mid = ((points[13][0] + points[14][0]) // 2, (points[13][1] + points[14][1]) // 2)
-        cv2.line(frame, shoulder_mid, hip_mid, (200, 200, 200), 2)
+        cv2.line(frame, shoulder_mid, hip_mid, line_color, 2)
 
     # Draw landmark dots
     for i, pt in enumerate(points):
-        color = LANDMARK_COLORS[i] if i < len(LANDMARK_COLORS) else (0, 255, 0)
+        if dot_color is not None:
+            color = dot_color
+        else:
+            color = LANDMARK_COLORS[i] if i < len(LANDMARK_COLORS) else (0, 255, 0)
         cv2.circle(frame, pt, 5, color, -1)
 
     return frame
+
+
+def draw_landmarks(frame, landmarks, color=None):
+    """Draw a skeleton from normalized landmarks.
+
+    color: if given, draw lines and dots in that single color (used for the
+           two-color overlay); otherwise use the default gray lines + multi-color
+           dots (used for the side-by-side view).
+    """
+    h, w = frame.shape[:2]
+    points = [(int(x * w), int(y * h)) for x, y, _ in landmarks]
+    if color is not None:
+        return _draw_skeleton_px(frame, points, line_color=color, dot_color=color)
+    return _draw_skeleton_px(frame, points)
 
 def interpolate_landmarks(landmarks1, landmarks2, t):
     """Linearly interpolate between two landmark sets."""
@@ -127,11 +152,53 @@ def draw_p_label(frame, label, position="top"):
     return frame
 
 
+def _compose(frame_u, frame_r, lm_u, lm_r, render_mode, draw_skeleton, overlay_transform):
+    """Combine an aligned user/reference frame pair into one output frame.
+
+    render_mode "sidebyside": reference on the left, user on the right (hstack).
+    render_mode "overlay":    reference ghosted on top of the user via overlay_transform.
+    """
+    if render_mode == "overlay":
+        out, m = composite_overlay(frame_u, frame_r, overlay_transform)
+        if draw_skeleton:
+            h_u, w_u = frame_u.shape[:2]
+            h_r, w_r = frame_r.shape[:2]
+            user_pts = [(int(x * w_u), int(y * h_u)) for x, y, _ in lm_u]
+            _draw_skeleton_px(out, user_pts,
+                              line_color=OVERLAY_USER_COLOR, dot_color=OVERLAY_USER_COLOR)
+            ref_pts = transform_points(lm_r, w_r, h_r, m)
+            _draw_skeleton_px(out, ref_pts,
+                              line_color=OVERLAY_REF_COLOR, dot_color=OVERLAY_REF_COLOR)
+        return out
+
+    # Side-by-side (default)
+    fu = frame_u.copy()
+    fr = frame_r.copy()
+    if draw_skeleton:
+        draw_landmarks(fu, lm_u)
+        draw_landmarks(fr, lm_r)
+
+    target_height = min(fu.shape[0], fr.shape[0])
+    if fu.shape[0] != target_height:
+        scale = target_height / fu.shape[0]
+        fu = cv2.resize(fu, (int(fu.shape[1] * scale), target_height))
+    if fr.shape[0] != target_height:
+        scale = target_height / fr.shape[0]
+        fr = cv2.resize(fr, (int(fr.shape[1] * scale), target_height))
+
+    return np.hstack((fr, fu))
+
+
 def generate_comparison_video(user_video_path, ref_video_path, alignment, user_poses, ref_poses,
                                output_fps=24, slowdown=3, user_p_positions=None, ref_p_positions=None,
-                               pause_duration=5, draw_skeleton=True, output_filename="comparison_output.mp4"):
+                               pause_duration=5, draw_skeleton=True, output_filename="comparison_output.mp4",
+                               render_mode="sidebyside", overlay_transform=None):
     """
-    Generate side-by-side comparison video with synchronized swings.
+    Generate comparison video with synchronized swings.
+
+    render_mode: "sidebyside" (default) or "overlay".
+    overlay_transform: required when render_mode == "overlay"; dict with keys
+        left/top/width/mirror/alpha (see utils.overlay).
 
     slowdown: multiplier for how many frames to generate per alignment pair (higher = slower playback)
     user_p_positions: dict of P position names to frame indices for user video
@@ -228,22 +295,9 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
             interp_user_lm = interpolate_landmarks(user_poses[u_idx], user_poses[u_idx_next], t)
             interp_ref_lm = interpolate_landmarks(ref_poses[r_idx], ref_poses[r_idx_next], t)
 
-            frame_u = user_frames[u_idx].copy()
-            frame_r = ref_frames[r_idx].copy()
-
-            if draw_skeleton:
-                frame_u = draw_landmarks(frame_u, interp_user_lm)
-                frame_r = draw_landmarks(frame_r, interp_ref_lm)
-
-            target_height = min(frame_u.shape[0], frame_r.shape[0])
-            if frame_u.shape[0] != target_height:
-                scale = target_height / frame_u.shape[0]
-                frame_u = cv2.resize(frame_u, (int(frame_u.shape[1] * scale), target_height))
-            if frame_r.shape[0] != target_height:
-                scale = target_height / frame_r.shape[0]
-                frame_r = cv2.resize(frame_r, (int(frame_r.shape[1] * scale), target_height))
-
-            combined = np.hstack((frame_r, frame_u))
+            combined = _compose(user_frames[u_idx], ref_frames[r_idx],
+                                interp_user_lm, interp_ref_lm,
+                                render_mode, draw_skeleton, overlay_transform)
             if current_label:
                 combined = draw_p_label(combined, current_label)
             output_frames.append(combined)
@@ -254,22 +308,9 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
             # Record timestamp where this P-position appears in output video
             p_timestamps[pause_label] = output_frame_count / output_fps
 
-            frame_u = user_frames[u_idx].copy()
-            frame_r = ref_frames[r_idx].copy()
-
-            if draw_skeleton:
-                frame_u = draw_landmarks(frame_u, user_poses[u_idx])
-                frame_r = draw_landmarks(frame_r, ref_poses[r_idx])
-
-            target_height = min(frame_u.shape[0], frame_r.shape[0])
-            if frame_u.shape[0] != target_height:
-                scale = target_height / frame_u.shape[0]
-                frame_u = cv2.resize(frame_u, (int(frame_u.shape[1] * scale), target_height))
-            if frame_r.shape[0] != target_height:
-                scale = target_height / frame_r.shape[0]
-                frame_r = cv2.resize(frame_r, (int(frame_r.shape[1] * scale), target_height))
-
-            combined = np.hstack((frame_r, frame_u))
+            combined = _compose(user_frames[u_idx], ref_frames[r_idx],
+                                user_poses[u_idx], ref_poses[r_idx],
+                                render_mode, draw_skeleton, overlay_transform)
             combined = draw_p_label(combined, pause_label)
 
             print(f"Adding {pause_duration}s pause at {pause_label} (user frame {u_idx})")

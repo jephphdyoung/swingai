@@ -84,5 +84,48 @@
       "timestamp_ms": 12712.7
     },
     "_view_angle": "face_on"
+  },
+  "my_videos/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4": {
+    "P1": {
+      "frame": 395,
+      "timestamp_ms": 1584.4
+    },
+    "P10": {
+      "frame": 888,
+      "timestamp_ms": 3562.0
+    },
+    "P2": {
+      "frame": 505,
+      "timestamp_ms": 2025.7
+    },
+    "P3": {
+      "frame": 565,
+      "timestamp_ms": 2266.3
+    },
+    "P4": {
+      "frame": 652,
+      "timestamp_ms": 2615.3
+    },
+    "P5": {
+      "frame": 705,
+      "timestamp_ms": 2827.9
+    },
+    "P6": {
+      "frame": 720,
+      "timestamp_ms": 2888.1
+    },
+    "P7": {
+      "frame": 730,
+      "timestamp_ms": 2928.2
+    },
+    "P8": {
+      "frame": 752,
+      "timestamp_ms": 3016.4
+    },
+    "P9": {
+      "frame": 768,
+      "timestamp_ms": 3080.6
+    },
+    "_view_angle": "dtl"
   }
 }
