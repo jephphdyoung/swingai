@@ -190,6 +190,23 @@ from utils.club_positions import refine_positions_with_club
 
 ---
 
+## 🗺️ Roadmap
+
+Where SwingAI is headed — from a comparison tool into a full **capture + coaching booth**.
+Full detail (vision, architecture direction, technical notes) in
+**[docs/ROADMAP.md](docs/ROADMAP.md)**.
+
+**Major initiatives**
+- ✅ **Pro overlay on playback** — ghost a pro onto your swing + draggable/resizable overlay editor *(shipped)*
+- **Auto-label P-positions** — hand-labeled references → V2 DTW label-transfer + eval harness
+- **Live Views page** — 2×2 grid: live DTL, live face-on, looped DTL, looped face-on *(needs cameras)*
+- **Live mirror with the pro** — real-time mirror-flipped cam with a pro auto-fit onto you *(Phase 0 webcam prototype buildable now)*
+- **Capture hardware** — 2× Fox 240fps cameras (MVS SDK); FlightScope Mevo+ trigger + club/ball data (GSPro OpenConnect)
+
+**Architecture direction:** evolve with clean seams (a FastAPI backend hub), don't big-bang
+rewrite; defer Rust to a proven hot path; outgrow Streamlit via the backend, not a frontend
+swap yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## TODOs
 
 *in the user video. p1 is around the 2-2.5 second mark
