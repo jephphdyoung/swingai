@@ -6,3 +6,4 @@ scipy
 numpy
 dtaidistance
 pytest
+scapy
