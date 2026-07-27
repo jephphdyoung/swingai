@@ -12,6 +12,9 @@ videos/output/
 videos/user/*.mp4
 videos/reference/*.mp4
 
+# Reference material — copyrighted source texts, kept locally only
+docs/reference/
+
 # Local backups / scratch
 *.host-backup
 data/annotations.json.pre-videos-move
