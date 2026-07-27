@@ -2,12 +2,18 @@ import json
 import os
 from typing import Optional
 
+from utils.paths import repo_relative
+
 ANNOTATIONS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "annotations.json")
 
 
 def _normalize_path(video_path: str) -> str:
-    """Normalize video path to a consistent relative key."""
-    return os.path.normpath(video_path)
+    """Normalize video path to a consistent relative key.
+
+    Keys are relative to the repo root so a video keeps the same key whether
+    it is addressed from the host or from /app inside the container.
+    """
+    return os.path.normpath(repo_relative(video_path))
 
 
 def _load_all() -> dict:

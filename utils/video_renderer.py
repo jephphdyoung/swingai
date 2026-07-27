@@ -4,6 +4,7 @@ import subprocess
 import os
 
 from utils.overlay import composite_overlay, transform_points
+from utils.paths import get_output_dir
 
 # Skeleton colors for overlay mode (BGR): user vs reference, distinct so the two
 # swings are easy to tell apart when ghosted on top of each other.
@@ -324,15 +325,20 @@ def generate_comparison_video(user_video_path, ref_video_path, alignment, user_p
     print(f"Output frames: {len(output_frames)}")
 
     height, width, _ = output_frames[0].shape
-    temp_path = "temp.avi"
+    # Bare filenames land in the output directory; an explicit path is honoured
+    # as given, so callers can still write wherever they like.
+    output_dir = get_output_dir()
+    final_path = (output_filename if os.path.isabs(output_filename)
+                  or os.path.dirname(output_filename)
+                  else os.path.join(output_dir, output_filename))
+
+    temp_path = os.path.join(output_dir, "temp.avi")
     fourcc = cv2.VideoWriter_fourcc(*"XVID")
     out = cv2.VideoWriter(temp_path, fourcc, output_fps, (width, height))
 
     for frame in output_frames:
         out.write(frame)
     out.release()
-
-    final_path = output_filename
 
     # Convert using libx264 with settings optimized for smooth playback
     ffmpeg_cmd = [

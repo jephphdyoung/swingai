@@ -1,5 +1,5 @@
 {
-  "my_videos/TW_face.mp4": {
+  "videos/user/TW_face.mp4": {
     "P1": {
       "frame": 81,
       "timestamp_ms": 2700.0
@@ -42,7 +42,7 @@
     },
     "_view_angle": "face_on"
   },
-  "sample_videos/GW_faceon.mp4": {
+  "videos/reference/GW_faceon.mp4": {
     "P1": {
       "frame": 53,
       "timestamp_ms": 1768.4
@@ -85,7 +85,7 @@
     },
     "_view_angle": "face_on"
   },
-  "my_videos/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4": {
+  "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4": {
     "P1": {
       "frame": 395,
       "timestamp_ms": 1584.4

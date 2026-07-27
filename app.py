@@ -6,14 +6,15 @@ from analyzer import analyze_swing, render_overlay
 from annotator import render_annotator
 from overlay_component import overlay_editor
 from utils.annotations import has_annotations
+from utils.paths import get_reference_dir, get_user_dir, list_videos
 
-SAMPLE_DIR = "sample_videos"
-MY_DIR = "my_videos"
+SAMPLE_DIR = get_reference_dir()
+MY_DIR = get_user_dir()
 
 
 def _label_videos(directory):
     """Return video filenames with annotation status markers."""
-    files = sorted(os.listdir(directory))
+    files = list_videos(directory)
     labels = []
     for f in files:
         path = os.path.join(directory, f)

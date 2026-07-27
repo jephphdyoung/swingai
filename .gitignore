@@ -3,13 +3,15 @@ __pycache__/
 *.py[cod]
 
 # Generated comparison / overlay render outputs
+videos/output/
 /comparison_output*.mp4
 /overlay_output*.mp4
 /temp.avi
 
 # Local video libraries: keep the already-tracked demo clips, ignore newly added captures
-my_videos/*.mp4
-sample_videos/*.mp4
+videos/user/*.mp4
+videos/reference/*.mp4
 
 # Local backups / scratch
 *.host-backup
+data/annotations.json.pre-videos-move
