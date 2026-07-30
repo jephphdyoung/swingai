@@ -196,16 +196,36 @@ Where SwingAI is headed — from a comparison tool into a full **capture + coach
 Full detail (vision, architecture direction, technical notes) in
 **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 
-**Major initiatives**
-- ✅ **Pro overlay on playback** — ghost a pro onto your swing + draggable/resizable overlay editor *(shipped)*
-- **Auto-label P-positions** — hand-labeled references → V2 DTW label-transfer + eval harness
-- **Live Views page** — 2×2 grid: live DTL, live face-on, looped DTL, looped face-on *(needs cameras)*
-- **Live mirror with the pro** — real-time mirror-flipped cam with a pro auto-fit onto you *(Phase 0 webcam prototype buildable now)*
-- **Capture hardware** — 2× Fox 240fps cameras (MVS SDK); FlightScope Mevo+ trigger + club/ball data (GSPro OpenConnect)
+**The headline feature: a mic-triggered capture + replay booth.** You swing, the microphone
+hears impact, and your swing is looping on screen from both angles with the P-positions
+marked — until you hit the next one.
 
-**Architecture direction:** evolve with clean seams (a FastAPI backend hub), don't big-bang
-rewrite; defer Rust to a proven hot path; outgrow Streamlit via the backend, not a frontend
-swap yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+```
+2× Fox cameras ──▶ ring buffer (continuous, ~5s)
+   microphone  ──▶ impact detected ──▶ extract the 5s BEFORE the trigger
+                                            ├──▶ replay loop starts immediately
+                                            └──▶ P-detection in background,
+                                                 markers painted on when ready
+```
+
+**Priority order**
+1. **Capture + replay** — webcam/laptop-mic prototype first (buildable now), then the Fox
+   cameras via the MVS SDK, then P-markers, then the pro ghost.
+2. **Detection quality** *(parallel)* — ground truth + eval baseline, label a real set,
+   fix P4, club detection for P2/P6/P8.
+3. **GPU pose estimation** *(accelerant, not a blocker)*.
+
+✅ **Shipped:** pro ghost overlay + draggable/resizable overlay editor; DTL/face-on pair
+P-position detection running on real 240fps captures.
+
+**Deferred:** the FlightScope Mevo+ integration (the mic replaces it as the trigger; club/
+ball data is still wanted later), the 2×2 live-views grid, and the live mirror — none are
+prerequisites now that the replay is full-screen and the live feed is never shown.
+
+**Architecture direction:** evolve with clean seams; the FastAPI backend hub is now
+load-bearing rather than directional, since a continuous capture loop and an
+always-listening audio thread can't live in Streamlit's rerun model. Defer Rust to a proven
+hot path. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## TODOs
 

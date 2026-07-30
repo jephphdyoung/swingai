@@ -130,69 +130,95 @@ Capture library lives at `~/Golf/Videos/2026-07-27/` (SwingCatalyst + FSGolf);
 
 ## Next steps
 
-In order. Steps 1–2 gate everything else — until they exist, detection changes
-cannot be told apart from detection noise.
+**Reprioritised 2026-07-30.** Mic-triggered capture + replay is now the headline
+feature; the microphone replaces the Mevo+ as the shot trigger. Full reasoning
+in [ROADMAP.md](ROADMAP.md). Two tracks run in parallel — the capture plumbing
+no longer waits on detection quality, because the replay loop starts on the raw
+clip and P-markers are painted on when detection finishes.
 
-### 1. Make detection measurable
+### Track A — capture + replay
 
-Convert the hand-labeled swings in `data/annotations.json` into
-`data/ground_truth.json` and get `scripts/eval_positions.py` running. The
-harness is written and tested; it has no input. Record a per-position MAE
-baseline for the current detector.
+**A1. Webcam + laptop mic prototype.** Buildable now, no hardware needed.
+Continuous capture into a ring buffer, retroactive extraction of the N seconds
+*before* a trigger timestamp, transient detection on the audio envelope with a
+~2s refractory period, and a full-screen looping replay.
+
+The riskiest unknown is **audio→frame timestamp mapping**: the mic timestamp has
+to resolve to a frame index in the video ring buffer, which needs a shared
+monotonic clock and measured (not assumed) drift between the audio device clock
+and the camera clock. Settle this in the prototype.
+
+**A2. Fox cameras via the MVS SDK.** Check the USB3 bandwidth arithmetic before
+designing around it — 2 cameras × 240fps may exceed one host controller, and a
+5s two-camera ring buffer is multiple GB of RAM. See ROADMAP.md Phase 1.
+
+**A3. P-markers on the replay.** `scripts/detect_p_positions.py` already takes a
+DTL/face-on pair, which is exactly the shape a captured swing has; with live
+capture we name the files ourselves, so the Swing Catalyst filename parsing in
+`swing_pairing` is bypassed. Continuous mode (scrubber ticks) and step-and-hold
+mode, toggleable.
+
+**A4. Pro ghost on the replay.** Reuses `utils/overlay.py` and the shipped
+overlay editor. Needs Track B to be trustworthy first.
+
+### Track B — detection quality
+
+**B1. Make detection measurable.** Convert the hand-labeled swings in
+`data/annotations.json` into `data/ground_truth.json` and get
+`scripts/eval_positions.py` running. The harness is written and tested; it has
+no input. Record a per-position MAE baseline.
 
 Note `data/ground_truth.json` is referenced by `README.md` and `docs/step0.md`
 but has never existed.
 
-### 2. Label a real set
+**B2. Label a real set.** Three labeled videos today (two face-on, one DTL) is
+not enough to tune anything. Use the Annotate tab; prioritise DTL. Correcting
+auto-detected positions is faster than labelling from scratch, so run the
+detector first and fix its output.
 
-Three labeled videos today (two face-on, one DTL) is not enough to tune
-anything. Use the Annotate tab; prioritise DTL. Correcting auto-detected
-positions is faster than labelling from scratch, so run the detector first and
-fix its output.
+**B3. Reconcile the impact-frame naming.** Path A (`pose_features.py`,
+`video_sync.py`) calls the velocity peak **P6**; path B (`p_positions.py`) calls
+the hand-speed peak **P7**. P7 is correct per the standard P-system. Fix before
+any cross-path evaluation, or the eval harness will compare different positions.
 
-### 3. GPU pose estimation
+**B4. Fix P4.** Once ground truth exists, establish whether the 814ms P4→P7 span
+is a real slow transition or a mis-detected top. The current rule takes the
+global hand-speed minimum between takeaway and impact, which a hesitant
+backswing will fool. Candidate replacement: hand-path direction reversal (the
+frame where the hand velocity vector flips sign) rather than a speed minimum.
 
-The highest-value change, and it needs no labelled data. MediaPipe BlazePose is
-the root cause of the DTL disagreement and the wrist jitter near impact. A
-stronger top-down model (RTMPose / ViTPose / YOLO-pose) is markedly better on
-fast motion and on the side-on, self-occluding DTL orientation.
+**B5. Club detection for P2/P6/P8.** Three positions fail outright today.
+`club_detector.py` uses Canny + `HoughLinesP` and warns in its own comments that
+it picks up body edges. A small trained shaft/clubhead detector would replace
+it. 240fps footage has low motion blur, and there are 5,132 clips to build a
+dataset from.
 
-Keep it behind the existing extractor interface — `p_positions.py` consumes
-landmarks per frame and needs no changes. Compare against MediaPipe on swing
-2026-07-27 135006, where the current failure is already characterised.
+**B6. Cross-view fusion.** Once per-view detection is measured, take each
+position from the view that resolves it best — arm tier from face-on, shaft tier
+from DTL — rather than preferring face-on wholesale as the code does today.
+
+### Accelerant — GPU pose estimation
+
+Not a blocker (progressive enhancement means detection latency is off the
+critical path), but it shortens trigger→markers and fixes the DTL disagreement
+and wrist jitter that MediaPipe BlazePose causes. Keep it behind the existing
+extractor interface. Compare against MediaPipe on swing 2026-07-27 135006.
+
+Cheap wins first, no model swap needed: trim to the swing window before
+extracting pose (a 2s swing at 240fps is ~480 frames, not 1,244), and decimate
+to 60Hz for detection with local refinement at full rate around P4 and impact.
 
 Scale note: 5,132 clips × ~1,200 frames ≈ 6M frames. Seconds per swing on GPU;
 an overnight job for the whole library. Batch by session.
 
-### 4. Fix P4
+### Later
 
-Once ground truth exists, establish whether the 814ms P4→P7 span is a real slow
-transition or a mis-detected top. The current rule takes the global hand-speed
-minimum between takeaway and impact, which a hesitant backswing will fool.
-Candidate replacement: hand-path direction reversal (the frame where the hand
-velocity vector flips sign) rather than a speed minimum.
-
-### 5. Club detection for P2/P6/P8
-
-Three positions fail outright today. `club_detector.py` uses Canny +
-`HoughLinesP` and warns in its own comments that it picks up body edges. A small
-trained shaft/clubhead detector would replace it. 240fps footage has low motion
-blur, and there are 5,132 clips to build a dataset from.
-
-### 6. Body checkpoints
-
-Turn detected positions into coaching feedback: implement the per-position
-measurements in [p-position-detection.md](p-position-detection.md) — weight
-distribution, spine flexion and lateral tilt, shoulder/hip rotation, hand path,
-elbow separation, belt height. The spine-flexion and hip-centre lateral curves
-are between them most of the Stack & Tilt model, and both are single scalar
-series over landmarks already extracted.
-
-### 7. Cross-view fusion
-
-Once per-view detection is measured, take each position from the view that
-resolves it best — arm tier from face-on, shaft tier from DTL — rather than
-preferring face-on wholesale as the code does today.
+**Body checkpoints.** Turn detected positions into coaching feedback: the
+per-position measurements in [p-position-detection.md](p-position-detection.md)
+— weight distribution, spine flexion and lateral tilt, shoulder/hip rotation,
+hand path, elbow separation, belt height. The spine-flexion and hip-centre
+lateral curves are between them most of the Stack & Tilt model, and both are
+single scalar series over landmarks already extracted.
 
 ---
 
