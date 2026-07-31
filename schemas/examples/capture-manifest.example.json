@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "shot_id": "2026-07-31T14-22-05Z-3f9a",
+  "created_at": "2026-07-31T14:22:05.412Z",
+  "trigger_timestamp_ns": 128474268400000,
+  "streams": [
+    {
+      "camera_id": "fox-dtl",
+      "serial_number": "61fc",
+      "view": "down_the_line",
+      "media": {
+        "kind": "video",
+        "path": "streams/down_the_line.mkv"
+      },
+      "width": 1440,
+      "height": 1080,
+      "pixel_format": "mono8",
+      "frame_count": 1244,
+      "nominal_fps": 249.3,
+      "first_timestamp_ns": 128471215400000,
+      "last_timestamp_ns": 128476201360690,
+      "dropped_frame_count": 0,
+      "metadata": {
+        "exposure_us": 1200,
+        "gain_db": 6.0,
+        "trigger_mode": "free_run"
+      }
+    },
+    {
+      "camera_id": "fox-face-on",
+      "serial_number": "aaf0",
+      "view": "face_on",
+      "media": {
+        "kind": "video",
+        "path": "streams/face_on.mkv"
+      },
+      "width": 1440,
+      "height": 1080,
+      "pixel_format": "mono8",
+      "frame_count": 1243,
+      "nominal_fps": 249.3,
+      "first_timestamp_ns": 128471215812000,
+      "last_timestamp_ns": 128476201772690,
+      "dropped_frame_count": 1,
+      "gaps": [
+        {
+          "start_timestamp_ns": 128473690741803,
+          "end_timestamp_ns": 128473698764266,
+          "missing_frame_count": 1,
+          "after_frame_index": 617
+        }
+      ],
+      "metadata": {
+        "exposure_us": 1200,
+        "gain_db": 6.0,
+        "trigger_mode": "free_run"
+      }
+    }
+  ]
+}

@@ -36,6 +36,14 @@ end-to-end on real 240fps captures.
 
 207 tests pass (140 pre-existing, 67 new).
 
+**Native runtime foundation** (added 2026-07-31) — `native/` is a Rust workspace holding
+the domain types (`swingai-core`), the two JSON contracts between capture and analysis
+(`swingai-contracts`, mirroring `schemas/`), and a `swingai-contract-check` CLI. 89 Rust
+tests; `cargo fmt`/`clippy` clean; type-checks for `x86_64-pc-windows-msvc`. **No camera
+code, no ring buffer, no MVS binding** — this is the seam only. Rationale and the list of
+deliberately deferred decisions: [adr/0001-hybrid-rust-python-runtime.md](adr/0001-hybrid-rust-python-runtime.md).
+The Python suite is now 221 tests (207 + 14 schema-example checks).
+
 ### Detection quality: not yet validated
 
 The pipeline runs. Whether its numbers are *right* is unmeasured, and there are

@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+members = ["crates/swingai-core", "crates/swingai-contracts", "apps/swingai-contract-check"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/jephphdyoung/swingai"
+
+[workspace.dependencies]
+swingai-core = { path = "crates/swingai-core" }
+swingai-contracts = { path = "crates/swingai-contracts" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[workspace.lints.rust]
+missing_debug_implementations = "warn"
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

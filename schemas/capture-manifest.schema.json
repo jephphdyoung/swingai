@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://swingai.local/schemas/capture-manifest.schema.json",
+  "title": "SwingAI capture manifest",
+  "description": "Describes one captured shot: the camera streams recorded for it and the timing of every frame in each. Written by the Rust capture runtime, read by the Python analysis pipeline. All cross-component times are integer nanoseconds on a single monotonic capture clock; see docs/adr/0001-hybrid-rust-python-runtime.md.",
+  "type": "object",
+  "required": ["schema_version", "shot_id", "created_at", "streams"],
+  "properties": {
+    "schema_version": {
+      "$ref": "#/$defs/schemaVersion",
+      "description": "Contract version as \"MAJOR.MINOR\". A consumer accepts any minor version within a major it supports, and preserves fields it does not recognize."
+    },
+    "shot_id": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Stable identifier for this shot. Shared with the analysis result. Must be usable as a directory name."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 wall-clock time the manifest was written. For humans and filing only — never for correlating streams."
+    },
+    "trigger_timestamp_ns": {
+      "$ref": "#/$defs/timestampNs",
+      "description": "Monotonic-clock instant the shot trigger fired (e.g. the microphone detecting impact). Absent for a capture that was not triggered."
+    },
+    "streams": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per camera. Camera ids must be unique within a manifest.",
+      "items": { "$ref": "#/$defs/cameraStream" }
+    }
+  },
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestampNs": {
+      "type": "integer",
+      "description": "Nanoseconds on the monotonic capture clock. Nanoseconds because a 240fps frame period is 4.17ms — millisecond integers would quantize frame timing to a quarter of a frame."
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path relative to the directory containing this manifest. Must not be absolute and must not escape that directory with \"..\".",
+      "not": {
+        "anyOf": [
+          { "pattern": "^/" },
+          { "pattern": "^[A-Za-z]:[\\\\/]" },
+          { "pattern": "^\\\\\\\\" },
+          { "pattern": "(^|[\\\\/])\\.\\.([\\\\/]|$)" }
+        ]
+      }
+    },
+    "cameraView": {
+      "enum": ["face_on", "down_the_line", "overhead", "impact", "unknown"],
+      "description": "Note this differs from the Python side's \"dtl\" (utils/swing_pairing.py, data/annotations.json). The bridge maps; this contract does not accept the abbreviation."
+    },
+    "pixelFormat": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pixel format of the stored frames. Open set so a vendor format does not require a contract revision. Known values: mono8, mono16, bayer_rg8, bayer_bg8, bgr8, rgb8, yuv420p, nv12.",
+      "examples": ["mono8", "bayer_rg8", "bgr8", "yuv420p", "nv12"]
+    },
+    "media": {
+      "description": "Where the frames live, relative to the manifest. Either a single video file or a directory of numbered images.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": { "const": "video" },
+            "path": { "$ref": "#/$defs/relativePath" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "path", "pattern"],
+          "properties": {
+            "kind": { "const": "image_sequence" },
+            "path": {
+              "$ref": "#/$defs/relativePath",
+              "description": "Directory holding the frame images."
+            },
+            "pattern": {
+              "$ref": "#/$defs/nonEmptyString",
+              "description": "printf-style filename pattern within the directory, e.g. \"frame_%06d.png\"."
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "sequenceGap": {
+      "type": "object",
+      "description": "A run of frames the camera reported but did not deliver. Timestamps bound the hole; the frame index is a stream-local hint only.",
+      "required": ["start_timestamp_ns", "end_timestamp_ns", "missing_frame_count"],
+      "properties": {
+        "start_timestamp_ns": {
+          "$ref": "#/$defs/timestampNs",
+          "description": "Timestamp of the last frame delivered before the gap."
+        },
+        "end_timestamp_ns": {
+          "$ref": "#/$defs/timestampNs",
+          "description": "Timestamp of the first frame delivered after the gap. Must be >= start_timestamp_ns."
+        },
+        "missing_frame_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "after_frame_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Index within this stream of the last frame before the gap. Convenience for stream-local seeking; not a cross-component time reference."
+        }
+      }
+    },
+    "cameraStream": {
+      "type": "object",
+      "required": [
+        "camera_id",
+        "view",
+        "media",
+        "width",
+        "height",
+        "pixel_format",
+        "frame_count",
+        "nominal_fps",
+        "first_timestamp_ns",
+        "last_timestamp_ns",
+        "dropped_frame_count"
+      ],
+      "properties": {
+        "camera_id": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Stable logical identifier for the camera, chosen by the operator (e.g. \"fox-dtl\"). Unique within a manifest."
+        },
+        "serial_number": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Hardware serial as reported by the camera, when available."
+        },
+        "view": { "$ref": "#/$defs/cameraView" },
+        "media": { "$ref": "#/$defs/media" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "pixel_format": { "$ref": "#/$defs/pixelFormat" },
+        "frame_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of frames actually stored. Excludes dropped frames."
+        },
+        "nominal_fps": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Rate the camera was configured for. The true rate is (frame_count - 1) / (last - first); they will differ."
+        },
+        "first_timestamp_ns": { "$ref": "#/$defs/timestampNs" },
+        "last_timestamp_ns": {
+          "$ref": "#/$defs/timestampNs",
+          "description": "Must be >= first_timestamp_ns, and strictly greater when frame_count > 1."
+        },
+        "dropped_frame_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Frames the camera reported but that never reached storage."
+        },
+        "gaps": {
+          "type": "array",
+          "description": "Where the dropped frames were, when known.",
+          "items": { "$ref": "#/$defs/sequenceGap" }
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Camera-specific extras (exposure, gain, vendor fields). Opaque to the contract; round-tripped unchanged.",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

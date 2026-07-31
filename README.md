@@ -227,6 +227,97 @@ load-bearing rather than directional, since a continuous capture loop and an
 always-listening audio thread can't live in Streamlit's rerun model. Defer Rust to a proven
 hot path. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## 🦀 Native runtime (`native/`)
+
+Everything above is the **Python research implementation** — pose extraction, P-position
+detection, evaluation, the Streamlit UI. It stays as it is: the baseline, the regression
+harness, and where the model work happens.
+
+Native runtime work is now beginning under **`native/`**, a Rust workspace that will own
+camera capture, frame timing, synchronization, ring buffers and session storage — the
+soft-real-time parts a 240fps two-camera capture booth needs and Python is a poor fit for.
+The reasoning, and what is deliberately *not* decided yet, is in
+**[docs/adr/0001-hybrid-rust-python-runtime.md](docs/adr/0001-hybrid-rust-python-runtime.md)**.
+
+**Direct Fox camera support is not implemented.** There is no camera code, no ring buffer
+and no MVS SDK binding in the workspace today — only the contracts the two sides will
+speak. Captures still come from Swing Catalyst.
+
+### The seam: versioned JSON
+
+Rust and Python exchange two documents per shot, both in [`schemas/`](schemas/):
+
+| Document | Written by | Says |
+|---|---|---|
+| [`capture-manifest`](schemas/capture-manifest.schema.json) | Rust capture runtime | which cameras recorded, where the frames are, and when every frame happened |
+| [`analysis-result`](schemas/analysis-result.schema.json) | Python analysis pipeline | the detected swing events, with confidences, warnings and artifacts |
+
+**All cross-component times are integer nanoseconds on one monotonic capture clock.**
+Frame indexes are stream-local bookkeeping only — two cameras that drop different frames
+diverge, and the microphone trigger has no frame index at all. This matches
+`data/ground_truth.json` already keying on `timestamp_ms` rather than frame number.
+
+Note the contract spells down-the-line `down_the_line`, where `utils/swing_pairing.py` and
+`data/annotations.json` say `dtl`. Whichever component bridges the two maps between them;
+the Rust side rejects `dtl` rather than guessing.
+
+### Build and test the Rust workspace
+
+Needs a Rust toolchain (1.85+, edition 2024) — [rustup.rs](https://rustup.rs). No camera
+SDK, no system libraries, nothing platform-specific; it builds on Windows 11 and Fedora
+alike.
+
+```bash
+cd native
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+From Linux, you can confirm the Windows build without a Windows machine — `cargo check`
+does not link, so this needs only the target's standard library:
+
+```bash
+rustup target add x86_64-pc-windows-msvc
+cargo check --workspace --all-targets --target x86_64-pc-windows-msvc
+```
+
+### Validate the example contracts
+
+```bash
+cd native
+cargo run -p swingai-contract-check -- capture  ../schemas/examples/capture-manifest.example.json
+cargo run -p swingai-contract-check -- analysis ../schemas/examples/analysis-result.example.json
+```
+
+The checker deserializes into the Rust types and applies the semantic constraints
+deserialization cannot express — timestamp ordering, duplicate camera ids, gaps that
+exceed the dropped-frame count. It prints a summary and exits 0, or prints every problem
+it found and exits nonzero.
+
+The same examples are validated against the JSON Schemas from the Python side:
+
+```bash
+podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/test_schema_examples.py -q
+```
+
+### Layout
+
+```
+native/
+├── Cargo.toml                        # workspace
+├── crates/
+│   ├── swingai-core/                 # ShotId, CameraId, CameraView, Timestamp,
+│   │                                 #   FrameSequence, PixelFormat, validation errors
+│   └── swingai-contracts/            # the two JSON contracts as Serde types
+└── apps/
+    └── swingai-contract-check/       # CLI validator
+```
+
+`swingai-core` and `swingai-contracts` are platform-neutral by rule, not by accident —
+a test scans them for `cfg(windows)` and friends. Platform-specific code will live in a
+capture crate behind a trait when it arrives.
+
 ## TODOs
 
 *in the user video. p1 is around the 2-2.5 second mark

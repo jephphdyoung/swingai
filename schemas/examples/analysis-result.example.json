@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0",
+  "shot_id": "2026-07-31T14-22-05Z-3f9a",
+  "analyzer": {
+    "name": "swingai.p_positions",
+    "version": "0.3.0"
+  },
+  "created_at": "2026-07-31T14:22:19.883Z",
+  "status": "partial",
+  "events": [
+    {
+      "name": "P1",
+      "timestamp_ns": 128473065400000,
+      "range": {
+        "start_timestamp_ns": 128473045400000,
+        "end_timestamp_ns": 128473085400000
+      },
+      "confidence": 0.88,
+      "metadata": {
+        "view": "face_on",
+        "method": "motion_onset"
+      }
+    },
+    {
+      "name": "P3",
+      "timestamp_ns": 128473565400000,
+      "confidence": 0.71,
+      "metadata": {
+        "view": "face_on",
+        "method": "lead_arm_horizontal"
+      }
+    },
+    {
+      "name": "P4",
+      "timestamp_ns": 128473965400000,
+      "range": {
+        "start_timestamp_ns": 128473925400000,
+        "end_timestamp_ns": 128474025400000
+      },
+      "confidence": 0.55,
+      "metadata": {
+        "view": "face_on",
+        "method": "hand_speed_minimum",
+        "note": "wide plausible range; hesitant transition suspected"
+      }
+    },
+    {
+      "name": "P5",
+      "timestamp_ns": 128474065400000,
+      "confidence": 0.49,
+      "metadata": {
+        "view": "face_on",
+        "method": "lead_arm_horizontal"
+      }
+    },
+    {
+      "name": "P7",
+      "timestamp_ns": 128474265400000,
+      "range": {
+        "start_timestamp_ns": 128474261388769,
+        "end_timestamp_ns": 128474269411231
+      },
+      "confidence": 0.94,
+      "metadata": {
+        "view": "face_on",
+        "method": "hand_speed_peak"
+      }
+    },
+    {
+      "name": "P9",
+      "timestamp_ns": 128474465400000,
+      "confidence": 0.68,
+      "metadata": {
+        "view": "face_on",
+        "method": "lead_arm_horizontal"
+      }
+    },
+    {
+      "name": "P10",
+      "timestamp_ns": 128475115400000,
+      "confidence": 0.62,
+      "metadata": {
+        "view": "face_on",
+        "method": "settle"
+      }
+    }
+  ],
+  "warnings": [
+    {
+      "code": "club_track_failed",
+      "message": "Shaft not tracked; P2, P6 and P8 were not detected rather than guessed.",
+      "context": {
+        "view": "down_the_line",
+        "missing": ["P2", "P6", "P8"]
+      }
+    },
+    {
+      "code": "view_disagreement",
+      "message": "Down-the-line P7 differs from face-on by 140ms; face-on was preferred on confidence.",
+      "context": {
+        "delta_ns": 140000000
+      }
+    }
+  ],
+  "errors": [],
+  "measurements": {
+    "backswing_duration": {
+      "value": 900.0,
+      "unit": "ms"
+    },
+    "downswing_duration": {
+      "value": 300.0,
+      "unit": "ms"
+    },
+    "tempo_ratio": {
+      "value": 3.0,
+      "unit": "ratio"
+    }
+  },
+  "artifacts": [
+    {
+      "kind": "overlay_video",
+      "path": "artifacts/overlay.mp4",
+      "description": "Face-on clip with the pro ghost composited."
+    },
+    {
+      "kind": "chart",
+      "path": "artifacts/hand_speed.png",
+      "description": "Lead-hand speed against time, with detected positions marked."
+    }
+  ]
+}
