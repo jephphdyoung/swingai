@@ -252,10 +252,28 @@ Rust and Python exchange two documents per shot, both in [`schemas/`](schemas/):
 | [`capture-manifest`](schemas/capture-manifest.schema.json) | Rust capture runtime | which cameras recorded, where the frames are, and when every frame happened |
 | [`analysis-result`](schemas/analysis-result.schema.json) | Python analysis pipeline | the detected swing events, with confidences, warnings and artifacts |
 
-**All cross-component times are integer nanoseconds on one monotonic capture clock.**
-Frame indexes are stream-local bookkeeping only — two cameras that drop different frames
-diverge, and the microphone trigger has no frame index at all. This matches
-`data/ground_truth.json` already keying on `timestamp_ms` rather than frame number.
+Four rules the contracts enforce, each because the alternative fails quietly:
+
+- **Times are integer nanoseconds since the capture session's monotonic origin**, and the
+  persisted origin is zero. Frame indexes are stream-local bookkeeping only — two cameras
+  that drop different frames diverge, and the microphone trigger has no frame index at
+  all. This matches `data/ground_truth.json` already keying on `timestamp_ms` rather than
+  frame number. Timestamps are unsigned, so a negative one cannot be represented.
+  Camera and audio devices report on *their own* clocks, possibly with a different epoch
+  or tick frequency; the capture runtime must convert into the session clock before
+  writing, and may keep the raw device values in a stream's `metadata` for drift
+  diagnosis only.
+- **Wall-clock `created_at` is validated RFC 3339** and is a distinct type from session
+  timestamps, so the two cannot be swapped at a call site. It is for filing, never for
+  correlating streams.
+- **Paths are forward-slash and host-independent.** A backslash is rejected on every
+  platform rather than normalised — on Linux `clips\shot.mkv` is one legal filename, so
+  reinterpreting it would invent a path nobody wrote. That also rules out `C:\...`, UNC
+  and `\\?\...` spellings for free.
+- **The schema version must match exactly.** There is no minor-version compatibility yet,
+  so writer and reader move together and a mismatch is a clear error rather than a silent
+  partial read. `metadata` and `context` maps are the open extension points; unknown keys
+  elsewhere are ignored, not preserved.
 
 Note the contract spells down-the-line `down_the_line`, where `utils/swing_pairing.py` and
 `data/annotations.json` say `dtl`. Whichever component bridges the two maps between them;

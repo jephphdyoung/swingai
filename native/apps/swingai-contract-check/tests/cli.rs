@@ -102,16 +102,107 @@ fn an_invalid_document_exits_one_and_says_what_is_wrong() {
 
 #[test]
 fn an_unsupported_schema_version_exits_one_with_an_actionable_message() {
-    let path = temp_json("future-analysis", r#"{ "schema_version": "9.0" }"#);
-    let output = run(&["analysis", path.to_str().unwrap()]);
+    // A newer *minor* too — version matching is exact for now, and the CLI must
+    // say so rather than implying a compatibility range that does not exist.
+    for bad in ["9.0", "1.1", "1.4"] {
+        let path = temp_json(
+            &format!("version-{}", bad.replace('.', "-")),
+            &format!(r#"{{ "schema_version": "{bad}" }}"#),
+        );
+        let output = run(&["analysis", path.to_str().unwrap()]);
+
+        assert_eq!(output.status.code(), Some(1), "for {bad}");
+        let text = stderr(&output);
+        assert!(
+            text.contains(&format!("unsupported schema_version {bad:?}")),
+            "{bad}: {text}"
+        );
+        assert!(text.contains("1.0 only"), "{bad}: {text}");
+        assert!(text.contains("update SwingAI"), "{bad}: {text}");
+    }
+}
+
+#[test]
+fn an_invalid_created_at_exits_one() {
+    let path = temp_json(
+        "bad-created-at",
+        r#"{
+            "schema_version": "1.0",
+            "shot_id": "shot-1",
+            "created_at": "yesterday",
+            "streams": []
+        }"#,
+    );
+    let output = run(&["capture", path.to_str().unwrap()]);
 
     assert_eq!(output.status.code(), Some(1));
-    let text = stderr(&output);
     assert!(
-        text.contains("unsupported schema_version \"9.0\""),
-        "{text}"
+        stderr(&output).contains("not an RFC 3339 date-time"),
+        "{}",
+        stderr(&output)
     );
-    assert!(text.contains("Upgrade SwingAI"), "{text}");
+}
+
+#[test]
+fn a_non_portable_path_exits_one() {
+    let path = temp_json(
+        "windows-path",
+        r#"{
+            "schema_version": "1.0",
+            "shot_id": "shot-1",
+            "created_at": "2026-07-31T14:22:05.412Z",
+            "streams": [{
+                "camera_id": "cam-1",
+                "view": "face_on",
+                "media": { "kind": "video", "path": "streams\\clip.mkv" },
+                "width": 1440,
+                "height": 1080,
+                "pixel_format": "mono8",
+                "frame_count": 10,
+                "nominal_fps": 249.3,
+                "first_timestamp_ns": 0,
+                "last_timestamp_ns": 36101083,
+                "dropped_frame_count": 0
+            }]
+        }"#,
+    );
+    let output = run(&["capture", path.to_str().unwrap()]);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stderr(&output).contains("backslash"), "{}", stderr(&output));
+}
+
+#[test]
+fn a_negative_timestamp_exits_one() {
+    let path = temp_json(
+        "negative-timestamp",
+        r#"{
+            "schema_version": "1.0",
+            "shot_id": "shot-1",
+            "created_at": "2026-07-31T14:22:05.412Z",
+            "streams": [{
+                "camera_id": "cam-1",
+                "view": "face_on",
+                "media": { "kind": "video", "path": "streams/clip.mkv" },
+                "width": 1440,
+                "height": 1080,
+                "pixel_format": "mono8",
+                "frame_count": 10,
+                "nominal_fps": 249.3,
+                "first_timestamp_ns": -1,
+                "last_timestamp_ns": 36101083,
+                "dropped_frame_count": 0
+            }]
+        }"#,
+    );
+    let output = run(&["capture", path.to_str().unwrap()]);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stderr(&output).contains("invalid value"),
+        "{}",
+        stderr(&output)
+    );
 }
 
 #[test]

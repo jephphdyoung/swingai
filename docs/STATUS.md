@@ -38,11 +38,18 @@ end-to-end on real 240fps captures.
 
 **Native runtime foundation** (added 2026-07-31) — `native/` is a Rust workspace holding
 the domain types (`swingai-core`), the two JSON contracts between capture and analysis
-(`swingai-contracts`, mirroring `schemas/`), and a `swingai-contract-check` CLI. 89 Rust
+(`swingai-contracts`, mirroring `schemas/`), and a `swingai-contract-check` CLI. 116 Rust
 tests; `cargo fmt`/`clippy` clean; type-checks for `x86_64-pc-windows-msvc`. **No camera
 code, no ring buffer, no MVS binding** — this is the seam only. Rationale and the list of
 deliberately deferred decisions: [adr/0001-hybrid-rust-python-runtime.md](adr/0001-hybrid-rust-python-runtime.md).
-The Python suite is now 221 tests (207 + 14 schema-example checks).
+The Python suite is now 282 tests (207 + 75 schema-example checks).
+
+Two things the contracts make the capture work owe: timestamps are nanoseconds since the
+session's monotonic origin (persisted origin zero, unsigned), so **each device clock must
+be converted with a measured offset and rate** before anything can be written — the
+audio→frame mapping risk in A1 below, made unavoidable rather than assumable. And the
+schema version matches exactly for now, so a contract change is a lockstep deploy of both
+sides.
 
 ### Detection quality: not yet validated
 

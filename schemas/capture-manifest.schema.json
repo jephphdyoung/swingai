@@ -2,26 +2,25 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://swingai.local/schemas/capture-manifest.schema.json",
   "title": "SwingAI capture manifest",
-  "description": "Describes one captured shot: the camera streams recorded for it and the timing of every frame in each. Written by the Rust capture runtime, read by the Python analysis pipeline. All cross-component times are integer nanoseconds on a single monotonic capture clock; see docs/adr/0001-hybrid-rust-python-runtime.md.",
+  "description": "Describes one captured shot: the camera streams recorded for it and the timing of every frame in each. Written by the Rust capture runtime, read by the Python analysis pipeline. All cross-component times are integer nanoseconds since the capture session's monotonic origin; see docs/adr/0001-hybrid-rust-python-runtime.md.",
   "type": "object",
   "required": ["schema_version", "shot_id", "created_at", "streams"],
   "properties": {
     "schema_version": {
       "$ref": "#/$defs/schemaVersion",
-      "description": "Contract version as \"MAJOR.MINOR\". A consumer accepts any minor version within a major it supports, and preserves fields it does not recognize."
+      "description": "Contract version. Only the exact supported version is accepted; there is no minor-version compatibility yet, so writer and reader move together."
     },
     "shot_id": {
       "$ref": "#/$defs/nonEmptyString",
       "description": "Stable identifier for this shot. Shared with the analysis result. Must be usable as a directory name."
     },
     "created_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "RFC 3339 wall-clock time the manifest was written. For humans and filing only — never for correlating streams."
+      "$ref": "#/$defs/rfc3339DateTime",
+      "description": "Wall-clock time the manifest was written. For humans and filing only — never for correlating streams."
     },
     "trigger_timestamp_ns": {
       "$ref": "#/$defs/timestampNs",
-      "description": "Monotonic-clock instant the shot trigger fired (e.g. the microphone detecting impact). Absent for a capture that was not triggered."
+      "description": "Capture-session-clock instant the shot trigger fired (e.g. the microphone detecting impact). Absent for a capture that was not triggered."
     },
     "streams": {
       "type": "array",
@@ -32,27 +31,35 @@
   },
   "$defs": {
     "schemaVersion": {
-      "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+$"
+      "const": "1.0",
+      "description": "The only version this contract revision defines. A later ADR may introduce minor-version compatibility; until then a mismatch is an error rather than a partial read."
     },
     "nonEmptyString": {
       "type": "string",
       "minLength": 1
     },
+    "rfc3339DateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?([Zz]|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "An RFC 3339 date-time, e.g. \"2026-07-31T14:22:05.412Z\" or \"2026-07-31T16:22:05.412+02:00\". An offset is required. The pattern is present as well as \"format\" because most JSON Schema validators treat \"format\" as an annotation unless a format checker is installed. The pattern is structural only — it cannot reject an impossible calendar date such as 2026-02-30, which the Rust implementation does.",
+      "examples": ["2026-07-31T14:22:05.412Z", "2026-07-31T16:22:05.412+02:00"]
+    },
     "timestampNs": {
       "type": "integer",
-      "description": "Nanoseconds on the monotonic capture clock. Nanoseconds because a 240fps frame period is 4.17ms — millisecond integers would quantize frame timing to a quarter of a frame."
+      "minimum": 0,
+      "description": "Nanoseconds since the capture session's monotonic origin. The persisted origin is zero, so values are session-relative and are only comparable within one session. Nonnegative because nothing in a session precedes its own origin — a negative value means a clock-domain conversion went wrong upstream. Nanoseconds because a 240fps frame period is 4.17ms, so millisecond integers would quantize frame timing to a quarter of a frame. Raw camera and audio device stamps may use a different epoch or tick frequency and MUST be converted into this clock domain before being written; the raw values may be kept in a stream's \"metadata\" but must never appear as a *_timestamp_ns."
     },
     "relativePath": {
       "type": "string",
       "minLength": 1,
-      "description": "Path relative to the directory containing this manifest. Must not be absolute and must not escape that directory with \"..\".",
+      "description": "Forward-slash path relative to the directory containing this manifest, e.g. \"streams/down_the_line.mkv\". Host-independent: backslashes are rejected outright on every platform, which also rules out C:\\..., UNC \\\\server\\share, extended-length \\\\?\\C:\\..., and rooted \\... spellings. Must not be absolute, must not name a drive, and must not escape the directory with \"..\".",
+      "pattern": "^[^\\\\]*$",
       "not": {
         "anyOf": [
           { "pattern": "^/" },
-          { "pattern": "^[A-Za-z]:[\\\\/]" },
-          { "pattern": "^\\\\\\\\" },
-          { "pattern": "(^|[\\\\/])\\.\\.([\\\\/]|$)" }
+          { "pattern": "^[A-Za-z]:" },
+          { "pattern": "(^|/)\\.\\.(/|$)" }
         ]
       }
     },
@@ -98,7 +105,7 @@
     },
     "sequenceGap": {
       "type": "object",
-      "description": "A run of frames the camera reported but did not deliver. Timestamps bound the hole; the frame index is a stream-local hint only.",
+      "description": "A run of frames the camera reported but did not deliver. Capture-session-clock timestamps bound the hole; the frame index is a stream-local hint only.",
       "required": ["start_timestamp_ns", "end_timestamp_ns", "missing_frame_count"],
       "properties": {
         "start_timestamp_ns": {
@@ -176,7 +183,7 @@
         },
         "metadata": {
           "type": "object",
-          "description": "Camera-specific extras (exposure, gain, vendor fields). Opaque to the contract; round-tripped unchanged.",
+          "description": "Camera-specific extras (exposure, gain, vendor fields, and the raw device timestamps the session-clock values were converted from). Opaque to the contract and round-tripped unchanged. This is an extension point: unknown keys inside it survive, unknown keys elsewhere in the document do not.",
           "additionalProperties": true
         }
       }

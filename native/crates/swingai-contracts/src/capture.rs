@@ -3,7 +3,8 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use swingai_core::{
-    CameraId, CameraView, FrameSequence, PixelFormat, ShotId, Timestamp, ValidationErrors,
+    CameraId, CameraView, FrameSequence, PixelFormat, Rfc3339Timestamp, ShotId, Timestamp,
+    ValidationErrors,
 };
 
 use crate::{CaptureManifestVersion, ContractError, RelativePath};
@@ -16,21 +17,15 @@ use crate::{CaptureManifestVersion, ContractError, RelativePath};
 pub struct CaptureManifest {
     pub schema_version: CaptureManifestVersion,
     pub shot_id: ShotId,
-    /// RFC 3339 wall-clock time the manifest was written. For humans and filing
-    /// only — never for correlating streams, which is what
-    /// [`Timestamp`] is for. Kept as a string because nothing in the native
-    /// runtime computes on wall-clock time yet, and a date-time crate would be a
-    /// dependency bought for formatting alone.
-    pub created_at: String,
-    /// When the shot trigger fired — the microphone hearing impact, today.
-    /// Absent for a capture that was not triggered.
+    /// Wall-clock time the manifest was written, RFC 3339. For humans and filing
+    /// only — never for correlating streams, which is what [`Timestamp`] is for.
+    pub created_at: Rfc3339Timestamp,
+    /// When the shot trigger fired — the microphone hearing impact, today. On
+    /// the capture-session clock, like every other `*_timestamp_ns`. Absent for
+    /// a capture that was not triggered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger_timestamp_ns: Option<Timestamp>,
     pub streams: Vec<CameraStreamManifest>,
-    /// Top-level fields written by a newer minor version. Preserved so a
-    /// round-trip through this build does not delete them.
-    #[serde(flatten)]
-    pub extra: Map<String, Value>,
 }
 
 impl CaptureManifest {
@@ -60,10 +55,8 @@ impl CaptureManifest {
     pub fn validate(&self) -> ValidationErrors {
         let mut errors = ValidationErrors::new();
 
-        if self.created_at.trim().is_empty() {
-            errors.push("created_at", "must not be empty");
-        }
-
+        // `created_at` and `shot_id` are validated by their own types at
+        // deserialization, so there is nothing left to check here.
         if self.streams.is_empty() {
             errors.push("streams", "a capture must have at least one camera stream");
         }
@@ -104,8 +97,10 @@ pub struct CameraStreamManifest {
     /// Where the dropped frames were, when the camera said.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gaps: Vec<SequenceGap>,
-    /// Camera-specific extras — exposure, gain, vendor fields. Opaque here and
-    /// round-tripped unchanged.
+    /// Camera-specific extras — exposure, gain, vendor fields, and the raw
+    /// device timestamps the session-clock values were converted from. Opaque
+    /// here and round-tripped unchanged. This is the contract's extension point:
+    /// unknown keys *inside* it survive, unknown keys outside it do not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Map<String, Value>>,
 }

@@ -79,14 +79,18 @@ fn shared_crates_contain_no_platform_specific_code() {
 }
 
 #[test]
-fn shared_crates_depend_only_on_serde() {
+fn shared_crates_stay_on_the_platform_neutral_dependency_allow_list() {
     for crate_name in ["swingai-core", "swingai-contracts"] {
         let manifest_path = crate_src(crate_name).parent().unwrap().join("Cargo.toml");
         let manifest = std::fs::read_to_string(&manifest_path).expect("manifest is readable");
 
         // Everything a platform-neutral crate may name. Anything else is either
         // a platform binding or a dependency worth arguing about in review.
-        let allowed = ["serde", "serde_json", "swingai-core"];
+        //
+        // `time` is here for RFC 3339 parsing, with default features off — its
+        // timezone-database and system-clock features are exactly the
+        // platform-specific behaviour this test exists to keep out.
+        let allowed = ["serde", "serde_json", "swingai-core", "time"];
         let dependency_lines = manifest
             .lines()
             .skip_while(|line| !line.starts_with("[dependencies]"))
@@ -102,5 +106,33 @@ fn shared_crates_depend_only_on_serde() {
                  allow-list {allowed:?} — see ADR 0001 before adding it here"
             );
         }
+    }
+}
+
+#[test]
+fn the_date_time_dependency_does_not_pull_in_platform_behaviour() {
+    let workspace_manifest = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("native/")
+        .join("Cargo.toml");
+    let manifest = std::fs::read_to_string(&workspace_manifest).expect("manifest is readable");
+
+    let time_line = manifest
+        .lines()
+        .find(|line| line.trim_start().starts_with("time = "))
+        .expect("the workspace declares the `time` dependency");
+
+    // Default features bring in local-offset handling and a system clock; with
+    // them off, all that is left is parsing, which is pure computation.
+    assert!(
+        time_line.contains("default-features = false"),
+        "`time` must not use default features: {time_line}"
+    );
+    for banned in ["local-offset", "tzdb", "wasm"] {
+        assert!(
+            !time_line.contains(banned),
+            "`time` must not enable {banned:?}: {time_line}"
+        );
     }
 }

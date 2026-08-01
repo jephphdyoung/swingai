@@ -3,7 +3,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use swingai_core::{ShotId, Timestamp, ValidationError, ValidationErrors};
+use swingai_core::{Rfc3339Timestamp, ShotId, Timestamp, ValidationError, ValidationErrors};
 
 use crate::{AnalysisResultVersion, ContractError, RelativePath};
 
@@ -18,9 +18,9 @@ pub struct AnalysisResult {
     /// documents are joined — there is no other link.
     pub shot_id: ShotId,
     pub analyzer: AnalyzerInfo,
-    /// RFC 3339 wall-clock time the analysis finished. See the note on
+    /// Wall-clock time the analysis finished, RFC 3339. See the note on
     /// [`CaptureManifest::created_at`](crate::CaptureManifest::created_at).
-    pub created_at: String,
+    pub created_at: Rfc3339Timestamp,
     pub status: AnalysisStatus,
     pub events: Vec<SwingEvent>,
     #[serde(default)]
@@ -34,10 +34,6 @@ pub struct AnalysisResult {
     pub measurements: BTreeMap<String, Measurement>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub artifacts: Vec<Artifact>,
-    /// Top-level fields written by a newer minor version, preserved on
-    /// round-trip.
-    #[serde(flatten)]
-    pub extra: Map<String, Value>,
 }
 
 impl AnalysisResult {
@@ -63,9 +59,8 @@ impl AnalysisResult {
     pub fn validate(&self) -> ValidationErrors {
         let mut errors = ValidationErrors::new();
 
-        if self.created_at.trim().is_empty() {
-            errors.push("created_at", "must not be empty");
-        }
+        // `created_at` and `shot_id` are validated by their own types at
+        // deserialization, so there is nothing left to check here.
         errors.extend_at("analyzer", self.analyzer.validate());
 
         if self.status == AnalysisStatus::Ok && !self.errors.is_empty() {

@@ -5,17 +5,23 @@
 //! `schemas/analysis-result.schema.json`; these types mirror them. The reasoning
 //! behind the seam is in `docs/adr/0001-hybrid-rust-python-runtime.md`.
 //!
-//! Three conventions run through everything here:
+//! Four conventions run through everything here:
 //!
 //! - **Times are [`Timestamp`](swingai_core::Timestamp)s**, integer nanoseconds
-//!   on the monotonic capture clock. Frame indexes are stream-local bookkeeping
-//!   and never a cross-component reference.
-//! - **Paths are [`RelativePath`]s**, resolved against the directory holding the
-//!   document. A capture folder can be moved or copied to another machine
-//!   without rewriting it.
-//! - **Unknown fields survive.** Per-object `metadata` maps and a flattened
-//!   `extra` on each root type round-trip anything a newer writer added, so an
-//!   older reader does not silently drop it.
+//!   since the capture session's monotonic origin, which is zero as persisted.
+//!   Frame indexes are stream-local bookkeeping and never a cross-component
+//!   reference. Wall-clock times are a separate type,
+//!   [`Rfc3339Timestamp`](swingai_core::Rfc3339Timestamp), and are for filing
+//!   only.
+//! - **Paths are [`RelativePath`]s** — forward-slash, host-independent, resolved
+//!   against the directory holding the document. A capture folder can be moved
+//!   or copied to another machine without rewriting it.
+//! - **The schema version must match exactly.** Both sides move together; a
+//!   mismatch is a clear error rather than a silent partial read. See
+//!   [`SchemaVersion`].
+//! - **`metadata` and `context` maps are the only open extension points.**
+//!   Unknown keys inside them round-trip unchanged; unknown keys elsewhere are
+//!   ignored on read and not preserved.
 //!
 //! Parse through [`CaptureManifest::from_json_str`] or
 //! [`AnalysisResult::from_json_str`] rather than `serde_json::from_str`: those
@@ -38,4 +44,6 @@ pub use version::{AnalysisResultVersion, CaptureManifestVersion, SchemaVersion};
 
 /// Re-exported so downstream crates need not depend on `swingai-core` directly
 /// just to name a timestamp.
-pub use swingai_core::{CameraId, CameraView, FrameSequence, PixelFormat, ShotId, Timestamp};
+pub use swingai_core::{
+    CameraId, CameraView, FrameSequence, PixelFormat, Rfc3339Timestamp, ShotId, Timestamp,
+};

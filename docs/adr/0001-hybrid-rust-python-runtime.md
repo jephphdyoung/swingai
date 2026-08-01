@@ -80,9 +80,24 @@ local network service adds an operational component to a single-box application;
 memory transport is premature before we know the analysis call rate (roughly one per
 swing).
 
-Versioning is explicit because the two sides will be edited independently. Consumers
-accept any compatible minor version, preserve fields they do not recognize, and reject an
-unsupported major version with a clear error rather than silently misreading data.
+### Why the schema version must match exactly, for now
+
+Versioning is explicit because the two sides will be edited independently. A first draft
+of this ADR said consumers would accept any compatible minor version and preserve fields
+they did not recognize. That was retracted before any of it shipped, because the
+implementation could not honour it: unknown fields were preserved only at the document
+root, so a field added inside a stream or an event would have been dropped silently. A
+compatibility guarantee that holds in some places and not others is worse than none — it
+looks like it works.
+
+So both contracts accept **exactly** the version they were built for and reject anything
+else with a clear error. Writer and reader move together. The extension points that
+remain are the explicit `metadata` and `context` maps, which are open by design and do
+round-trip unchanged; unknown keys anywhere else are ignored on read and not preserved.
+
+A later ADR can introduce real minor-version compatibility once there is a concrete need
+for two versions to coexist — with per-object preservation to back it up, not a promise
+in prose.
 
 ### Why timestamps are canonical, not frame indexes
 
@@ -95,18 +110,52 @@ Cross-component, it is a lie waiting to happen:
   detection. The existing `data/ground_truth.json` schema already keys on `timestamp_ms`
   for exactly this reason.
 
-So every cross-component time in these contracts is an **integer count of nanoseconds on
-a monotonic capture clock**, and frame indexes are stream-local bookkeeping only.
+So every cross-component time in these contracts is an **integer count of nanoseconds
+since the capture session's monotonic origin**, and frame indexes are stream-local
+bookkeeping only.
 
-Nanoseconds because that is the unit the underlying clocks (`QueryPerformanceCounter`,
-`clock_gettime`, and most machine-vision SDK frame stamps) natively report, and because a
-240fps frame period is 4.17ms — millisecond integers would quantize frame timing to 24%
-of a frame. `i64` nanoseconds spans ±292 years, and a monotonic clock read stays under
-2^53 for its first 104 days of uptime, so values remain exactly representable in
+**The persisted origin is zero.** Every `*_timestamp_ns` in a document is an offset from
+the start of its own capture session, which makes values comparable within a session,
+meaningless across sessions, and never negative. The representation is unsigned, so a
+negative timestamp cannot be constructed or deserialized at all — if one shows up, a
+clock-domain conversion went wrong upstream and the seam should say so rather than pass
+it along.
+
+Nanoseconds because a 240fps frame period is 4.17ms — millisecond integers would quantize
+frame timing to 24% of a frame. `u64` nanoseconds spans 584 years, and a session's
+offsets stay under 2^53 for its first 104 days, so values remain exactly representable in
 JSON consumers that use doubles.
 
-Wall-clock creation times are separate fields, in RFC 3339, and are for humans and
-filing — never for correlating streams.
+#### Device clocks are not the session clock
+
+Cameras and audio devices report time on **their own clocks**. They may use a different
+epoch, a different tick frequency, or a counter that is not nanoseconds at all — a
+machine-vision SDK frame stamp does not inherently share this clock domain, and must not
+be assumed to. Converting is the capture runtime's job: measure each device's offset and
+rate against the session clock rather than assuming them, and write only converted values.
+
+Raw device stamps may be retained alongside, in a stream's `metadata` map, for diagnosing
+drift. They must never appear as a `*_timestamp_ns`. This is precisely the mapping that
+STATUS.md flags as the riskiest unknown in the trigger path, so the contract is built to
+make an unconverted value obvious rather than plausible.
+
+Wall-clock creation times are separate fields, validated as RFC 3339 on the way in, and
+are for humans and filing — never for correlating streams. They are a distinct Rust type
+from session timestamps so the two cannot be confused at a call site.
+
+### Why contract paths are forward-slash regardless of host
+
+A contract path is always spelled with `/`, and a backslash is rejected outright on every
+platform rather than normalised. Normalising would be guesswork: on Linux
+`clips\shot.mkv` is a single legal filename that happens to contain a backslash, so
+reinterpreting it as a directory separator invents a path the writer never meant. Since
+SwingAI writes manifests on Windows and reads them on Linux, one spelling has to win, and
+rejecting at the seam turns a Windows writer emitting native separators into a loud bug in
+that writer.
+
+That one rule also disposes of `C:\...`, UNC `\\server\share` and extended-length
+`\\?\C:\...` spellings for free, leaving only Unix-absolute, drive-relative `C:rel`, and
+`..` traversal to reject explicitly.
 
 ### Why Windows 11 is the first production target
 
@@ -147,6 +196,17 @@ regression harness until there is a measurement that says a port is an improveme
   need the Python container.
 - Contract changes are now a two-sided edit. That is the cost of the seam, and the reason
   the schemas and the round-trip tests exist.
+- **Exact version matching means a contract change is a lockstep deploy.** Bumping
+  `schema_version` breaks every reader until it is rebuilt. Acceptable while both sides
+  ship together on one machine; it is the first thing to revisit when that stops being
+  true.
+- The capture runtime now owes a **measured** conversion from each device clock to the
+  session clock before it can write a manifest at all. That is deliberate — it forces the
+  riskiest unknown in the trigger path to be confronted rather than assumed — but it means
+  the first capture PR carries that work.
+- `swingai-core` takes one dependency beyond serde: `time`, for RFC 3339 parsing, with
+  default features off so no timezone database or system clock comes with it. The
+  portability test enforces both the allow-list and the feature restriction.
 - The `dtl` / `face_on` view names used by `utils/swing_pairing.py` and
   `data/annotations.json` do not match the contract's `down_the_line` / `face_on`. The
   contract spells it out; whichever component bridges the two performs the mapping. The

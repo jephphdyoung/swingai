@@ -3,100 +3,79 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use swingai_core::ValidationError;
 
-/// A contract version, `MAJOR.MINOR`, gated at deserialization on the major
-/// version this build understands.
+/// A contract version, `MAJOR.MINOR`, accepted only when it is exactly the
+/// version this build speaks.
 ///
-/// The const parameter is the supported major. `SchemaVersion<1>` accepts `1.0`,
-/// `1.7`, anything `1.x` — new minors are additive and unknown fields survive in
-/// the `extra` maps — and refuses `2.0` outright, because a major bump means a
-/// field this build depends on may have changed meaning.
+/// **Strict on purpose, for now.** An earlier draft accepted any matching major
+/// on the theory that minor versions are additive and unknown fields would be
+/// carried through. That guarantee was not real: unknown fields were preserved
+/// only at the document root, so a field added inside a stream or an event would
+/// have been silently dropped by an older reader — the worst kind of
+/// compatibility, the kind that looks like it works.
 ///
-/// Gating at deserialization rather than in a separate check is deliberate: it
-/// makes an unsupported document impossible to hold in a typed value, so no
-/// caller can forget to look.
+/// Until there is a concrete need for cross-version reading, both sides move
+/// together and a mismatch is an error you can see. A later ADR can introduce
+/// real minor-version compatibility, with the preservation to back it up.
+///
+/// The const parameters are the supported version, so the supported value is
+/// part of the type: `SchemaVersion<1, 0>` accepts `"1.0"` and nothing else.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct SchemaVersion<const SUPPORTED_MAJOR: u32> {
-    major: u32,
-    minor: u32,
-}
+pub struct SchemaVersion<const MAJOR: u32, const MINOR: u32>;
 
 /// The version of `schemas/capture-manifest.schema.json` this build speaks.
-pub type CaptureManifestVersion = SchemaVersion<1>;
+pub type CaptureManifestVersion = SchemaVersion<1, 0>;
 
 /// The version of `schemas/analysis-result.schema.json` this build speaks.
-pub type AnalysisResultVersion = SchemaVersion<1>;
+pub type AnalysisResultVersion = SchemaVersion<1, 0>;
 
-impl<const SUPPORTED_MAJOR: u32> SchemaVersion<SUPPORTED_MAJOR> {
-    /// The newest minor version this build writes.
-    pub const CURRENT: Self = Self {
-        major: SUPPORTED_MAJOR,
-        minor: 0,
-    };
-
-    pub const fn new(minor: u32) -> Self {
-        Self {
-            major: SUPPORTED_MAJOR,
-            minor,
-        }
-    }
+impl<const MAJOR: u32, const MINOR: u32> SchemaVersion<MAJOR, MINOR> {
+    /// The only version this build reads or writes.
+    pub const CURRENT: Self = Self;
 
     pub const fn major(self) -> u32 {
-        self.major
+        MAJOR
     }
 
     pub const fn minor(self) -> u32 {
-        self.minor
-    }
-
-    /// True when the document was written by something newer than this build.
-    /// Not an error — the unknown parts are preserved, not understood.
-    pub const fn is_newer_than_current(self) -> bool {
-        self.minor > Self::CURRENT.minor
+        MINOR
     }
 
     fn parse(value: &str) -> Result<Self, ValidationError> {
-        let (major, minor) = value.split_once('.').ok_or_else(|| {
+        let unsupported = |detail: &str| {
             ValidationError::new(
                 "schema_version",
-                format!("expected \"MAJOR.MINOR\", got {value:?}"),
+                format!(
+                    "unsupported schema_version {value:?}: {detail}. This build reads and \
+                     writes {MAJOR}.{MINOR} only — update SwingAI, or have the writer emit \
+                     {MAJOR}.{MINOR}."
+                ),
             )
-        })?;
-
-        let parse_part = |part: &str, which: &str| {
-            part.parse::<u32>().map_err(|_| {
-                ValidationError::new(
-                    "schema_version",
-                    format!("{which} version in {value:?} is not a number"),
-                )
-            })
         };
 
-        let major = parse_part(major, "major")?;
-        let minor = parse_part(minor, "minor")?;
+        let Some((major, minor)) = value.split_once('.') else {
+            return Err(unsupported("expected \"MAJOR.MINOR\""));
+        };
 
-        if major != SUPPORTED_MAJOR {
-            return Err(ValidationError::new(
-                "schema_version",
-                format!(
-                    "unsupported schema_version {value:?}: this build reads major version \
-                     {SUPPORTED_MAJOR} only. Upgrade SwingAI, or have the writer emit \
-                     {SUPPORTED_MAJOR}.x."
-                ),
-            ));
+        let (Ok(major), Ok(minor)) = (major.parse::<u32>(), minor.parse::<u32>()) else {
+            return Err(unsupported("both parts must be numbers"));
+        };
+
+        if (major, minor) != (MAJOR, MINOR) {
+            return Err(unsupported("version mismatch"));
         }
 
-        Ok(Self { major, minor })
+        Ok(Self)
     }
 }
 
-impl<const SUPPORTED_MAJOR: u32> Default for SchemaVersion<SUPPORTED_MAJOR> {
+impl<const MAJOR: u32, const MINOR: u32> Default for SchemaVersion<MAJOR, MINOR> {
     fn default() -> Self {
         Self::CURRENT
     }
 }
 
-impl<const SUPPORTED_MAJOR: u32> TryFrom<String> for SchemaVersion<SUPPORTED_MAJOR> {
+impl<const MAJOR: u32, const MINOR: u32> TryFrom<String> for SchemaVersion<MAJOR, MINOR> {
     type Error = ValidationError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -104,15 +83,15 @@ impl<const SUPPORTED_MAJOR: u32> TryFrom<String> for SchemaVersion<SUPPORTED_MAJ
     }
 }
 
-impl<const SUPPORTED_MAJOR: u32> From<SchemaVersion<SUPPORTED_MAJOR>> for String {
-    fn from(value: SchemaVersion<SUPPORTED_MAJOR>) -> Self {
+impl<const MAJOR: u32, const MINOR: u32> From<SchemaVersion<MAJOR, MINOR>> for String {
+    fn from(value: SchemaVersion<MAJOR, MINOR>) -> Self {
         value.to_string()
     }
 }
 
-impl<const SUPPORTED_MAJOR: u32> fmt::Display for SchemaVersion<SUPPORTED_MAJOR> {
+impl<const MAJOR: u32, const MINOR: u32> fmt::Display for SchemaVersion<MAJOR, MINOR> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.major, self.minor)
+        write!(f, "{MAJOR}.{MINOR}")
     }
 }
 
@@ -120,47 +99,68 @@ impl<const SUPPORTED_MAJOR: u32> fmt::Display for SchemaVersion<SUPPORTED_MAJOR>
 mod tests {
     use super::*;
 
-    type V1 = SchemaVersion<1>;
+    type V1_0 = SchemaVersion<1, 0>;
 
     #[test]
-    fn the_current_version_round_trips() {
-        let json = serde_json::to_string(&V1::CURRENT).unwrap();
+    fn the_supported_version_round_trips() {
+        let json = serde_json::to_string(&V1_0::CURRENT).unwrap();
         assert_eq!(json, "\"1.0\"");
-        assert_eq!(serde_json::from_str::<V1>(&json).unwrap(), V1::CURRENT);
+        assert_eq!(serde_json::from_str::<V1_0>(&json).unwrap(), V1_0::CURRENT);
+        assert_eq!(V1_0::CURRENT.major(), 1);
+        assert_eq!(V1_0::CURRENT.minor(), 0);
     }
 
     #[test]
-    fn a_newer_minor_is_accepted() {
-        let version: V1 = serde_json::from_str("\"1.7\"").unwrap();
-        assert_eq!(version.minor(), 7);
-        assert!(version.is_newer_than_current());
+    fn a_newer_minor_is_rejected() {
+        for bad in ["\"1.1\"", "\"1.4\""] {
+            let error = serde_json::from_str::<V1_0>(bad).unwrap_err().to_string();
+            assert!(
+                error.contains("unsupported schema_version"),
+                "{bad}: {error}"
+            );
+            assert!(error.contains("1.0 only"), "{bad}: {error}");
+        }
     }
 
     #[test]
-    fn a_newer_major_is_rejected_with_an_actionable_message() {
-        let error = serde_json::from_str::<V1>("\"2.0\"")
+    fn a_newer_major_is_rejected() {
+        let error = serde_json::from_str::<V1_0>("\"2.0\"")
             .unwrap_err()
             .to_string();
         assert!(
             error.contains("unsupported schema_version \"2.0\""),
             "{error}"
         );
-        assert!(error.contains("major version 1 only"), "{error}");
-        assert!(error.contains("Upgrade SwingAI"), "{error}");
+        assert!(error.contains("update SwingAI"), "{error}");
     }
 
     #[test]
-    fn an_older_major_is_rejected_too() {
-        assert!(serde_json::from_str::<V1>("\"0.9\"").is_err());
+    fn an_older_version_is_rejected_too() {
+        assert!(serde_json::from_str::<V1_0>("\"0.9\"").is_err());
     }
 
     #[test]
     fn malformed_versions_are_rejected() {
-        for bad in ["\"1\"", "\"1.0.0\"", "\"one.zero\"", "\"\"", "\"1.x\""] {
+        for bad in [
+            "\"1\"",
+            "\"1.0.0\"",
+            "\"one.zero\"",
+            "\"\"",
+            "\"1.x\"",
+            "\"v1.0\"",
+        ] {
             assert!(
-                serde_json::from_str::<V1>(bad).is_err(),
+                serde_json::from_str::<V1_0>(bad).is_err(),
                 "{bad} should fail"
             );
+        }
+    }
+
+    #[test]
+    fn every_rejection_says_what_is_supported() {
+        for bad in ["\"1.1\"", "\"2.0\"", "\"nonsense\""] {
+            let error = serde_json::from_str::<V1_0>(bad).unwrap_err().to_string();
+            assert!(error.contains("1.0 only"), "{bad}: {error}");
         }
     }
 }

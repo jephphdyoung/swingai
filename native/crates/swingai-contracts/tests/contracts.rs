@@ -191,9 +191,9 @@ fn analysis_round_trip_preserves_everything() {
 #[test]
 fn timestamps_survive_a_round_trip_exactly() {
     // The failure this guards against is a writer or reader treating nanoseconds
-    // as a float somewhere; 128_474_265_400_000 would survive that, but a value
-    // with low-order digits would not.
-    let odd = 128_474_265_400_017i64;
+    // as a float somewhere; a round number would survive that, but one with
+    // low-order digits would not.
+    let odd = 3_050_000_017u64;
     let json = tweaked(&analysis_example(), |value| {
         value["events"][0]["timestamp_ns"] = json!(odd);
         value["events"][0]["range"] = json!({
@@ -209,63 +209,213 @@ fn timestamps_survive_a_round_trip_exactly() {
     assert_eq!(reparsed.events[0].timestamp_ns, Timestamp::from_nanos(odd));
 }
 
+// --- session-relative, nonnegative timestamps --------------------------------
+
+#[test]
+fn the_capture_example_is_session_relative_starting_at_the_origin() {
+    let manifest = CaptureManifest::from_json_str(&capture_example()).unwrap();
+    let earliest = manifest
+        .streams
+        .iter()
+        .map(|stream| stream.frames.first_timestamp_ns)
+        .min()
+        .unwrap();
+    assert_eq!(
+        earliest,
+        Timestamp::ZERO,
+        "the persisted session origin is zero"
+    );
+}
+
+#[test]
+fn a_negative_capture_timestamp_is_rejected() {
+    for field in [
+        "first_timestamp_ns",
+        "last_timestamp_ns",
+        "trigger_timestamp_ns",
+    ] {
+        let json = tweaked(&capture_example(), |value| {
+            if field == "trigger_timestamp_ns" {
+                value[field] = json!(-1i64);
+            } else {
+                value["streams"][0][field] = json!(-1i64);
+            }
+        });
+        let message = expect_parse_failure(CaptureManifest::from_json_str(&json).unwrap_err());
+        assert!(message.contains("invalid value"), "{field}: {message}");
+    }
+}
+
+#[test]
+fn a_negative_analysis_timestamp_is_rejected() {
+    let json = tweaked(&analysis_example(), |value| {
+        value["events"][0]["timestamp_ns"] = json!(-1i64);
+    });
+    assert!(AnalysisResult::from_json_str(&json).is_err());
+
+    let json = tweaked(&analysis_example(), |value| {
+        value["events"][0]["range"]["start_timestamp_ns"] = json!(-5i64);
+    });
+    assert!(AnalysisResult::from_json_str(&json).is_err());
+}
+
+#[test]
+fn a_negative_gap_timestamp_is_rejected() {
+    let json = tweaked(&capture_example(), |value| {
+        value["streams"][1]["gaps"][0]["start_timestamp_ns"] = json!(-1i64);
+    });
+    assert!(CaptureManifest::from_json_str(&json).is_err());
+}
+
+#[test]
+fn raw_device_clock_values_ride_in_metadata_not_in_timestamp_fields() {
+    // The example documents the intended shape: the device's own ticks are kept
+    // for drift diagnosis, and the *_timestamp_ns values are the converted ones.
+    let manifest = CaptureManifest::from_json_str(&capture_example()).unwrap();
+    let metadata = manifest.streams[0]
+        .metadata
+        .as_ref()
+        .expect("the example ships metadata");
+    let device = &metadata["device_clock"];
+    assert!(device["tick_frequency_hz"].is_number());
+    assert_ne!(
+        device["first_frame_ticks"],
+        json!(manifest.streams[0].frames.first_timestamp_ns.as_nanos()),
+        "the raw device value must not be what was written as the timestamp"
+    );
+}
+
 // --- schema versions ---------------------------------------------------------
 
+/// Every version other than the exact supported one is rejected, and says so.
+/// Strict for now — there is no minor-version compatibility story to lean on,
+/// so a mismatch must be visible rather than a silent partial read.
 #[test]
-fn an_unsupported_capture_schema_version_fails_clearly() {
-    let json = tweaked(&capture_example(), |value| {
-        value["schema_version"] = json!("2.0");
-    });
-    let message = expect_parse_failure(CaptureManifest::from_json_str(&json).unwrap_err());
-    assert!(
-        message.contains("unsupported schema_version \"2.0\""),
-        "{message}"
-    );
-    assert!(message.contains("major version 1 only"), "{message}");
+fn any_capture_schema_version_other_than_the_supported_one_fails_clearly() {
+    for bad in ["1.1", "1.4", "2.0", "0.9"] {
+        let json = tweaked(&capture_example(), |value| {
+            value["schema_version"] = json!(bad);
+        });
+        let message = expect_parse_failure(CaptureManifest::from_json_str(&json).unwrap_err());
+        assert!(
+            message.contains(&format!("unsupported schema_version {bad:?}")),
+            "{bad}: {message}"
+        );
+        assert!(message.contains("1.0 only"), "{bad}: {message}");
+    }
 }
 
 #[test]
-fn an_unsupported_analysis_schema_version_fails_clearly() {
-    let json = tweaked(&analysis_example(), |value| {
-        value["schema_version"] = json!("7.3");
-    });
-    let message = expect_parse_failure(AnalysisResult::from_json_str(&json).unwrap_err());
-    assert!(
-        message.contains("unsupported schema_version \"7.3\""),
-        "{message}"
-    );
+fn any_analysis_schema_version_other_than_the_supported_one_fails_clearly() {
+    for bad in ["1.1", "1.4", "2.0", "7.3"] {
+        let json = tweaked(&analysis_example(), |value| {
+            value["schema_version"] = json!(bad);
+        });
+        let message = expect_parse_failure(AnalysisResult::from_json_str(&json).unwrap_err());
+        assert!(
+            message.contains(&format!("unsupported schema_version {bad:?}")),
+            "{bad}: {message}"
+        );
+        assert!(message.contains("1.0 only"), "{bad}: {message}");
+    }
 }
 
 #[test]
-fn a_newer_minor_version_is_accepted_and_its_extra_fields_are_preserved() {
+fn unknown_top_level_fields_are_ignored_and_not_preserved() {
+    // Deliberate: the earlier `extra` map implied a forward-compatibility
+    // guarantee the contract could not honour, because fields added *inside* a
+    // stream or an event were dropped regardless. Better to promise nothing at
+    // the root than to promise it unevenly.
     let json = tweaked(&capture_example(), |value| {
-        value["schema_version"] = json!("1.4");
         value["ambient_temperature_c"] = json!(21.5);
     });
 
-    let manifest = CaptureManifest::from_json_str(&json).expect("a newer minor is readable");
-    assert!(manifest.schema_version.is_newer_than_current());
-    assert_eq!(manifest.extra["ambient_temperature_c"], json!(21.5));
+    let manifest = CaptureManifest::from_json_str(&json).expect("unknown roots do not fail");
+    let rendered = manifest.to_json_string_pretty().unwrap();
+    let value: Value = serde_json::from_str(&rendered).unwrap();
+    assert_eq!(value.get("ambient_temperature_c"), None);
+}
 
+#[test]
+fn metadata_maps_remain_the_open_extension_point() {
+    let json = tweaked(&capture_example(), |value| {
+        value["streams"][0]["metadata"]["anything_at_all"] = json!({ "nested": [1, 2, 3] });
+    });
+
+    let manifest = CaptureManifest::from_json_str(&json).unwrap();
     let rendered = manifest.to_json_string_pretty().unwrap();
     let value: Value = serde_json::from_str(&rendered).unwrap();
     assert_eq!(
-        value["ambient_temperature_c"],
-        json!(21.5),
-        "a round trip through an older build must not delete what it did not understand"
+        value["streams"][0]["metadata"]["anything_at_all"],
+        json!({ "nested": [1, 2, 3] }),
+        "metadata is where unknown keys are guaranteed to survive"
     );
+}
+
+// --- wall-clock timestamps ---------------------------------------------------
+
+#[test]
+fn an_invalid_created_at_fails_clearly() {
+    for bad in [
+        "yesterday",
+        "2026-99-99T00:00:00Z",
+        "2026-07-31 12:00:00",
+        "2026-02-30T00:00:00Z",
+        "2026-07-31T14:22:05",
+        "",
+    ] {
+        let capture = tweaked(&capture_example(), |value| {
+            value["created_at"] = json!(bad);
+        });
+        let message = expect_parse_failure(CaptureManifest::from_json_str(&capture).unwrap_err());
+        assert!(
+            message.contains("not an RFC 3339 date-time"),
+            "{bad:?}: {message}"
+        );
+
+        let analysis = tweaked(&analysis_example(), |value| {
+            value["created_at"] = json!(bad);
+        });
+        assert!(
+            AnalysisResult::from_json_str(&analysis).is_err(),
+            "{bad:?} should be rejected in an analysis result too"
+        );
+    }
+}
+
+#[test]
+fn valid_created_at_values_are_accepted_in_utc_and_with_offsets() {
+    for good in [
+        "2026-07-31T14:22:05Z",
+        "2026-07-31T14:22:05.412Z",
+        "2026-07-31T16:22:05.412+02:00",
+        "2026-07-31T09:22:05-05:00",
+    ] {
+        let json = tweaked(&capture_example(), |value| {
+            value["created_at"] = json!(good);
+        });
+        let manifest = CaptureManifest::from_json_str(&json)
+            .unwrap_or_else(|error| panic!("{good} should parse: {error}"));
+        assert_eq!(
+            manifest.created_at.as_str(),
+            good,
+            "the writer's spelling must survive verbatim"
+        );
+    }
 }
 
 // --- timestamps and frame counts ---------------------------------------------
 
 #[test]
 fn last_timestamp_before_first_fails() {
+    // Stream 1, because stream 0 starts at the session origin and there is no
+    // representable value below it — which is the point of the unsigned type.
     let json = tweaked(&capture_example(), |value| {
-        value["streams"][0]["last_timestamp_ns"] = json!(128_471_215_399_999i64);
+        value["streams"][1]["last_timestamp_ns"] = json!(411_999u64);
     });
     let message = expect_invalid(CaptureManifest::from_json_str(&json).unwrap_err());
     assert!(
-        message.contains("streams[0].last_timestamp_ns"),
+        message.contains("streams[1].last_timestamp_ns"),
         "{message}"
     );
     assert!(message.contains("before first_timestamp_ns"), "{message}");
@@ -360,8 +510,8 @@ fn gaps_that_exceed_the_dropped_frame_count_fail() {
 fn an_event_range_in_the_wrong_order_fails() {
     let json = tweaked(&analysis_example(), |value| {
         value["events"][0]["range"] = json!({
-            "start_timestamp_ns": 128_473_085_400_000i64,
-            "end_timestamp_ns": 128_473_045_400_000i64,
+            "start_timestamp_ns": 1_870_000_000u64,
+            "end_timestamp_ns": 1_830_000_000u64,
         });
     });
     let message = expect_invalid(AnalysisResult::from_json_str(&json).unwrap_err());
@@ -374,7 +524,7 @@ fn an_event_range_in_the_wrong_order_fails() {
 #[test]
 fn an_event_outside_its_own_range_fails() {
     let json = tweaked(&analysis_example(), |value| {
-        value["events"][0]["timestamp_ns"] = json!(128_473_500_000_000i64);
+        value["events"][0]["timestamp_ns"] = json!(2_000_000_000u64);
     });
     let message = expect_invalid(AnalysisResult::from_json_str(&json).unwrap_err());
     assert!(message.contains("events[0].timestamp_ns"), "{message}");
@@ -472,6 +622,17 @@ fn unknown_optional_metadata_does_not_break_parsing() {
 }
 
 #[test]
+fn diagnostic_context_maps_stay_open_too() {
+    let json = tweaked(&analysis_example(), |value| {
+        value["warnings"][0]["context"]["anything"] = json!([1, "two", { "three": 3 }]);
+    });
+
+    let result = AnalysisResult::from_json_str(&json).unwrap();
+    let context = result.warnings[0].context.as_ref().unwrap();
+    assert_eq!(context["anything"], json!([1, "two", { "three": 3 }]));
+}
+
+#[test]
 fn an_image_sequence_stream_is_accepted() {
     let json = tweaked(&capture_example(), |value| {
         value["streams"][0]["media"] = json!({
@@ -511,37 +672,85 @@ fn relative_artifact_paths_work_and_resolve_against_the_document() {
     );
 }
 
+/// Every non-portable spelling, refused wherever a contract path appears.
+const NON_PORTABLE_PATHS: &[&str] = &[
+    "C:\\captures\\shot.mkv",
+    "C:captures\\shot.mkv",
+    "\\\\server\\share\\shot.mkv",
+    "\\\\?\\C:\\captures\\shot.mkv",
+    "\\captures\\shot.mkv",
+    "/captures/shot.mkv",
+    "../shot.mkv",
+    "clips/../../shot.mkv",
+    "clips\\shot.mkv",
+];
+
 #[test]
-fn an_absolute_artifact_path_fails() {
-    let json = tweaked(&analysis_example(), |value| {
-        value["artifacts"][0]["path"] = json!("/var/lib/swingai/overlay.mp4");
-    });
-    let message = expect_parse_failure(AnalysisResult::from_json_str(&json).unwrap_err());
-    assert!(message.contains("is absolute"), "{message}");
+fn non_portable_media_paths_fail() {
+    for bad in NON_PORTABLE_PATHS {
+        let json = tweaked(&capture_example(), |value| {
+            value["streams"][0]["media"]["path"] = json!(bad);
+        });
+        assert!(
+            CaptureManifest::from_json_str(&json).is_err(),
+            "{bad:?} should be rejected as a media path"
+        );
+    }
 }
 
 #[test]
-fn a_windows_absolute_media_path_fails() {
-    let json = tweaked(&capture_example(), |value| {
-        value["streams"][0]["media"]["path"] = json!("D:\\captures\\clip.mkv");
-    });
-    let message = expect_parse_failure(CaptureManifest::from_json_str(&json).unwrap_err());
-    assert!(message.contains("names a drive"), "{message}");
+fn non_portable_artifact_paths_fail() {
+    for bad in NON_PORTABLE_PATHS {
+        let json = tweaked(&analysis_example(), |value| {
+            value["artifacts"][0]["path"] = json!(bad);
+        });
+        assert!(
+            AnalysisResult::from_json_str(&json).is_err(),
+            "{bad:?} should be rejected as an artifact path"
+        );
+    }
 }
 
 #[test]
-fn a_media_path_escaping_the_shot_folder_fails() {
-    let json = tweaked(&capture_example(), |value| {
-        value["streams"][0]["media"]["path"] = json!("../../elsewhere/clip.mkv");
-    });
-    let message = expect_parse_failure(CaptureManifest::from_json_str(&json).unwrap_err());
-    assert!(message.contains("escapes"), "{message}");
+fn non_portable_image_sequence_paths_fail() {
+    for bad in NON_PORTABLE_PATHS {
+        let json = tweaked(&capture_example(), |value| {
+            value["streams"][0]["media"] = json!({
+                "kind": "image_sequence",
+                "path": bad,
+                "pattern": "frame_%06d.png",
+            });
+        });
+        assert!(
+            CaptureManifest::from_json_str(&json).is_err(),
+            "{bad:?} should be rejected as an image-sequence path"
+        );
+    }
+}
+
+#[test]
+fn path_rejections_explain_which_rule_was_broken() {
+    let cases = [
+        ("clips\\shot.mkv", "backslash"),
+        ("/captures/shot.mkv", "is absolute"),
+        ("C:captures", "names a drive"),
+        ("../shot.mkv", "escapes"),
+    ];
+    for (bad, expected) in cases {
+        let json = tweaked(&capture_example(), |value| {
+            value["streams"][0]["media"]["path"] = json!(bad);
+        });
+        let message = expect_parse_failure(CaptureManifest::from_json_str(&json).unwrap_err());
+        assert!(message.contains(expected), "{bad:?}: {message}");
+    }
 }
 
 #[test]
 fn a_relative_path_is_constructible_directly() {
     assert!(RelativePath::new("streams/face_on.mkv").is_ok());
-    assert!(RelativePath::new("/streams/face_on.mkv").is_err());
+    for bad in NON_PORTABLE_PATHS {
+        assert!(RelativePath::new(*bad).is_err(), "{bad:?}");
+    }
 }
 
 // --- identifiers -------------------------------------------------------------
@@ -577,17 +786,20 @@ fn a_shot_id_that_could_not_be_a_directory_name_fails() {
 
 #[test]
 fn validation_reports_every_problem_at_once() {
+    // `created_at`, `shot_id` and the paths are absent here on purpose: those
+    // now fail during deserialization, which stops at the first problem. What
+    // this test covers is the semantic layer, which collects.
     let json = tweaked(&capture_example(), |value| {
         value["streams"][0]["width"] = json!(0);
+        value["streams"][0]["height"] = json!(0);
         value["streams"][0]["frame_count"] = json!(0);
         value["streams"][1]["nominal_fps"] = json!(-1.0);
-        value["created_at"] = json!("");
     });
 
     let message = expect_invalid(CaptureManifest::from_json_str(&json).unwrap_err());
     for expected in [
-        "created_at",
         "streams[0].width",
+        "streams[0].height",
         "streams[0].frame_count",
         "streams[1].nominal_fps",
     ] {

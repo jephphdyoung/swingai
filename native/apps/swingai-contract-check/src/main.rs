@@ -129,13 +129,6 @@ fn check_capture(path: &Path) -> Result<String, CheckError> {
         }
     }
 
-    if manifest.schema_version.is_newer_than_current() {
-        summary.push_str(
-            "\n  note: written by a newer minor version; unrecognised fields were preserved, \
-             not understood",
-        );
-    }
-
     Ok(summary)
 }
 
@@ -173,13 +166,6 @@ fn check_analysis(path: &Path) -> Result<String, CheckError> {
             "\n  warning [{}] {}",
             warning.code, warning.message
         ));
-    }
-
-    if result.schema_version.is_newer_than_current() {
-        summary.push_str(
-            "\n  note: written by a newer minor version; unrecognised fields were preserved, \
-             not understood",
-        );
     }
 
     Ok(summary)
