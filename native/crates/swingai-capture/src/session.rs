@@ -3,8 +3,8 @@ use std::time::Duration;
 use swingai_core::{CameraId, Timestamp};
 
 use crate::{
-    CameraDescriptor, CaptureError, CapturedFrame, FrameRingBuffer, RingBufferConfig,
-    ShotExtraction,
+    CameraDescriptor, CaptureError, CapturedFrame, FrameRingBuffer, PreRollWindow,
+    RingBufferConfig, ShotExtraction,
 };
 
 /// A capture session: one ring buffer per camera, one shared clock, and a
@@ -91,10 +91,12 @@ impl CaptureSession {
     /// window — which is the honest answer, and the reason nothing here converts
     /// the pre-roll into a frame count.
     ///
-    /// The requested start is floored at the session origin: the origin is zero
-    /// and nothing precedes it, so a pre-roll longer than the trigger's own
-    /// timestamp reaches back to the start of the session and is reported as
-    /// incomplete rather than wrapping into a huge number.
+    /// Extraction begins at the session origin when the pre-roll reaches back
+    /// past it, since timestamps are unsigned. That floor is recorded rather
+    /// than forgotten: [`PreRollWindow::reaches_before_origin`] stays true, and
+    /// [`ShotExtraction::full_pre_roll_available`] is consequently `false`. A
+    /// buffer reaching zero does not mean 30 seconds of history existed at a
+    /// trigger 4ms into the session.
     pub fn trigger(
         &self,
         at: Timestamp,
@@ -104,8 +106,7 @@ impl CaptureSession {
             return Err(CaptureError::NoCameras);
         }
 
-        let pre_roll_nanos = u64::try_from(pre_roll.as_nanos()).unwrap_or(u64::MAX);
-        let start = Timestamp::from_nanos(at.as_nanos().saturating_sub(pre_roll_nanos));
+        let window = PreRollWindow::new(at, pre_roll);
 
         let mut streams = Vec::with_capacity(self.buffers.len());
         for buffer in &self.buffers {
@@ -114,20 +115,18 @@ impl CaptureSession {
                 return Err(CaptureError::NoFramesBuffered { camera_id });
             };
 
-            let clip = buffer
-                .extract(start, at)
-                .ok_or(CaptureError::WindowIsEmpty {
-                    camera_id,
-                    start,
-                    end: at,
-                    buffered_from,
-                    buffered_to,
-                })?;
+            let clip = buffer.extract(window).ok_or(CaptureError::WindowIsEmpty {
+                camera_id,
+                start: window.start(),
+                end: window.end(),
+                buffered_from,
+                buffered_to,
+            })?;
 
             streams.push(clip);
         }
 
-        Ok(ShotExtraction::new(at, start, pre_roll, streams))
+        Ok(ShotExtraction::new(window, streams))
     }
 }
 
@@ -193,21 +192,85 @@ mod tests {
         assert!(matches!(error, CaptureError::NoCameras));
     }
 
-    #[test]
-    fn the_window_start_is_floored_at_the_session_origin() {
+    /// A session holding every millisecond since its origin, five frames long.
+    fn four_millisecond_session() -> CaptureSession {
         let mut session = CaptureSession::new();
         session.add_camera(descriptor("cam"), config()).unwrap();
         for i in 0..5u64 {
             session.push(frame("cam", i, i * 1_000_000)).unwrap();
         }
+        session
+    }
 
-        let extraction = session
+    #[test]
+    fn a_pre_roll_longer_than_the_session_extracts_from_zero_but_reports_incomplete() {
+        // The case the first implementation got wrong: the window floors to the
+        // origin, the buffer does reach the origin, and yet 4ms is not 30
+        // seconds. Reaching zero is not evidence that the requested duration
+        // existed.
+        let extraction = four_millisecond_session()
             .trigger(Timestamp::from_nanos(4_000_000), Duration::from_secs(30))
             .unwrap();
-        assert_eq!(extraction.requested_start(), Timestamp::ZERO);
-        assert!(
-            extraction.full_pre_roll_available(),
-            "the buffer reaches the origin, which is as far back as there is"
+
+        assert_eq!(
+            extraction.requested_start(),
+            Timestamp::ZERO,
+            "extraction still begins at the origin — the boundary must stay valid"
         );
+        assert_eq!(
+            extraction.pre_roll(),
+            Duration::from_secs(30),
+            "and the requested duration is remembered rather than rewritten"
+        );
+        assert!(extraction.window().reaches_before_origin());
+        assert!(!extraction.full_pre_roll_available());
+        assert!(
+            !extraction.streams()[0].full_pre_roll_available(),
+            "every affected stream must say so too"
+        );
+
+        // The frames that did exist are still returned.
+        assert_eq!(extraction.streams()[0].frames().len(), 5);
+    }
+
+    #[test]
+    fn a_pre_roll_the_session_can_cover_reports_complete() {
+        let mut session = CaptureSession::new();
+        // Retention and byte cap both wide enough to hold the whole window, so
+        // the only thing under test is the origin arithmetic.
+        let generous = RingBufferConfig::new(Duration::from_secs(30), 1 << 20);
+        session.add_camera(descriptor("cam"), generous).unwrap();
+
+        // A trigger 30s into the session with 5s of pre-roll: the window starts
+        // at 25s, nowhere near the origin. Frames from 24s so the buffer reaches
+        // back past the window start.
+        for i in 24_000..30_001u64 {
+            session.push(frame("cam", i, i * 1_000_000)).unwrap();
+        }
+
+        let extraction = session
+            .trigger(
+                Timestamp::from_nanos(30_000_000_000),
+                Duration::from_secs(5),
+            )
+            .unwrap();
+
+        assert!(!extraction.window().reaches_before_origin());
+        assert!(extraction.full_pre_roll_available());
+        assert!(extraction.streams()[0].full_pre_roll_available());
+    }
+
+    #[test]
+    fn a_trigger_exactly_one_pre_roll_into_the_session_may_be_complete() {
+        // The boundary: `trigger - pre_roll` lands precisely on the origin, so
+        // nothing was floored away and a buffer reaching zero really does have
+        // the whole requested duration.
+        let extraction = four_millisecond_session()
+            .trigger(Timestamp::from_nanos(4_000_000), Duration::from_millis(4))
+            .unwrap();
+
+        assert_eq!(extraction.requested_start(), Timestamp::ZERO);
+        assert!(!extraction.window().reaches_before_origin());
+        assert!(extraction.full_pre_roll_available());
     }
 }

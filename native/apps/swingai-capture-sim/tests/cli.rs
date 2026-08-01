@@ -248,6 +248,79 @@ fn an_existing_shot_id_is_refused_rather_than_overwritten() {
 }
 
 #[test]
+fn a_pre_roll_longer_than_the_session_is_reported_as_incomplete() {
+    // The correctness case: extraction begins at the session origin, but 4ms is
+    // not 30 seconds, and the report has to say which of the two ways of being
+    // short this is.
+    let temp = TempDir::new("before-origin");
+    let output = run(&[
+        "--output",
+        temp.path().to_str().unwrap(),
+        "--trigger-ms",
+        "4",
+        "--pre-roll-ms",
+        "30000",
+    ]);
+    assert!(output.status.success(), "{}", stderr(&output));
+
+    let text = stdout(&output);
+    assert!(
+        text.contains("full pre-roll    no"),
+        "reaching the origin must not be reported as a complete 30s pre-roll:\n{text}"
+    );
+    assert!(
+        text.contains("reaches back past the session origin"),
+        "and it must say which kind of short this is:\n{text}"
+    );
+    assert!(
+        text.contains("pre-roll         30000ms requested"),
+        "the requested duration is reported verbatim, not rewritten to what fit:\n{text}"
+    );
+
+    // A shot is still written, from the frames that did exist.
+    let manifest = manifest(&temp.only_shot());
+    assert_eq!(manifest.streams.len(), 2);
+    assert!(manifest.streams[0].frames.frame_count > 0);
+    assert_eq!(
+        manifest.streams[0].frames.first_timestamp_ns,
+        Timestamp::from_nanos(0),
+        "extraction begins at the origin, which is as far back as the clock goes"
+    );
+}
+
+#[test]
+fn extreme_numeric_arguments_are_reported_rather_than_panicking() {
+    // Three separate overflow guards, each with its own message: the default
+    // retention (pre-roll + 1000), placing the trigger on the session clock at
+    // all, and counting the exposure slots it would take to reach it.
+    let temp = TempDir::new("extremes");
+    let out = temp.path().to_str().unwrap().to_owned();
+
+    for (args, expected) in [
+        (
+            vec!["--output", &out, "--pre-roll-ms", "18446744073709551615"],
+            "leaves no room for the default retention",
+        ),
+        (
+            vec!["--output", &out, "--trigger-ms", "18446744073709551615"],
+            "too large to place on the session clock",
+        ),
+        (
+            // Representable in nanoseconds, but needing ~4.3 trillion exposure
+            // slots -- more than a frame count can hold.
+            vec!["--output", &out, "--trigger-ms", "18000000000"],
+            "exposure slots",
+        ),
+    ] {
+        let output = run(&args);
+        assert_eq!(output.status.code(), Some(2), "for {args:?}");
+        let text = stderr(&output);
+        assert!(text.contains(expected), "for {args:?}: {text}");
+        assert!(!text.contains("panicked"), "for {args:?}: {text}");
+    }
+}
+
+#[test]
 fn bad_arguments_exit_two_and_print_usage() {
     for args in [
         vec![],
@@ -256,6 +329,11 @@ fn bad_arguments_exit_two_and_print_usage() {
         vec!["--output", "/tmp", "--trigger-ms", "soon"],
         vec!["--output", "/tmp", "--pre-roll-ms", "0"],
         vec!["--output", "/tmp", "--shot-id", "bad/id"],
+        // A reserved Windows device name -- rejected by `ShotId`, so the
+        // simulator refuses before it writes anything.
+        vec!["--output", "/tmp", "--shot-id", "NUL"],
+        vec!["--output", "/tmp", "--shot-id", "com1.capture"],
+        vec!["--output", "/tmp", "--shot-id", "trailing."],
     ] {
         let output = run(&args);
         assert_eq!(output.status.code(), Some(2), "for {args:?}");

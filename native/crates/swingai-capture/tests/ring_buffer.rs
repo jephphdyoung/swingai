@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use support::{FRAME_BYTES, HEIGHT, WIDTH, camera, descriptor, frame, mono8, paced_frame, ring};
 use swingai_capture::{
-    CameraView, CaptureError, CapturedFrame, FrameRingBuffer, PixelFormat, Timestamp,
+    CameraView, CaptureError, CapturedFrame, FrameRingBuffer, PixelFormat, PreRollWindow, Timestamp,
 };
 
 const MS: u64 = 1_000_000;
@@ -36,7 +36,10 @@ fn frames_come_back_in_timestamp_order() {
     filled(&mut buffer, 10);
 
     let clip = buffer
-        .extract(Timestamp::ZERO, Timestamp::from_nanos(90 * MS))
+        .extract(PreRollWindow::between(
+            Timestamp::ZERO,
+            Timestamp::from_nanos(90 * MS),
+        ))
         .expect("the whole span");
 
     let timestamps: Vec<u64> = clip
@@ -108,7 +111,10 @@ fn repeated_eviction_leaves_ordering_and_accounting_intact() {
     filled(&mut buffer, 1_000);
 
     let clip = buffer
-        .extract(Timestamp::ZERO, Timestamp::from_nanos(u64::MAX))
+        .extract(PreRollWindow::between(
+            Timestamp::ZERO,
+            Timestamp::from_nanos(u64::MAX),
+        ))
         .expect("something is retained");
 
     let sequences: Vec<u64> = clip.frames().iter().map(CapturedFrame::sequence).collect();
@@ -131,10 +137,10 @@ fn both_boundary_frames_are_included() {
     filled(&mut buffer, 10);
 
     let clip = buffer
-        .extract(
+        .extract(PreRollWindow::between(
             Timestamp::from_nanos(30 * MS),
             Timestamp::from_nanos(60 * MS),
-        )
+        ))
         .expect("a middle slice");
 
     let sequences: Vec<u64> = clip.frames().iter().map(CapturedFrame::sequence).collect();
@@ -155,10 +161,10 @@ fn a_window_between_two_frames_is_empty_rather_than_rounded_to_the_nearest() {
     // Strictly between frame 3 (30ms) and frame 4 (40ms).
     assert!(
         buffer
-            .extract(
+            .extract(PreRollWindow::between(
                 Timestamp::from_nanos(31 * MS),
                 Timestamp::from_nanos(39 * MS)
-            )
+            ))
             .is_none()
     );
 }
@@ -249,7 +255,10 @@ fn a_sequence_gap_is_detected_and_bounded_by_the_frames_around_it() {
     buffer.push(frame("cam", 5, 50 * MS)).unwrap();
 
     let clip = buffer
-        .extract(Timestamp::ZERO, Timestamp::from_nanos(50 * MS))
+        .extract(PreRollWindow::between(
+            Timestamp::ZERO,
+            Timestamp::from_nanos(50 * MS),
+        ))
         .expect("the whole span");
 
     assert_eq!(clip.gaps().len(), 1);
@@ -274,10 +283,10 @@ fn a_gap_outside_the_extracted_window_is_not_reported() {
     buffer.push(frame("cam", 5, 50 * MS)).unwrap();
 
     let clip = buffer
-        .extract(
+        .extract(PreRollWindow::between(
             Timestamp::from_nanos(40 * MS),
             Timestamp::from_nanos(50 * MS),
-        )
+        ))
         .expect("the tail");
 
     assert!(
@@ -301,15 +310,18 @@ fn gap_indexes_are_relative_to_the_clip_not_the_buffer() {
     buffer.push(frame("cam", 7, 70 * MS)).unwrap(); // two missing after seq 4
 
     let whole = buffer
-        .extract(Timestamp::ZERO, Timestamp::from_nanos(70 * MS))
+        .extract(PreRollWindow::between(
+            Timestamp::ZERO,
+            Timestamp::from_nanos(70 * MS),
+        ))
         .unwrap();
     assert_eq!(whole.gaps()[0].after_frame_index, 4);
 
     let tail = buffer
-        .extract(
+        .extract(PreRollWindow::between(
             Timestamp::from_nanos(30 * MS),
             Timestamp::from_nanos(70 * MS),
-        )
+        ))
         .unwrap();
     assert_eq!(
         tail.gaps()[0].after_frame_index,
@@ -324,10 +336,16 @@ fn extraction_shares_payloads_instead_of_copying_them() {
     filled(&mut buffer, 4);
 
     let first = buffer
-        .extract(Timestamp::ZERO, Timestamp::from_nanos(30 * MS))
+        .extract(PreRollWindow::between(
+            Timestamp::ZERO,
+            Timestamp::from_nanos(30 * MS),
+        ))
         .unwrap();
     let second = buffer
-        .extract(Timestamp::ZERO, Timestamp::from_nanos(30 * MS))
+        .extract(PreRollWindow::between(
+            Timestamp::ZERO,
+            Timestamp::from_nanos(30 * MS),
+        ))
         .unwrap();
 
     for (a, b) in first.frames().iter().zip(second.frames()) {
@@ -349,7 +367,10 @@ fn eviction_after_extraction_leaves_the_clip_intact() {
     let mut buffer = buffer(35, 1 << 20);
     filled(&mut buffer, 4);
     let clip = buffer
-        .extract(Timestamp::ZERO, Timestamp::from_nanos(30 * MS))
+        .extract(PreRollWindow::between(
+            Timestamp::ZERO,
+            Timestamp::from_nanos(30 * MS),
+        ))
         .unwrap();
 
     filled_from(&mut buffer, 4, 100);

@@ -327,6 +327,14 @@ cargo run -p swingai-capture-sim -- --output /tmp/shots --pre-roll-ms 3000 --tri
 run prints the trigger, per-stream frame counts and timestamp spans, detected dropped
 frames, whether the full pre-roll was available, and the manifest validation result.
 
+A pre-roll can come up short in two different ways, and the report says which. If the
+requested duration reaches back past the session origin — `--trigger-ms 4 --pre-roll-ms
+30000` — then that much history never existed for any camera, and no buffer setting would
+have helped. If instead a particular camera does not reach the start of the window, it is
+named, and retention or a late start is the cause. Extraction still begins at the session
+origin either way and still returns the frames that did exist; reaching timestamp zero is
+reported as reaching zero, never as having satisfied a longer request.
+
 It writes:
 
 ```text

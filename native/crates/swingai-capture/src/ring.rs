@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use swingai_core::{Timestamp, ValidationErrors};
 
-use crate::{CameraDescriptor, CaptureError, CapturedFrame, ClipGap, StreamClip};
+use crate::{CameraDescriptor, CaptureError, CapturedFrame, ClipGap, PreRollWindow, StreamClip};
 
 /// How much history one camera's buffer keeps.
 ///
@@ -290,13 +290,20 @@ impl FrameRingBuffer {
         }
     }
 
-    /// The frames whose timestamps fall in `[start, end]`, inclusive at both
-    /// ends, or `None` if there are none.
+    /// The frames whose timestamps fall inside `window`, inclusive at both ends,
+    /// or `None` if there are none.
+    ///
+    /// Takes a [`PreRollWindow`] rather than a bare pair of instants because the
+    /// clip has to carry more than the range it covers: whether the *requested*
+    /// duration was expressible at all is not recoverable from `start` and `end`
+    /// once the start has been floored at the session origin. Use
+    /// [`PreRollWindow::between`] for a plain range with no trigger behind it.
     ///
     /// Payloads are shared, not copied — the returned frames point at the same
     /// pixels the buffer still holds.
     #[must_use]
-    pub fn extract(&self, start: Timestamp, end: Timestamp) -> Option<StreamClip> {
+    pub fn extract(&self, window: PreRollWindow) -> Option<StreamClip> {
+        let (start, end) = (window.start(), window.end());
         if end < start {
             return None;
         }
@@ -341,7 +348,7 @@ impl FrameRingBuffer {
             frames,
             gaps,
             buffered_from,
-            start,
+            window,
         ))
     }
 }
@@ -470,12 +477,18 @@ mod tests {
         buffer.push(frame(0, 5_000)).unwrap();
         assert!(
             buffer
-                .extract(Timestamp::from_nanos(0), Timestamp::from_nanos(1_000))
+                .extract(PreRollWindow::between(
+                    Timestamp::from_nanos(0),
+                    Timestamp::from_nanos(1_000)
+                ))
                 .is_none()
         );
         assert!(
             buffer
-                .extract(Timestamp::from_nanos(9_000), Timestamp::from_nanos(1_000))
+                .extract(PreRollWindow::between(
+                    Timestamp::from_nanos(9_000),
+                    Timestamp::from_nanos(1_000)
+                ))
                 .is_none(),
             "a backwards window is empty, not a panic"
         );
@@ -486,7 +499,10 @@ mod tests {
         let mut buffer = buffer(1_000, 1_024);
         buffer.push(frame(0, 1_000)).unwrap();
         let clip = buffer
-            .extract(Timestamp::from_nanos(0), Timestamp::from_nanos(2_000))
+            .extract(PreRollWindow::between(
+                Timestamp::from_nanos(0),
+                Timestamp::from_nanos(2_000),
+            ))
             .unwrap();
 
         let buffered = buffer.frames.front().unwrap().payload_handle();

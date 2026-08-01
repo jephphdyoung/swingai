@@ -104,6 +104,10 @@ struct Options {
     pre_roll: Duration,
     retention: Duration,
     shot_id: Option<ShotId>,
+    /// Exposure slots each source runs for, derived from `trigger`. Computed
+    /// during parsing so a trigger too large to build a scenario for is reported
+    /// as the bad argument it is, rather than surfacing later as a failed run.
+    slots: u32,
 }
 
 impl Options {
@@ -146,14 +150,29 @@ impl Options {
             return Err("--trigger-ms must be greater than zero".to_owned());
         }
 
+        // Default retention comfortably exceeds the pre-roll, so the default run
+        // demonstrates a complete window while frames still age out. Checked,
+        // because a pre-roll near u64::MAX would otherwise wrap the default into
+        // something smaller than the pre-roll it is meant to exceed.
+        let retention_ms = match retention_ms {
+            Some(explicit) => explicit,
+            None => pre_roll_ms.checked_add(1_000).ok_or_else(|| {
+                format!(
+                    "--pre-roll-ms {pre_roll_ms} leaves no room for the default retention \
+                     of pre-roll + 1000ms; pass --retention-ms explicitly"
+                )
+            })?,
+        };
+
+        let trigger = Duration::from_millis(trigger_ms);
+
         Ok(Some(Self {
             output,
-            trigger: Duration::from_millis(trigger_ms),
+            trigger,
             pre_roll: Duration::from_millis(pre_roll_ms),
-            // Default retention comfortably exceeds the pre-roll, so the default
-            // run demonstrates a complete window while frames still age out.
-            retention: Duration::from_millis(retention_ms.unwrap_or(pre_roll_ms + 1_000)),
+            retention: Duration::from_millis(retention_ms),
             shot_id,
+            slots: slot_count(trigger)?,
         }))
     }
 }
@@ -166,7 +185,7 @@ fn parse_millis(flag: &str, value: &str) -> Result<u64, String> {
 
 fn run(options: &Options) -> Result<String, String> {
     let trigger = Timestamp::from_nanos(duration_nanos(options.trigger));
-    let slots = slot_count(options.trigger);
+    let slots = options.slots;
 
     let down_the_line = SyntheticSourceConfig {
         first_sequence: 0,
@@ -238,26 +257,59 @@ fn run(options: &Options) -> Result<String, String> {
 }
 
 /// Enough exposure slots to reach the trigger and keep going briefly after it.
-fn slot_count(trigger: Duration) -> u32 {
-    let span = duration_nanos(trigger) + duration_nanos(POST_TRIGGER_TAIL);
-    let interval = duration_nanos(FRAME_INTERVAL);
-    u32::try_from(span / interval + 1).unwrap_or(u32::MAX)
+///
+/// Fails rather than saturates on an absurd trigger: a slot count that does not
+/// fit in `u32` is not a scenario this can run, and clamping to `u32::MAX` would
+/// turn "you asked for something impossible" into a run that quietly generates
+/// four billion frames. The limit is the config field's own type, not a number
+/// picked here.
+fn slot_count(trigger: Duration) -> Result<u32, String> {
+    let span = duration_nanos(trigger)
+        .checked_add(duration_nanos(POST_TRIGGER_TAIL))
+        .ok_or_else(|| {
+            format!(
+                "--trigger-ms {:.0} is too large to place on the session clock",
+                trigger.as_secs_f64() * 1_000.0
+            )
+        })?;
+
+    let slots = span / duration_nanos(FRAME_INTERVAL) + 1;
+    u32::try_from(slots).map_err(|_| {
+        format!(
+            "--trigger-ms {:.0} needs {slots} exposure slots at {NOMINAL_FPS}fps, \
+             more than a frame count can hold",
+            trigger.as_secs_f64() * 1_000.0
+        )
+    })
 }
 
 /// Two consecutive frames dropped halfway through the requested window, so the
 /// gap always lands inside the extracted clip rather than only with the default
 /// arguments.
+///
+/// Empty when the source is too short to hold a gap: one needs a delivered frame
+/// on each side, so the slot has to be neither the first nor within two of the
+/// last.
 fn planned_gap(config: &SyntheticSourceConfig, options: &Options) -> BTreeSet<u64> {
+    let Some(last_slot) = u64::from(config.frame_count).checked_sub(1) else {
+        return BTreeSet::new();
+    };
+    let Some(highest_usable) = last_slot.checked_sub(2) else {
+        return BTreeSet::new();
+    };
+    if highest_usable < 1 {
+        return BTreeSet::new();
+    }
+
     let midpoint =
         duration_nanos(options.trigger).saturating_sub(duration_nanos(options.pre_roll) / 2);
     let start = config.first_timestamp.as_nanos();
-    let slot = midpoint.saturating_sub(start) / duration_nanos(FRAME_INTERVAL);
+    let slot =
+        (midpoint.saturating_sub(start) / duration_nanos(FRAME_INTERVAL)).clamp(1, highest_usable);
 
-    // Never the first or last slot: a gap needs a delivered frame on each side
-    // to be expressible at all.
-    let last_slot = u64::from(config.frame_count) - 1;
-    let slot = slot.clamp(1, last_slot.saturating_sub(2));
-
+    // `first_sequence + slot + 1` cannot overflow: the source's own validation
+    // proves `first_sequence + frame_count - 1` is representable, and
+    // `slot + 1 <= frame_count - 2`.
     BTreeSet::from([
         config.first_sequence + slot,
         config.first_sequence + slot + 1,
@@ -270,6 +322,42 @@ fn duration_nanos(duration: Duration) -> u64 {
 
 fn millis(timestamp: Timestamp) -> f64 {
     timestamp.as_secs_f64() * 1_000.0
+}
+
+/// Why the pre-roll is or is not complete.
+///
+/// The two ways of being short are worth telling apart. A window reaching before
+/// the session origin means that much history never existed for anyone, and no
+/// buffer setting would have helped; a camera not reaching the window start
+/// means retention or a late start, which is fixable. Printing a bare "no" for
+/// both would hide which one the operator is looking at.
+fn availability(extraction: &ShotExtraction) -> String {
+    let window = extraction.window();
+
+    if window.reaches_before_origin() {
+        return format!(
+            "no — the requested {:.0}ms reaches back past the session origin; only {:.0}ms \
+             of session exists before the trigger",
+            window.pre_roll().as_secs_f64() * 1_000.0,
+            window.expressible_span().as_secs_f64() * 1_000.0,
+        );
+    }
+
+    if extraction.full_pre_roll_available() {
+        return "yes".to_owned();
+    }
+
+    let short: Vec<&str> = extraction
+        .streams()
+        .iter()
+        .filter(|clip| !clip.full_pre_roll_available())
+        .map(|clip| clip.descriptor().camera_id.as_str())
+        .collect();
+
+    format!(
+        "no — {} did not reach the start of the window",
+        short.join(", ")
+    )
 }
 
 fn report(extraction: &ShotExtraction, written: &WrittenShot) -> String {
@@ -290,16 +378,18 @@ fn report(extraction: &ShotExtraction, written: &WrittenShot) -> String {
         manifest.created_at,
     ));
 
+    let window = extraction.window();
     report.push_str(&format!(
         "trigger          {} ({:.3}ms on the capture-session clock)\n\
-         pre-roll         {:.0}ms requested — window [{}, {}]\n\
+         pre-roll         {:.0}ms requested — extracted from {} to {} ({:.0}ms)\n\
          full pre-roll    {}\n",
         extraction.trigger_timestamp(),
         millis(extraction.trigger_timestamp()),
-        extraction.pre_roll().as_secs_f64() * 1_000.0,
-        extraction.requested_start(),
-        extraction.trigger_timestamp(),
-        yes_no(extraction.full_pre_roll_available()),
+        window.pre_roll().as_secs_f64() * 1_000.0,
+        window.start(),
+        window.end(),
+        window.expressible_span().as_secs_f64() * 1_000.0,
+        availability(extraction),
     ));
 
     for (clip, directory) in extraction.streams().iter().zip(&written.stream_directories) {

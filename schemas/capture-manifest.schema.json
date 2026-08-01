@@ -11,8 +11,8 @@
       "description": "Contract version. Only the exact supported version is accepted; there is no minor-version compatibility yet, so writer and reader move together."
     },
     "shot_id": {
-      "$ref": "#/$defs/nonEmptyString",
-      "description": "Stable identifier for this shot. Shared with the analysis result. Must be usable as a directory name."
+      "$ref": "#/$defs/identifier",
+      "description": "Stable identifier for this shot. Shared with the analysis result, and used verbatim as the shot directory's name."
     },
     "created_at": {
       "$ref": "#/$defs/rfc3339DateTime",
@@ -37,6 +37,21 @@
     "nonEmptyString": {
       "type": "string",
       "minLength": 1
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A shot or camera identifier. Must be usable verbatim as a directory name on every host SwingAI runs on, so the rules are Windows' — the booth is a Windows machine and a shot folder is meant to be copied between hosts, so the stricter platform sets the rule. Rejected: / \\ : * ? \" < > | and control characters; \".\" and \"..\"; a trailing period or space, which Windows silently strips, so \"shot.\" and \"shot\" would name one directory; and the reserved DOS device names CON, PRN, AUX, NUL, COM1-COM9 and LPT1-LPT9 in any case, with or without an extension, because \"nul.capture\" still names the null device. These mirror the rules swingai-core's ShotId and CameraId enforce; the two sides of the seam must not disagree about what an id may be.",
+      "allOf": [
+        { "pattern": "^[^/\\\\:*?\"<>|\\u0000-\\u001f\\u007f-\\u009f]+$" },
+        { "not": { "pattern": "[. ]$" } },
+        {
+          "not": {
+            "pattern": "^(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|(?:[Cc][Oo][Mm]|[Ll][Pp][Tt])[1-9])(?:\\.|$)"
+          }
+        }
+      ],
+      "examples": ["2026-07-31T14-22-05.412Z", "fox-dtl"]
     },
     "rfc3339DateTime": {
       "type": "string",
@@ -144,8 +159,8 @@
       ],
       "properties": {
         "camera_id": {
-          "$ref": "#/$defs/nonEmptyString",
-          "description": "Stable logical identifier for the camera, chosen by the operator (e.g. \"fox-dtl\"). Unique within a manifest."
+          "$ref": "#/$defs/identifier",
+          "description": "Stable logical identifier for the camera, chosen by the operator (e.g. \"fox-dtl\"). Unique within a manifest, and used as a directory-name component when two cameras share a view."
         },
         "serial_number": {
           "$ref": "#/$defs/nonEmptyString",

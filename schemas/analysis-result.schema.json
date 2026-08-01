@@ -11,8 +11,8 @@
       "description": "Contract version. Only the exact supported version is accepted; there is no minor-version compatibility yet, so writer and reader move together."
     },
     "shot_id": {
-      "$ref": "#/$defs/nonEmptyString",
-      "description": "The shot this result describes. Matches the capture manifest."
+      "$ref": "#/$defs/identifier",
+      "description": "The shot this result describes. Matches the capture manifest, and obeys the same identifier rules — an id one document accepts and the other rejects could not be matched up at all."
     },
     "analyzer": {
       "type": "object",
@@ -65,6 +65,21 @@
     "nonEmptyString": {
       "type": "string",
       "minLength": 1
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A shot identifier. Must be usable verbatim as a directory name on every host SwingAI runs on, so the rules are Windows' — the booth is a Windows machine and a shot folder is meant to be copied between hosts, so the stricter platform sets the rule. Rejected: / \\ : * ? \" < > | and control characters; \".\" and \"..\"; a trailing period or space, which Windows silently strips, so \"shot.\" and \"shot\" would name one directory; and the reserved DOS device names CON, PRN, AUX, NUL, COM1-COM9 and LPT1-LPT9 in any case, with or without an extension, because \"nul.capture\" still names the null device. These mirror the rules swingai-core's ShotId and CameraId enforce; the two sides of the seam must not disagree about what an id may be.",
+      "allOf": [
+        { "pattern": "^[^/\\\\:*?\"<>|\\u0000-\\u001f\\u007f-\\u009f]+$" },
+        { "not": { "pattern": "[. ]$" } },
+        {
+          "not": {
+            "pattern": "^(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|(?:[Cc][Oo][Mm]|[Ll][Pp][Tt])[1-9])(?:\\.|$)"
+          }
+        }
+      ],
+      "examples": ["2026-07-31T14-22-05.412Z"]
     },
     "rfc3339DateTime": {
       "type": "string",

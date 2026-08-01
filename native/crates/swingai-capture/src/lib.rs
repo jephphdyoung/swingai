@@ -63,7 +63,7 @@ mod source;
 mod synthetic;
 mod writer;
 
-pub use clip::{ClipGap, ShotExtraction, StreamClip};
+pub use clip::{ClipGap, PreRollWindow, ShotExtraction, StreamClip};
 pub use clock::{now_utc, shot_id_for};
 pub use error::{CaptureError, WriteError};
 pub use frame::CapturedFrame;

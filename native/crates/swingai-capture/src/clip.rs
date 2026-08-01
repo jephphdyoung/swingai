@@ -21,6 +21,107 @@ pub struct ClipGap {
     pub after_frame_index: u32,
 }
 
+/// The interval a trigger asked for, and whether the session clock could express
+/// all of it.
+///
+/// # Three facts, kept apart on purpose
+///
+/// - [`start`](Self::start) — where extraction actually began. Floored at the
+///   session origin, because timestamps are unsigned and nothing precedes zero.
+/// - [`pre_roll`](Self::pre_roll) — the duration that was *asked for*.
+/// - [`reaches_before_origin`](Self::reaches_before_origin) — whether that
+///   duration extended past the origin, so `start` is the floor rather than the
+///   instant requested.
+///
+/// Collapsing the third into the first is a bug this type exists to prevent. A
+/// trigger at 4ms asking for 30 seconds of pre-roll floors to `start == 0`, and
+/// a buffer holding everything since the session began does reach zero — so a
+/// check of "did the buffer reach `start`" alone answers *yes, complete*, for a
+/// clip containing 4ms of a requested 30 seconds. Reaching the origin does not
+/// satisfy a longer requested duration; there simply was not that much history.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PreRollWindow {
+    start: Timestamp,
+    end: Timestamp,
+    pre_roll: Duration,
+    reaches_before_origin: bool,
+}
+
+impl PreRollWindow {
+    /// The window a trigger at `at` reaching back `pre_roll` asks for.
+    #[must_use]
+    pub fn new(at: Timestamp, pre_roll: Duration) -> Self {
+        // A pre-roll too long for `u64` nanoseconds is tracked as its own fact
+        // rather than saturated into one. Saturating alone gets the extreme case
+        // backwards: a pre-roll of 584 billion years clamps to `u64::MAX`
+        // nanoseconds, which compares equal to a trigger at `u64::MAX` and so
+        // looks like it fits — when it is the most obviously impossible request
+        // there is.
+        let (pre_roll_nanos, longer_than_the_clock) = match u64::try_from(pre_roll.as_nanos()) {
+            Ok(nanos) => (nanos, false),
+            Err(_) => (u64::MAX, true),
+        };
+
+        Self {
+            start: Timestamp::from_nanos(at.as_nanos().saturating_sub(pre_roll_nanos)),
+            end: at,
+            pre_roll,
+            reaches_before_origin: longer_than_the_clock || pre_roll_nanos > at.as_nanos(),
+        }
+    }
+
+    /// A plain inclusive range, for extracting without a trigger behind it.
+    ///
+    /// Nothing is floored here — the caller named both ends — so the requested
+    /// duration is by definition expressible.
+    #[must_use]
+    pub fn between(start: Timestamp, end: Timestamp) -> Self {
+        Self {
+            start,
+            end,
+            pre_roll: end.duration_since(start).unwrap_or_default(),
+            reaches_before_origin: false,
+        }
+    }
+
+    /// Where extraction begins. May be the session origin even when more was
+    /// asked for — see [`reaches_before_origin`](Self::reaches_before_origin).
+    #[must_use]
+    pub const fn start(self) -> Timestamp {
+        self.start
+    }
+
+    /// The trigger instant, and the inclusive end of the window.
+    #[must_use]
+    pub const fn end(self) -> Timestamp {
+        self.end
+    }
+
+    /// The duration that was asked for, which is not always the duration
+    /// [`start`](Self::start) and [`end`](Self::end) span.
+    #[must_use]
+    pub const fn pre_roll(self) -> Duration {
+        self.pre_roll
+    }
+
+    /// Whether `end - pre_roll` fell before the session origin.
+    ///
+    /// When true, the requested duration is longer than the session itself and
+    /// no buffer can satisfy it, however full.
+    #[must_use]
+    pub const fn reaches_before_origin(self) -> bool {
+        self.reaches_before_origin
+    }
+
+    /// The duration extraction could actually cover: `end - start`, which is
+    /// shorter than [`pre_roll`](Self::pre_roll) exactly when the window was
+    /// floored.
+    #[must_use]
+    pub fn expressible_span(self) -> Duration {
+        self.end.duration_since(self.start).unwrap_or_default()
+    }
+}
+
 /// One camera's frames for one trigger, already restricted to the requested
 /// window.
 ///
@@ -34,7 +135,7 @@ pub struct StreamClip {
     frames: Vec<CapturedFrame>,
     gaps: Vec<ClipGap>,
     buffered_from: Timestamp,
-    requested_start: Timestamp,
+    window: PreRollWindow,
 }
 
 impl StreamClip {
@@ -47,7 +148,7 @@ impl StreamClip {
         frames: Vec<CapturedFrame>,
         gaps: Vec<ClipGap>,
         buffered_from: Timestamp,
-        requested_start: Timestamp,
+        window: PreRollWindow,
     ) -> Self {
         assert!(!frames.is_empty(), "a stream clip must have frames");
         Self {
@@ -55,7 +156,7 @@ impl StreamClip {
             frames,
             gaps,
             buffered_from,
-            requested_start,
+            window,
         }
     }
 
@@ -97,16 +198,33 @@ impl StreamClip {
         self.buffered_from
     }
 
-    /// Whether the buffer reached back to the start of the requested window.
+    /// The window this clip was extracted for.
+    #[must_use]
+    pub const fn window(&self) -> PreRollWindow {
+        self.window
+    }
+
+    /// Whether the *full requested pre-roll duration* was available.
     ///
-    /// `false` means the pre-roll is short — either the camera had not been
-    /// running long enough, or retention evicted the frames before the trigger
-    /// arrived. Both are the same thing to a caller deciding whether the clip is
-    /// usable, and both are reported rather than silently returning whatever was
-    /// there.
+    /// Two independent ways for this to be `false`, and both must be checked:
+    ///
+    /// - the requested duration reaches before the session origin, so that much
+    ///   history never existed for any camera; or
+    /// - this camera's buffer does not reach the start of the window — either it
+    ///   had not been running long enough, or retention evicted the frames
+    ///   before the trigger arrived.
+    ///
+    /// Checking only the second is what made a 30-second pre-roll at a 4ms
+    /// trigger report complete: the window floors to zero and a buffer that
+    /// starts at zero reaches it. Reaching the origin is not the same as having
+    /// the requested duration behind you.
+    ///
+    /// A `false` here does not mean the clip is empty. The frames that *did*
+    /// exist are still returned; this says only that there are fewer of them
+    /// than were asked for, which is the caller's decision to make.
     #[must_use]
     pub fn full_pre_roll_available(&self) -> bool {
-        self.buffered_from <= self.requested_start
+        !self.window.reaches_before_origin() && self.buffered_from <= self.window.start()
     }
 
     /// Frames the camera reported but that never reached this clip.
@@ -136,42 +254,41 @@ impl StreamClip {
 /// Everything one trigger pulled out of a capture session.
 #[derive(Debug, Clone)]
 pub struct ShotExtraction {
-    trigger_timestamp: Timestamp,
-    requested_start: Timestamp,
-    pre_roll: Duration,
+    window: PreRollWindow,
     streams: Vec<StreamClip>,
 }
 
 impl ShotExtraction {
-    pub(crate) const fn new(
-        trigger_timestamp: Timestamp,
-        requested_start: Timestamp,
-        pre_roll: Duration,
-        streams: Vec<StreamClip>,
-    ) -> Self {
-        Self {
-            trigger_timestamp,
-            requested_start,
-            pre_roll,
-            streams,
-        }
+    pub(crate) const fn new(window: PreRollWindow, streams: Vec<StreamClip>) -> Self {
+        Self { window, streams }
+    }
+
+    /// The window every stream was extracted for.
+    #[must_use]
+    pub const fn window(&self) -> PreRollWindow {
+        self.window
     }
 
     #[must_use]
     pub const fn trigger_timestamp(&self) -> Timestamp {
-        self.trigger_timestamp
+        self.window.end()
     }
 
-    /// The start of the requested window: `trigger - pre_roll`, floored at the
-    /// session origin, since nothing precedes it.
+    /// Where extraction began: `trigger - pre_roll`, floored at the session
+    /// origin.
+    ///
+    /// This is the *actual* start, not proof that the requested duration
+    /// existed — [`window().reaches_before_origin()`](PreRollWindow::reaches_before_origin)
+    /// is what says whether the floor was applied.
     #[must_use]
     pub const fn requested_start(&self) -> Timestamp {
-        self.requested_start
+        self.window.start()
     }
 
+    /// The duration that was asked for.
     #[must_use]
     pub const fn pre_roll(&self) -> Duration {
-        self.pre_roll
+        self.window.pre_roll()
     }
 
     #[must_use]
@@ -179,9 +296,75 @@ impl ShotExtraction {
         &self.streams
     }
 
-    /// Whether every camera reached back to the start of the requested window.
+    /// Whether every camera had the full requested pre-roll duration behind it.
+    ///
+    /// The origin check is stated here as well as per-stream so the answer does
+    /// not depend on the stream list being non-empty: a window reaching before
+    /// the session origin is incomplete regardless of how many cameras agree
+    /// about it.
     #[must_use]
     pub fn full_pre_roll_available(&self) -> bool {
-        self.streams.iter().all(StreamClip::full_pre_roll_available)
+        !self.window.reaches_before_origin()
+            && self.streams.iter().all(StreamClip::full_pre_roll_available)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MS: u64 = 1_000_000;
+
+    #[test]
+    fn a_window_inside_the_session_is_not_floored() {
+        let window = PreRollWindow::new(Timestamp::from_nanos(30_000 * MS), Duration::from_secs(5));
+        assert_eq!(window.start(), Timestamp::from_nanos(25_000 * MS));
+        assert_eq!(window.end(), Timestamp::from_nanos(30_000 * MS));
+        assert!(!window.reaches_before_origin());
+        assert_eq!(window.expressible_span(), Duration::from_secs(5));
+    }
+
+    #[test]
+    fn a_window_longer_than_the_session_floors_and_says_so() {
+        let window = PreRollWindow::new(Timestamp::from_nanos(4 * MS), Duration::from_secs(30));
+
+        assert_eq!(window.start(), Timestamp::ZERO, "floored, as it must be");
+        assert!(window.reaches_before_origin());
+        assert_eq!(
+            window.pre_roll(),
+            Duration::from_secs(30),
+            "and the requested duration is still remembered verbatim"
+        );
+        assert_eq!(
+            window.expressible_span(),
+            Duration::from_millis(4),
+            "which is not what could actually be covered"
+        );
+    }
+
+    #[test]
+    fn a_pre_roll_exactly_as_long_as_the_session_is_not_floored() {
+        // The boundary: `trigger - pre_roll` lands exactly on the origin, which
+        // is expressible, so nothing was lost.
+        let window = PreRollWindow::new(Timestamp::from_nanos(30 * MS), Duration::from_millis(30));
+        assert_eq!(window.start(), Timestamp::ZERO);
+        assert!(!window.reaches_before_origin());
+    }
+
+    #[test]
+    fn a_pre_roll_too_long_for_the_clock_reaches_before_the_origin() {
+        let window = PreRollWindow::new(
+            Timestamp::from_nanos(u64::MAX),
+            Duration::from_secs(u64::MAX),
+        );
+        assert!(window.reaches_before_origin());
+        assert_eq!(window.start(), Timestamp::ZERO);
+    }
+
+    #[test]
+    fn a_plain_range_is_never_treated_as_floored() {
+        let window = PreRollWindow::between(Timestamp::ZERO, Timestamp::from_nanos(10 * MS));
+        assert!(!window.reaches_before_origin());
+        assert_eq!(window.pre_roll(), Duration::from_millis(10));
     }
 }

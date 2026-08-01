@@ -87,21 +87,35 @@ impl SyntheticSourceConfig {
         }
     }
 
-    /// Sequence numbers this config covers: `first_sequence` for `frame_count`.
-    fn sequence_range(&self) -> std::ops::Range<u64> {
-        self.first_sequence..self.first_sequence + u64::from(self.frame_count)
+    /// The highest sequence number this config covers, or `None` if the range
+    /// runs off the end of `u64`.
+    ///
+    /// Checked, and inclusive rather than exclusive: `first_sequence =
+    /// u64::MAX` with one slot is a legal single-frame source, and computing an
+    /// exclusive end would reject it for overflowing on a value nothing ever
+    /// uses.
+    #[must_use]
+    pub fn last_sequence(&self) -> Option<u64> {
+        let slots_after_the_first = u64::from(self.frame_count.checked_sub(1)?);
+        self.first_sequence.checked_add(slots_after_the_first)
+    }
+
+    /// Whether `sequence` is one of this config's slots.
+    fn covers_sequence(&self, sequence: u64) -> bool {
+        self.last_sequence()
+            .is_some_and(|last| (self.first_sequence..=last).contains(&sequence))
     }
 
     /// How many frames actually come out — slots minus planned drops.
     #[must_use]
     pub fn delivered_frame_count(&self) -> u32 {
-        let range = self.sequence_range();
         let missing = self
             .missing_sequences
             .iter()
-            .filter(|sequence| range.contains(sequence))
+            .filter(|sequence| self.covers_sequence(**sequence))
             .count();
-        self.frame_count - u32::try_from(missing).unwrap_or(self.frame_count)
+        self.frame_count
+            .saturating_sub(u32::try_from(missing).unwrap_or(u32::MAX))
     }
 
     /// Timestamp of the last exposure slot, or `None` if the arithmetic
@@ -134,17 +148,31 @@ impl SyntheticSourceConfig {
             );
         }
 
-        let range = self.sequence_range();
-        for sequence in &self.missing_sequences {
-            if !range.contains(sequence) {
-                errors.push(
-                    "missing_sequences",
-                    format!(
-                        "{sequence} is outside this source's sequence range ({}..{})",
-                        range.start, range.end
-                    ),
-                );
+        match self.last_sequence() {
+            Some(last) => {
+                for sequence in &self.missing_sequences {
+                    if !self.covers_sequence(*sequence) {
+                        errors.push(
+                            "missing_sequences",
+                            format!(
+                                "{sequence} is outside this source's sequence range \
+                                 ({}..={last})",
+                                self.first_sequence
+                            ),
+                        );
+                    }
+                }
             }
+            // `frame_count == 0` is reported above; this is the overflow case.
+            None if self.frame_count > 0 => errors.push(
+                "first_sequence",
+                format!(
+                    "{} plus {} slots runs past u64::MAX; the last sequence number \
+                     would not be representable",
+                    self.first_sequence, self.frame_count
+                ),
+            ),
+            None => {}
         }
 
         if self.frame_count > 0 && self.delivered_frame_count() == 0 {
@@ -232,7 +260,14 @@ impl FrameSource for SyntheticSource {
             let slot = self.next_slot;
             self.next_slot += 1;
 
-            let sequence = self.config.first_sequence + u64::from(slot);
+            // Checked, though validation already guarantees it: the last slot's
+            // sequence number was proved representable before this source was
+            // constructed, so there is no reachable overflow left here.
+            let sequence = self
+                .config
+                .first_sequence
+                .checked_add(u64::from(slot))
+                .expect("validation rejected a sequence range that runs past u64::MAX");
             // A planned drop consumes its exposure slot without delivering a
             // frame, so the next frame's timestamp still lands where the camera
             // would have put it.
@@ -318,6 +353,35 @@ mod tests {
         };
         let errors = SyntheticSource::new(config).unwrap_err();
         assert!(errors.to_string().contains("deliver nothing"), "{errors}");
+    }
+
+    #[test]
+    fn a_sequence_range_running_past_u64_max_is_a_validation_error_not_a_panic() {
+        let config = SyntheticSourceConfig {
+            first_sequence: u64::MAX,
+            frame_count: 2,
+            ..config()
+        };
+        assert_eq!(config.last_sequence(), None);
+
+        let errors = SyntheticSource::new(config).unwrap_err();
+        assert!(errors.to_string().contains("past u64::MAX"), "{errors}");
+    }
+
+    #[test]
+    fn a_single_slot_at_the_top_of_the_range_is_still_legal() {
+        // The reason the check is on the *last* sequence rather than an
+        // exclusive end: this source is perfectly well defined.
+        let config = SyntheticSourceConfig {
+            first_sequence: u64::MAX,
+            frame_count: 1,
+            ..config()
+        };
+        assert_eq!(config.last_sequence(), Some(u64::MAX));
+
+        let mut source = SyntheticSource::new(config).expect("a legal single-frame source");
+        assert_eq!(source.next_frame().unwrap().sequence(), u64::MAX);
+        assert!(source.next_frame().is_none());
     }
 
     #[test]

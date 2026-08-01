@@ -49,13 +49,26 @@ pub struct WrittenShot {
 /// is renamed into place only after every frame is on disk and the manifest has
 /// passed the contract's own validation and a full reparse. A rename within one
 /// directory is the closest thing to atomic that a filesystem offers, so a
-/// reader either finds a whole shot or finds nothing. If any step fails the
-/// staging directory is removed, so a failed capture cannot be mistaken for a
-/// short one.
+/// reader either finds a whole shot or finds nothing.
+///
+/// **Every failure removes the staging directory**, the rename's own included —
+/// a failed capture cannot be mistaken for a short one, and a `.partial` left
+/// behind by a crash is cleared by the next attempt at the same shot. Cleanup is
+/// best-effort and never replaces the error that caused it: if the rename fails
+/// *and* the cleanup fails, the caller still sees the rename error, because that
+/// is the one that explains what went wrong.
+///
+/// # The no-overwrite guarantee assumes one writer per output root
 ///
 /// An existing shot directory is never overwritten: it is the record of
 /// something that happened once, and a silent replacement would destroy a
-/// capture to save a retry.
+/// capture to save a retry. That check is an `exists` followed by a `rename`,
+/// which is not atomic — a second process creating the same shot id in between
+/// would have its directory replaced by `fs::rename`. Closing that window needs
+/// a no-replace rename, which has no portable form (`renameat2(RENAME_NOREPLACE)`
+/// on Linux, `MoveFileEx` without `REPLACE_EXISTING` on Windows) and so is
+/// deliberately out of scope here. SwingAI runs one capture writer per booth
+/// against its own output root, and that is the assumption this relies on.
 pub fn write_shot(
     output_root: &Path,
     shot_id: &ShotId,
@@ -74,8 +87,8 @@ pub fn write_shot(
     }
     create_dir(&staging)?;
 
-    match stage_shot(&staging, shot_id, created_at, extraction) {
-        Ok((manifest, stream_directories)) => {
+    let written = stage_shot(&staging, shot_id, created_at, extraction).and_then(
+        |(manifest, stream_directories)| {
             rename(&staging, &destination)?;
             Ok(WrittenShot {
                 manifest_path: destination.join(MANIFEST_FILENAME),
@@ -83,14 +96,17 @@ pub fn write_shot(
                 manifest,
                 stream_directories,
             })
-        }
-        Err(error) => {
-            // Best effort: the original failure is what the caller needs to see,
-            // and a leftover `.partial` directory is inert — it is not a shot.
-            let _ = fs::remove_dir_all(&staging);
-            Err(error)
-        }
+        },
+    );
+
+    if written.is_err() {
+        // Best effort, and after the fact rather than instead of: the caller
+        // needs the original failure, and a leftover `.partial` directory is
+        // inert — it is not a shot, and the next attempt clears it anyway.
+        let _ = fs::remove_dir_all(&staging);
     }
+
+    written
 }
 
 /// Everything that happens inside the staging directory, so the caller can clean
@@ -281,7 +297,7 @@ mod tests {
     use swingai_core::{CameraId, CameraView, Timestamp};
 
     use super::*;
-    use crate::{CameraDescriptor, ClipGap};
+    use crate::{CameraDescriptor, ClipGap, PreRollWindow};
 
     fn clip(id: &str, view: CameraView) -> StreamClip {
         let descriptor = CameraDescriptor {
@@ -306,7 +322,7 @@ mod tests {
             frames,
             Vec::new(),
             Timestamp::ZERO,
-            Timestamp::ZERO,
+            PreRollWindow::between(Timestamp::ZERO, Timestamp::ZERO),
         )
     }
 
@@ -364,7 +380,13 @@ mod tests {
             missing_frame_count: 2,
             after_frame_index: 1,
         }];
-        let clip = StreamClip::new(descriptor, frames, gaps, Timestamp::ZERO, Timestamp::ZERO);
+        let clip = StreamClip::new(
+            descriptor,
+            frames,
+            gaps,
+            Timestamp::ZERO,
+            PreRollWindow::between(Timestamp::ZERO, Timestamp::from_nanos(20_000_000)),
+        );
 
         let stream = stream_manifest(&clip, "face_on").unwrap();
         assert_eq!(stream.gaps.len(), 1);

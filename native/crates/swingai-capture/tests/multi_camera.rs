@@ -272,6 +272,78 @@ fn retention_that_evicted_the_pre_roll_reports_the_same_way() {
 }
 
 #[test]
+fn a_window_reaching_before_the_session_origin_is_incomplete_for_every_camera() {
+    // Two cameras that have both run since the origin and dropped nothing. The
+    // window still cannot be satisfied, because the requested duration is longer
+    // than the session — and no per-camera buffer state can change that.
+    let mut session = CaptureSession::new();
+    for (id, view) in [
+        ("dtl", CameraView::DownTheLine),
+        ("face-on", CameraView::FaceOn),
+    ] {
+        add_and_run(&mut session, source_config(id, view, 40), generous());
+    }
+
+    let extraction = session
+        .trigger(Timestamp::from_nanos(100 * MS), Duration::from_secs(30))
+        .expect("the frames that exist are still extractable");
+
+    assert!(extraction.window().reaches_before_origin());
+    assert!(
+        !extraction.full_pre_roll_available(),
+        "a 30s pre-roll at a 100ms trigger cannot be complete, however full the buffers"
+    );
+    for clip in extraction.streams() {
+        assert!(
+            !clip.full_pre_roll_available(),
+            "{} must report incomplete too",
+            clip.descriptor().camera_id
+        );
+        assert_eq!(
+            clip.buffered_from(),
+            Timestamp::ZERO,
+            "even though it does reach the origin"
+        );
+    }
+
+    // Extraction still begins at the origin and still returns frames.
+    assert_eq!(extraction.requested_start(), Timestamp::ZERO);
+    assert_eq!(extraction.pre_roll(), Duration::from_secs(30));
+    for clip in extraction.streams() {
+        assert!(!clip.frames().is_empty());
+    }
+}
+
+#[test]
+fn one_camera_short_of_the_window_makes_the_whole_extraction_incomplete() {
+    // The other way of being incomplete: the window is expressible, but a camera
+    // does not reach its start. The two must not be confused, so both are
+    // asserted against `reaches_before_origin`.
+    let mut session = CaptureSession::new();
+
+    let mut late = source_config("late", CameraView::FaceOn, 30);
+    late.first_timestamp = Timestamp::from_nanos(200 * MS);
+    add_and_run(&mut session, late, generous());
+    add_and_run(
+        &mut session,
+        source_config("early", CameraView::DownTheLine, 60),
+        generous(),
+    );
+
+    let extraction = session
+        .trigger(Timestamp::from_nanos(250 * MS), Duration::from_millis(150))
+        .unwrap();
+
+    assert!(
+        !extraction.window().reaches_before_origin(),
+        "the window itself is perfectly expressible"
+    );
+    assert!(!extraction.full_pre_roll_available());
+    assert!(!clip(&extraction, "late").full_pre_roll_available());
+    assert!(clip(&extraction, "early").full_pre_roll_available());
+}
+
+#[test]
 fn a_duplicate_camera_id_is_rejected() {
     let mut session = CaptureSession::new();
     session
