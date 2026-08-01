@@ -239,9 +239,11 @@ soft-real-time parts a 240fps two-camera capture booth needs and Python is a poo
 The reasoning, and what is deliberately *not* decided yet, is in
 **[docs/adr/0001-hybrid-rust-python-runtime.md](docs/adr/0001-hybrid-rust-python-runtime.md)**.
 
-**Direct Fox camera support is not implemented.** There is no camera code, no ring buffer
-and no MVS SDK binding in the workspace today — only the contracts the two sides will
-speak. Captures still come from Swing Catalyst.
+**Fox/MVS camera support and microphone triggering are not implemented.** There is no
+camera code, no audio capture and no MVS SDK binding in the workspace. What exists is the
+contracts the two sides speak, and — since `swingai-capture` — the capture model behind
+them, driven by deterministic synthetic sources rather than hardware. Real captures still
+come from Swing Catalyst.
 
 ### The seam: versioned JSON
 
@@ -300,6 +302,58 @@ rustup target add x86_64-pc-windows-msvc
 cargo check --workspace --all-targets --target x86_64-pc-windows-msvc
 ```
 
+### The capture simulator
+
+`swingai-capture-sim` runs one deterministic two-camera capture and writes a complete shot
+directory. **There are no cameras and no microphone involved** — both streams come from a
+synthetic source that computes its own frames and timestamps, so the run takes no
+wall-clock time and produces the same pixels every time.
+
+What it demonstrates is the part that will not change when real cameras arrive: two
+independent streams on one capture-session clock, a manual trigger, a pre-roll extracted
+**by timestamp** from each stream separately, and a `capture-manifest.json` the contract
+types accept. The scenario deliberately makes the two cameras disagree — different start
+instants, different sequence numbering, different frame counts, and a planned two-frame
+drop on the face-on camera — because a capture model that only works when both cameras
+behave identically has not been tested at all.
+
+```bash
+cd native
+cargo run -p swingai-capture-sim -- --output /tmp/shots --pre-roll-ms 3000 --trigger-ms 5000
+```
+
+`--retention-ms` (per-camera ring-buffer depth, default pre-roll + 1000) and `--shot-id`
+(default: derived from the wall clock) are the other two flags; `--help` lists them. The
+run prints the trigger, per-stream frame counts and timestamp spans, detected dropped
+frames, whether the full pre-roll was available, and the manifest validation result.
+
+It writes:
+
+```text
+<output>/<shot-id>/
+├── capture-manifest.json
+└── streams/
+    ├── down_the_line/
+    │   ├── frame_000000.pgm
+    │   └── ...
+    └── face_on/
+        ├── frame_000000.pgm
+        └── ...
+```
+
+Frames are 8-bit grayscale PGM — a header and a block of bytes, so no image dependency and
+no codec decision, which is one ADR 0001 defers until we know what the cameras deliver.
+Filenames are numbered contiguously from zero *within the clip*; the source's own sequence
+numbers stay in memory, where they do their one job (detecting dropped frames) and never
+become something downstream could mistake for a position. An existing shot directory is
+never overwritten, and a failed write leaves nothing behind that looks like a shot.
+
+Validate what it wrote with the same checker the contract examples use:
+
+```bash
+cargo run -p swingai-contract-check -- capture /tmp/shots/<shot-id>/capture-manifest.json
+```
+
 ### Validate the example contracts
 
 ```bash
@@ -327,14 +381,18 @@ native/
 ├── crates/
 │   ├── swingai-core/                 # ShotId, CameraId, CameraView, Timestamp,
 │   │                                 #   FrameSequence, PixelFormat, validation errors
-│   └── swingai-contracts/            # the two JSON contracts as Serde types
+│   ├── swingai-contracts/            # the two JSON contracts as Serde types
+│   └── swingai-capture/              # frame sources, per-camera ring buffers,
+│                                     #   trigger extraction, shot-directory writer
 └── apps/
-    └── swingai-contract-check/       # CLI validator
+    ├── swingai-contract-check/       # CLI validator
+    └── swingai-capture-sim/          # deterministic two-camera capture, one shot
 ```
 
 `swingai-core` and `swingai-contracts` are platform-neutral by rule, not by accident —
 a test scans them for `cfg(windows)` and friends. Platform-specific code will live in a
-capture crate behind a trait when it arrives.
+capture crate behind a trait when it arrives; `swingai-capture` is where that trait
+(`FrameSource`) now lives, though nothing implementing it is platform-specific yet.
 
 ## TODOs
 
