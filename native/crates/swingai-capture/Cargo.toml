@@ -1,0 +1,20 @@
+[package]
+name = "swingai-capture"
+description = "Timestamp-based frame ring buffers, capture-session extraction, and the shot-directory writer for the SwingAI native runtime."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+swingai-core = { workspace = true }
+swingai-contracts = { workspace = true }
+# Wall-clock `created_at`, and the shot id derived from it. `parsing` comes from
+# the workspace definition; `formatting` is added here because this is the first
+# crate that *writes* an RFC 3339 string rather than only checking one. Date
+# arithmetic and formatting are the crate's job, never hand-rolled.
+time = { workspace = true, features = ["formatting"] }
+
+[lints]
+workspace = true

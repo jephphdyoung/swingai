@@ -1,0 +1,19 @@
+[package]
+name = "swingai-capture-sim"
+description = "Runs a deterministic two-camera capture scenario and writes one SwingAI shot directory."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+swingai-capture = { workspace = true }
+
+# Tests reparse the generated manifest with the same types the analysis side
+# will use, rather than trusting the simulator's own report of its work.
+[dev-dependencies]
+swingai-contracts = { workspace = true }
+
+[lints]
+workspace = true
