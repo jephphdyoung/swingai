@@ -1,0 +1,28 @@
+[workspace]
+resolver = "3"
+members = ["crates/swingai-core", "crates/swingai-contracts", "apps/swingai-contract-check"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/jephphdyoung/swingai"
+
+[workspace.dependencies]
+swingai-core = { path = "crates/swingai-core" }
+swingai-contracts = { path = "crates/swingai-contracts" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+# RFC 3339 parsing for `created_at`. `time`'s `well_known::Rfc3339` is precisely
+# RFC 3339 rather than a superset, which matters for a wire contract. Default
+# features are off so no timezone database or platform clock is pulled in — the
+# crates that use this must stay platform-neutral.
+time = { version = "0.3", default-features = false, features = ["std", "parsing"] }
+
+[workspace.lints.rust]
+missing_debug_implementations = "warn"
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

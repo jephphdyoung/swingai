@@ -1,0 +1,16 @@
+[package]
+name = "swingai-contracts"
+description = "Rust types for the versioned JSON contracts exchanged between SwingAI capture and analysis."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+swingai-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

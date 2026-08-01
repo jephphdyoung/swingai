@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://swingai.local/schemas/analysis-result.schema.json",
+  "title": "SwingAI analysis result",
+  "description": "What an analyzer concluded about one captured shot. Written by the Python analysis pipeline, read by the Rust runtime. Times are integer nanoseconds on the same capture-session clock as the capture manifest for the same shot_id; see docs/adr/0001-hybrid-rust-python-runtime.md.",
+  "type": "object",
+  "required": ["schema_version", "shot_id", "analyzer", "created_at", "status", "events"],
+  "properties": {
+    "schema_version": {
+      "$ref": "#/$defs/schemaVersion",
+      "description": "Contract version. Only the exact supported version is accepted; there is no minor-version compatibility yet, so writer and reader move together."
+    },
+    "shot_id": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "The shot this result describes. Matches the capture manifest."
+    },
+    "analyzer": {
+      "type": "object",
+      "description": "Which analyzer produced this. Results are only comparable within one name+version.",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "version": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "created_at": {
+      "$ref": "#/$defs/rfc3339DateTime",
+      "description": "Wall-clock time the analysis finished. For humans and filing only."
+    },
+    "status": {
+      "enum": ["ok", "partial", "failed"],
+      "description": "ok: everything asked for was produced, and errors is empty. partial: usable output with something missing — see warnings. failed: no usable output; events may be empty."
+    },
+    "events": {
+      "type": "array",
+      "description": "Detected swing events, e.g. the P-positions. May be empty when status is failed.",
+      "items": { "$ref": "#/$defs/swingEvent" }
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Non-fatal problems. Present output is still usable.",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "errors": {
+      "type": "array",
+      "description": "Fatal problems. Must be empty when status is \"ok\".",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "measurements": {
+      "type": "object",
+      "description": "Scalar measurements keyed by name, e.g. \"tempo_ratio\" or \"backswing_duration_ms\". Deliberately a flat open map — biomechanics is not modelled here yet.",
+      "additionalProperties": { "$ref": "#/$defs/measurement" }
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "Files the analysis produced, such as an overlay render or a chart.",
+      "items": { "$ref": "#/$defs/artifact" }
+    }
+  },
+  "$defs": {
+    "schemaVersion": {
+      "const": "1.0",
+      "description": "The only version this contract revision defines. A later ADR may introduce minor-version compatibility; until then a mismatch is an error rather than a partial read."
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rfc3339DateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?([Zz]|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "An RFC 3339 date-time, e.g. \"2026-07-31T14:22:05.412Z\" or \"2026-07-31T16:22:05.412+02:00\". An offset is required. The pattern is present as well as \"format\" because most JSON Schema validators treat \"format\" as an annotation unless a format checker is installed. The pattern is structural only — it cannot reject an impossible calendar date such as 2026-02-30, which the Rust implementation does.",
+      "examples": ["2026-07-31T14:22:05.412Z", "2026-07-31T16:22:05.412+02:00"]
+    },
+    "timestampNs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Nanoseconds since the capture session's monotonic origin, the same clock as the capture manifest for this shot_id. The persisted origin is zero, so values are session-relative and are only comparable within one session. Nonnegative because nothing in a session precedes its own origin."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Forward-slash path relative to the directory containing this result, e.g. \"artifacts/overlay.mp4\". Host-independent: backslashes are rejected outright on every platform, which also rules out C:\\..., UNC \\\\server\\share, extended-length \\\\?\\C:\\..., and rooted \\... spellings. Must not be absolute, must not name a drive, and must not escape the directory with \"..\".",
+      "pattern": "^[^\\\\]*$",
+      "not": {
+        "anyOf": [
+          { "pattern": "^/" },
+          { "pattern": "^[A-Za-z]:" },
+          { "pattern": "(^|/)\\.\\.(/|$)" }
+        ]
+      }
+    },
+    "swingEvent": {
+      "type": "object",
+      "description": "One detected instant in the swing.",
+      "required": ["name", "timestamp_ns", "confidence"],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Event label, e.g. \"P1\" or \"impact\". Free-form on purpose: the two Python detection paths disagree about whether the velocity peak is P6 or P7 (see CLAUDE.md), and this contract does not adjudicate that."
+        },
+        "timestamp_ns": {
+          "$ref": "#/$defs/timestampNs",
+          "description": "The analyzer's best estimate of when the event happened."
+        },
+        "range": {
+          "type": "object",
+          "description": "Plausible bounds on the event. Must contain timestamp_ns.",
+          "required": ["start_timestamp_ns", "end_timestamp_ns"],
+          "properties": {
+            "start_timestamp_ns": { "$ref": "#/$defs/timestampNs" },
+            "end_timestamp_ns": { "$ref": "#/$defs/timestampNs" }
+          }
+        },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "metadata": {
+          "type": "object",
+          "description": "Analyzer-specific extras (which view resolved it, which rule fired). Opaque to the contract; round-tripped unchanged.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "description": "A warning or an error.",
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Stable machine-readable identifier, e.g. \"club_track_failed\"."
+        },
+        "message": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Human-readable explanation."
+        },
+        "context": {
+          "type": "object",
+          "description": "Structured detail about this occurrence.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "number" },
+        "unit": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Free-form unit label, e.g. \"ms\", \"deg\", \"ratio\"."
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "What this file is, e.g. \"overlay_video\" or \"chart\". Open set."
+        },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "description": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}
