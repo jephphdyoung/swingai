@@ -78,11 +78,20 @@ def load_view_angle(video_path: str) -> Optional[str]:
 
 def save_annotations(video_path: str, positions: dict[str, int], fps: float,
                      view_angle: Optional[str] = None,
-                     handedness: Optional[str] = None) -> None:
-    """Save P-position annotations for a video, under the canonical definitions."""
+                     handedness: Optional[str] = None,
+                     convention: Optional[str] = None) -> None:
+    """Save P-position annotations for a video.
+
+    Saving never verifies anything. A new entry is recorded under P_CONVENTION;
+    an existing entry keeps whatever convention status (and review flag) it
+    had, so re-saving a legacy entry -- e.g. after fixing P2 -- does not
+    certify its old P6/P7. Only `confirm_annotations` does that. Pass
+    `convention` only when `positions` replaces every label in the entry
+    (e.g. a detector writing its own output).
+    """
     data = _load_all()
     key = _normalize_path(video_path)
-    previous = data.get(key) or {}
+    previous = data.get(key)
     entry = {
         name: {
             "frame": frame,
@@ -92,20 +101,36 @@ def save_annotations(video_path: str, positions: dict[str, int], fps: float,
     }
     if view_angle:
         entry["_view_angle"] = view_angle
-    handedness = handedness or previous.get("_handedness")
+    handedness = handedness or (previous or {}).get("_handedness")
     if handedness:
         entry["_handedness"] = handedness
-    entry["_p_convention"] = P_CONVENTION
+    if convention is None:
+        convention = previous.get("_p_convention") if previous is not None else P_CONVENTION
+    if convention:
+        entry["_p_convention"] = convention
+    if previous is not None and previous.get("_needs_review"):
+        entry["_needs_review"] = previous["_needs_review"]
     data[key] = entry
     _save_all(data)
 
 
-def confirm_convention(video_path: str) -> None:
-    """Mark an existing entry as following P_DEFINITIONS, frames unchanged."""
+def mark_needs_review(video_path: str, reason: str) -> None:
+    """Flag an entry whose labels a human has not verified."""
+    data = _load_all()
+    key = _normalize_path(video_path)
+    if key in data:
+        data[key]["_needs_review"] = reason
+        _save_all(data)
+
+
+def confirm_annotations(video_path: str) -> None:
+    """A human has reviewed this entry: P6/P7 follow P_DEFINITIONS and the
+    labels are verified. Frames are unchanged."""
     data = _load_all()
     key = _normalize_path(video_path)
     if key in data:
         data[key]["_p_convention"] = P_CONVENTION
+        data[key].pop("_needs_review", None)
         _save_all(data)
 
 
@@ -133,6 +158,7 @@ class AnnotationRecord:
     view_angle: Optional[str] = None
     handedness: Optional[str] = None
     convention: Optional[str] = None
+    needs_review: Optional[str] = None
 
 
 def load_annotation_record(video_path: str) -> Optional[AnnotationRecord]:
@@ -144,6 +170,7 @@ def load_annotation_record(video_path: str) -> Optional[AnnotationRecord]:
         view_angle=entry.get("_view_angle"),
         handedness=entry.get("_handedness"),
         convention=entry.get("_p_convention"),
+        needs_review=entry.get("_needs_review"),
     )
     for name, pos in entry.items():
         if not isinstance(pos, dict):
@@ -155,8 +182,13 @@ def load_annotation_record(video_path: str) -> Optional[AnnotationRecord]:
     return record
 
 
+def is_confirmed(record: Optional[AnnotationRecord]) -> bool:
+    return (record is not None and record.convention == P_CONVENTION
+            and not record.needs_review)
+
+
 def convention_warnings(record: Optional[AnnotationRecord]) -> list[str]:
-    """Reasons to doubt that a record's P6/P7 mean shaft-parallel/impact.
+    """Reasons to doubt a record: legacy P6/P7 meaning, or unreviewed labels.
 
     Annotations can't be checked against the video here -- these are the
     structural signs of a legacy "P6 = impact" labelling.
@@ -169,7 +201,9 @@ def convention_warnings(record: Optional[AnnotationRecord]) -> list[str]:
         warnings.append(
             "Saved before the P7 = impact convention was recorded. Older tooling "
             "called impact P6 -- check that P6 is shaft-parallel and P7 is impact, "
-            "then confirm or correct.")
+            "correct them if needed, then confirm. Saving alone does not confirm.")
+    if record.needs_review:
+        warnings.append(f"Not yet verified by a person: {record.needs_review}")
     if "P6" in named and "P7" not in named:
         warnings.append("P6 is marked but P7 is not: P6 may have been used for impact.")
     ordered = [(p, named[p]) for p in P_POSITIONS if p in named]

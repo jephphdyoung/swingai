@@ -60,10 +60,60 @@ class TestAnnotationStore:
         rec = ann.load_annotation_record("/v/old.mp4")
         assert rec.convention is None
         assert any("P7 = impact" in w for w in ann.convention_warnings(rec))
-        ann.confirm_convention("/v/old.mp4")
+        ann.confirm_annotations("/v/old.mp4")
         rec = ann.load_annotation_record("/v/old.mp4")
         assert rec.frames == {"P1": 5, "P6": 50, "P7": 55}
         assert ann.convention_warnings(rec) == []
+        assert ann.is_confirmed(rec)
+
+    def _legacy(self, annotations_file):
+        annotations_file.write_text(json.dumps({"/v/old.mp4": {
+            "P1": {"frame": 5, "timestamp_ms": 166.7},
+            "P6": {"frame": 50, "timestamp_ms": 1666.7},
+            "P7": {"frame": 55, "timestamp_ms": 1833.3},
+            "_view_angle": "face_on"}}))
+
+    def test_saving_an_unrelated_position_does_not_verify_legacy_p6_p7(self, annotations_file):
+        self._legacy(annotations_file)
+        # What the annotator does after fixing P2: re-save every loaded mark.
+        marks = ann.load_annotations("/v/old.mp4") | {"P2": 20}
+        ann.save_annotations("/v/old.mp4", marks, 30.0, view_angle="face_on")
+        rec = ann.load_annotation_record("/v/old.mp4")
+        assert rec.frames["P2"] == 20
+        assert rec.convention is None
+        assert not ann.is_confirmed(rec)
+        assert any("P7 = impact" in w for w in ann.convention_warnings(rec))
+
+    def test_resaving_p6_p7_themselves_still_needs_confirmation(self, annotations_file):
+        self._legacy(annotations_file)
+        ann.save_annotations("/v/old.mp4", {"P1": 5, "P6": 48, "P7": 56}, 30.0)
+        assert not ann.is_confirmed(ann.load_annotation_record("/v/old.mp4"))
+
+    def test_new_entry_is_recorded_under_the_convention(self, annotations_file):
+        ann.save_annotations("/v/new.mp4", {"P1": 1}, 30.0)
+        assert ann.is_confirmed(ann.load_annotation_record("/v/new.mp4"))
+
+    def test_confirmed_entry_stays_confirmed_on_resave(self, annotations_file):
+        ann.save_annotations("/v/new.mp4", {"P1": 1}, 30.0)
+        ann.save_annotations("/v/new.mp4", {"P1": 2, "P7": 40}, 30.0)
+        assert ann.is_confirmed(ann.load_annotation_record("/v/new.mp4"))
+
+    def test_detector_output_can_declare_its_convention(self, annotations_file):
+        self._legacy(annotations_file)
+        ann.save_annotations("/v/old.mp4", {"P1": 4, "P7": 54}, 30.0,
+                             convention=ann.P_CONVENTION)
+        assert ann.load_annotation_record("/v/old.mp4").convention == ann.P_CONVENTION
+
+    def test_needs_review_survives_saves_until_confirmed(self, annotations_file):
+        ann.save_annotations("/v/p.mp4", {"P1": 1, "P4": 9}, 30.0)
+        ann.mark_needs_review("/v/p.mp4", "proposed by Claude")
+        ann.save_annotations("/v/p.mp4", {"P1": 1, "P4": 10}, 30.0)
+        rec = ann.load_annotation_record("/v/p.mp4")
+        assert rec.needs_review == "proposed by Claude"
+        assert not ann.is_confirmed(rec)
+        assert any("proposed by Claude" in w for w in ann.convention_warnings(rec))
+        ann.confirm_annotations("/v/p.mp4")
+        assert ann.is_confirmed(ann.load_annotation_record("/v/p.mp4"))
 
     def test_p6_without_p7_is_flagged(self):
         rec = ann.AnnotationRecord("/v", frames={"P1": 1, "P6": 50},
@@ -108,6 +158,43 @@ class TestResolvePosition:
                                       timestamps={"P4": 1000.0}), "P4")
         assert pf.frame == 30
         assert "outside this video" in pf.note
+
+    def test_timestamp_after_the_end_is_unavailable_not_last_frame(self):
+        # 60 frames at 30fps end at 1966.7 ms
+        pf = dv.resolve_position(slot(fps=30.0, n=60, timestamps={"P10": 5000.0}), "P10")
+        assert pf.frame is None
+        assert "outside this video" in pf.note
+
+    def test_timestamp_before_the_start_is_unavailable_not_first_frame(self):
+        pf = dv.resolve_position(slot(fps=30.0, n=60, timestamps={"P1": -200.0}), "P1")
+        assert pf.frame is None
+
+    def test_out_of_range_frame_and_timestamp_is_unavailable(self):
+        pf = dv.resolve_position(slot(fps=30.0, n=60, frames={"P4": 500},
+                                      timestamps={"P4": 16666.7}), "P4")
+        assert pf.frame is None
+        assert "saved frame 500" in pf.note and "outside this video" in pf.note
+
+    def test_timestamp_within_half_a_frame_of_the_end_is_the_last_frame(self):
+        last = 59 * 1000 / 30
+        pf = dv.resolve_position(slot(fps=30.0, n=60, timestamps={"P10": last + 10}), "P10")
+        assert pf.frame == 59
+
+    def test_partner_instant_beyond_this_video_is_unavailable(self):
+        dtl = slot(view="dtl", fps=30.0, n=300, frames={"P10": 250})   # 8333 ms
+        fo = slot(view="face_on", fps=30.0, n=120, frames={})            # ends 3967 ms
+        pf = dv.resolve_position(fo, "P10", partner=dtl)
+        assert pf.frame is None
+        assert "outside this video" in pf.note
+
+    def test_frame_at_timestamp(self):
+        from utils.pose_data import frame_at_timestamp
+        ts = [0.0, 10.0, 20.0, 30.0]
+        assert frame_at_timestamp(ts, 14) == 1
+        assert frame_at_timestamp(ts, 34.9) == 3
+        assert frame_at_timestamp(ts, 35.1) is None
+        assert frame_at_timestamp(ts, -5.1) is None
+        assert frame_at_timestamp([], 0) is None
 
     def test_different_frame_rates_select_each_videos_own_frame(self):
         user = slot(fps=249.3, n=1244, frames={"P4": 652})

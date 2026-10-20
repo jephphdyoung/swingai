@@ -121,6 +121,23 @@ def nearest_frame(timestamps_ms, timestamp_ms):
     return int(np.argmin(np.abs(ts - float(timestamp_ms))))
 
 
+def frame_at_timestamp(timestamps_ms, timestamp_ms):
+    """Nearest frame, or None when the instant falls outside this video.
+
+    "Outside" is more than half a frame interval before the first frame or
+    after the last, so a time from a longer video is never clamped onto this
+    video's first or last frame.
+    """
+    ts = np.asarray(timestamps_ms, dtype=float)
+    if ts.size == 0:
+        return None
+    t = float(timestamp_ms)
+    half = float(np.median(np.diff(ts))) / 2 if ts.size > 1 else 0.0
+    if t < ts[0] - half or t > ts[-1] + half:
+        return None
+    return nearest_frame(ts, t)
+
+
 # --- MediaPipe ------------------------------------------------------------
 
 @lru_cache(maxsize=None)

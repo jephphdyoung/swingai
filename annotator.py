@@ -1,8 +1,8 @@
 import cv2
 import streamlit as st
 from utils.annotations import (
-    P_DEFINITIONS, P_POSITIONS, convention_warnings, load_annotation_record,
-    load_annotations, load_view_angle, save_annotations,
+    P_DEFINITIONS, P_POSITIONS, confirm_annotations, convention_warnings, is_confirmed,
+    load_annotation_record, load_annotations, load_view_angle, save_annotations,
 )
 
 VIEW_ANGLE_LABELS = {"face_on": "Face On", "dtl": "DTL"}
@@ -90,7 +90,8 @@ def render_annotator(video_path: str, key_prefix: str, default_view_angle=None,
     if frame_img is not None:
         st.image(frame_img, use_container_width=True)
 
-    for warning in convention_warnings(load_annotation_record(video_path)):
+    record = load_annotation_record(video_path)
+    for warning in convention_warnings(record):
         st.warning(warning)
 
     st.markdown("**Mark P-positions** at the current frame:")
@@ -113,16 +114,34 @@ def render_annotator(video_path: str, key_prefix: str, default_view_angle=None,
     marked_count = sum(1 for p in P_POSITIONS if p in marks)
     st.markdown(f"**{marked_count}/{len(P_POSITIONS)}** positions marked")
 
-    col_save, col_clear = st.columns(2)
+    def saved(message):
+        if on_save is not None:
+            on_save(message)
+        else:
+            st.success(message)
+
+    unconfirmed = record is not None and not is_confirmed(record)
+    if unconfirmed:
+        col_save, col_confirm, col_clear = st.columns(3)
+    else:
+        col_save, col_clear = st.columns(2)
+    angle_val = "face_on" if view_angle == "Face On" else "dtl"
     with col_save:
         if st.button("Save annotations", key=f"{key_prefix}_save",
                       use_container_width=True, type="primary",
                       disabled=marked_count == 0):
-            angle_val = "face_on" if view_angle == "Face On" else "dtl"
             save_annotations(video_path, marks, fps, view_angle=angle_val)
-            st.success(f"Saved {marked_count} positions ({view_angle})")
-            if on_save is not None:
-                on_save()
+            saved(f"Saved {marked_count} positions ({view_angle})"
+                  + (" — still unconfirmed" if unconfirmed else ""))
+    if unconfirmed:
+        with col_confirm:
+            if st.button("Save + confirm reviewed", key=f"{key_prefix}_confirm",
+                         use_container_width=True, disabled=marked_count == 0,
+                         help="I have checked every marked position on screen against "
+                              "the definitions above (P6 = shaft parallel, P7 = impact)."):
+                save_annotations(video_path, marks, fps, view_angle=angle_val)
+                confirm_annotations(video_path)
+                saved(f"Saved and confirmed {marked_count} positions ({view_angle})")
     with col_clear:
         if st.button("Clear all", key=f"{key_prefix}_clear",
                       use_container_width=True):

@@ -49,8 +49,9 @@ saved to `data/annotations.json`; extracted poses are cached in
    four videos have that position annotated.
 6. Read the four panels and the two measurement tables (DTL and face-on are separate).
 7. **Annotations** — fix or add positions in *Add or correct P-positions* (the same
-   annotator as the Annotate tab, with the canonical P definitions shown). Saving updates
-   the comparison immediately; poses are not recomputed.
+   annotator as the Annotate tab, with the canonical P definitions shown). Saving reruns
+   the page, so position counts, panels and tables reflect the change at once; poses are
+   not recomputed. Saving does not confirm — see below.
 
 ### Options
 
@@ -83,16 +84,26 @@ Canonical definitions (`utils/annotations.py::P_DEFINITIONS`):
 | P9 | Trail arm parallel to ground (follow-through) |
 | P10 | Finish |
 
-Every save now writes `"_p_convention": "p7-impact"` to the entry. **Entries without it
-predate the convention** — older tooling (path A) called impact P6 — so they get a warning
-and a *Confirm P7 = impact* button, which stamps the marker without changing any frame.
-Review P6/P7 in the annotator before confirming. Also flagged: P6 marked without P7, and
-positions out of order.
+**Saving never verifies anything.** A brand-new entry is recorded under the canonical
+system (`"_p_convention": "p7-impact"`). An existing entry keeps whatever status it had, so
+re-saving a legacy entry after fixing, say, P2 does not certify its old P6/P7 (path A
+called impact P6 and interpolated P7/P8). An entry is verified only by an explicit
+**Confirm reviewed** (comparison tab) or **Save + confirm reviewed** (annotator), which
+sets the marker and clears any `_needs_review` flag without changing frames. Until then
+the UI warns. Also flagged: P6 marked without P7, and positions out of order.
+
+`_needs_review` marks labels no person has checked yet, e.g. ones proposed by Claude. It
+survives saves and is cleared only by a confirm.
+
+`scripts/detect_p_positions.py --save-annotations` replaces the whole entry with detector
+output, so it records the canonical convention explicitly.
 
 **Frames vs. timestamps.** Within one video the saved frame index is used (it is the frame
 you looked at). The saved `timestamp_ms` is used only when the frame is missing or out of
 range. Across videos, nothing assumes matching frame numbers: each of the four uses its
 own annotation, and the partner-view fill maps by timestamp on the shared trigger clock.
+A timestamp more than half a frame outside a video's own time range is **unavailable**.
+It is never clamped onto that video's first or last frame.
 
 ---
 

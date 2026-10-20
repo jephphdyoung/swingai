@@ -100,3 +100,16 @@ class TestCache:
         b = tmp_path / "elsewhere" / "a.avi"
         os.link(a, b)
         assert pd.cache_key(a, "x") == pd.cache_key(str(b), "x")
+
+
+class TestProbeCache:
+    def test_probe_is_refreshed_when_the_file_changes(self, tmp_path):
+        from dual_view_tab import _probe
+        from utils.pose_data import video_identity
+        path = str(tmp_path / "clip.avi")
+        write_video(path, 10, 30)
+        assert _probe(path, tuple(video_identity(path).values())).frame_count == 10
+        write_video(path, 25, 30)
+        st = os.stat(path)
+        os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 2_000_000_000))
+        assert _probe(path, tuple(video_identity(path).values())).frame_count == 25

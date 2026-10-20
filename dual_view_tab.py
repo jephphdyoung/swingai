@@ -7,7 +7,8 @@ import streamlit as st
 
 from annotator import render_annotator
 from utils.annotations import (
-    P_CONVENTION, P_DEFINITIONS, P_POSITIONS, confirm_convention, load_annotation_record,
+    P_DEFINITIONS, P_POSITIONS, confirm_annotations, convention_warnings, is_confirmed,
+    load_annotation_record,
 )
 from utils.dual_view import (
     ROLE_LABELS, Slot, available_positions, build_comparison, probe_video, render_panel,
@@ -53,7 +54,9 @@ def _marked(path):
 
 
 @st.cache_data(show_spinner=False)
-def _probe(path, _identity):
+def _probe(path, identity):
+    # `identity` (name, size, mtime) is part of the cache key: no leading
+    # underscore, or Streamlit would skip it when hashing and serve stale info.
     return probe_video(path)
 
 
@@ -92,6 +95,13 @@ def _extract(paths):
         bar.progress(1.0, text=f"[{i}/{len(paths)}] {label}: done")
 
 
+def _flash(message):
+    """Rerun so everything above the annotator -- position counts, panels,
+    tables -- is rebuilt from the saved annotations, and show `message` there."""
+    st.session_state["dv_flash"] = message
+    st.rerun()
+
+
 def _step_position(delta, options):
     cur = st.session_state.get("dv_position", "P1")
     i = options.index(cur) if cur in options else 0
@@ -105,6 +115,9 @@ def _fmt(v, unit):
 
 
 def render_dual_view_tab(user_dir, reference_dir):
+    flash = st.session_state.pop("dv_flash", None)
+    if flash:
+        st.success(flash)
     st.caption(
         "Compare your down-the-line and face-on views with a reference golfer's at "
         "each P-position. Positions come from saved annotations only; measurements "
@@ -266,16 +279,18 @@ def render_dual_view_tab(user_dir, reference_dir):
 
     # --- annotation correction --------------------------------------------
     st.subheader("Annotations")
-    legacy = [k for k in SLOT_KEYS
-              if slots[k].record and slots[k].record.convention != P_CONVENTION]
-    for k in legacy:
+    unconfirmed = [k for k in SLOT_KEYS
+                   if slots[k].record and not is_confirmed(slots[k].record)]
+    for k in unconfirmed:
         s = slots[k]
         a, b = st.columns([4, 1])
-        a.caption(f"{s.label}: `{os.path.basename(s.path)}` was saved before P7 = impact "
-                  "was recorded. Review its P6/P7 below, then confirm.")
-        if b.button("Confirm P7 = impact", key=f"dv_confirm_{k[0]}_{k[1]}"):
-            confirm_convention(s.path)
-            st.rerun()
+        a.caption(f"{s.label}: `{os.path.basename(s.path)}` is not confirmed — "
+                  + "; ".join(convention_warnings(s.record)))
+        if b.button("Confirm reviewed", key=f"dv_confirm_{k[0]}_{k[1]}",
+                    help="Every saved position in this video has been checked by a person "
+                         "against the definitions (P6 = shaft parallel, P7 = impact)."):
+            confirm_annotations(s.path)
+            _flash(f"Confirmed annotations for {os.path.basename(s.path)}")
 
     with st.expander("Add or correct P-positions", expanded=not all(avail.values())):
         target = st.radio("Video", SLOT_KEYS, horizontal=True, key="dv_annot_target",
@@ -283,4 +298,4 @@ def render_dual_view_tab(user_dir, reference_dir):
         s = slots[target]
         st.caption(f"`{s.path}`")
         render_annotator(s.path, key_prefix=f"dv_annot_{target[0]}_{target[1]}",
-                         default_view_angle=target[1])
+                         default_view_angle=target[1], on_save=_flash)

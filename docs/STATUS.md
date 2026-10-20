@@ -70,10 +70,18 @@ layer with named landmarks, no carry-forward, and an on-disk cache (~16 s per 24
 capture, once). Verified on real footage (2026-06-20 150221 vs. `GW_DTL`/`GW_faceon`).
 How to run it and what each number means: [dual-view-comparison.md](dual-view-comparison.md).
 
-Still needs **manual annotation** before it is fully useful: `GW_DTL.mp4` has none (the
-reference DTL panel is empty at every P), your 150221 face-on has none (use the
-partner-view fill or annotate it), the 2026-07-27 library has none, and all three existing
-entries predate the P7 = impact marker and need their P6/P7 reviewed and confirmed.
+**Human verification still owed** (2026-10-20). A full four-view P1/P4 comparison now runs on
+real footage (150221 pair vs. `GW_DTL`/`GW_faceon`), but every label it uses needs a person:
+
+| Video | P1 / P4 | Status |
+|---|---|---|
+| your 150221 DTL | 395 / 652 | yours, legacy (pre-P7-impact): confirm P6/P7 too |
+| your 150221 face-on | 395 / 652 | **proposed by Claude** (shared clock from your DTL, eyeballed) |
+| `GW_DTL.mp4` | 104 / 280 | **proposed by Claude** from a contact sheet (slow-mo clip) |
+| `GW_faceon.mp4` | 53 / 278 | yours, legacy: confirm P6/P7 too |
+
+Use **Confirm reviewed** in the Dual-View tab after checking each. The 2026-07-27 library has
+no annotations.
 
 ### Detection quality: not yet validated
 

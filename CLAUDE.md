@@ -92,7 +92,7 @@ untouched. Full doc: [docs/dual-view-comparison.md](docs/dual-view-comparison.md
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/ -q   # 531 tests
+podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/ -q   # 545 tests
 ./run.sh                                                             # app on :8501
 ```
 GPU containers need `--device nvidia.com/gpu=all --security-opt=label=disable`, and

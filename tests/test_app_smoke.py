@@ -37,8 +37,9 @@ def app_env(tmp_path, monkeypatch):
         ("reference", "face_on"): write_video(ref / "Ref_faceon.avi", 30, 30.0),
     }
     for (role, view), path in videos.items():
-        ann.save_annotations(path, {"P1": 2, "P4": 20}, 60.0 if role == "user" else 30.0,
-                             view_angle=view)
+        # Your DTL starts without P4, so a test can add it through the UI.
+        marks = {"P1": 2} if (role, view) == ("user", "dtl") else {"P1": 2, "P4": 20}
+        ann.save_annotations(path, marks, 60.0 if role == "user" else 30.0, view_angle=view)
         seq = pd.extract_pose_sequence(path, FakeBackend(view=view, n_frames=60))
         pd.save_pose_sequence(seq, pd.cached_pose_path(path))
     monkeypatch.chdir(REPO)
@@ -47,7 +48,7 @@ def app_env(tmp_path, monkeypatch):
 
 def test_all_tabs_render_and_dual_view_shows_four_panels(app_env):
     at = AppTest.from_file(os.path.join(REPO, "app.py"), default_timeout=60)
-    at.session_state["dv_position"] = "P4"
+    at.session_state["dv_position"] = "P1"
     at.run()
     assert not at.exception, [e.value for e in at.exception]
 
@@ -73,3 +74,23 @@ def test_switching_position_and_skeleton_toggle(app_env):
     at.button(key="dv_next").click().run()
     assert not at.exception, [e.value for e in at.exception]
     assert at.radio(key="dv_position").value == "P5"
+
+
+def test_saving_an_annotation_refreshes_counts_and_tables(app_env):
+    at = AppTest.from_file(os.path.join(REPO, "app.py"), default_timeout=60)
+    at.session_state["dv_position"] = "P4"
+    at.run()
+    assert "P4 (3/4)" in at.radio(key="dv_position").options
+    assert at.dataframe[0].value["Your value"].isna().all()     # your DTL has no P4
+
+    prefix = "dv_annot_user_dtl"
+    at.slider(key=f"{prefix}_slider").set_value(20).run()
+    at.button(key=f"{prefix}_mark_P4").click().run()
+    at.button(key=f"{prefix}_save").click().run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    # Same run that handled the click: counts, panels and tables already reflect it.
+    assert any("Saved 2 positions" in s.value for s in at.success)
+    assert "P4 (4/4)" in at.radio(key="dv_position").options
+    assert at.dataframe[0].value["Your value"].notna().any()
+    assert ann.load_annotations(app_env[("user", "dtl")])["P4"] == 20

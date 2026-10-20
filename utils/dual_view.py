@@ -19,7 +19,7 @@ from utils.joint_measurements import (
     BodyReference, ComparisonRow, Measurement, body_reference, compare, joints_for, measure,
 )
 from utils.landmarks import SKELETON_SEGMENTS, VIEW_LABELS
-from utils.pose_data import DEFAULT_MIN_CONFIDENCE, PoseSequence, nearest_frame
+from utils.pose_data import DEFAULT_MIN_CONFIDENCE, PoseSequence, frame_at_timestamp
 
 ROLES = ("user", "reference")
 ROLE_LABELS = {"user": "Your swing", "reference": "Reference swing"}
@@ -97,27 +97,34 @@ def resolve_position(slot: Slot, position: str, partner: Optional[Slot] = None):
     ts = slot.timestamps_ms()
     n = len(ts)
     rec = slot.record
+
+    def at_time(t, source, note=None):
+        f = frame_at_timestamp(ts, t)
+        if f is None:
+            span = f"{ts[0]:.1f}–{ts[-1]:.1f} ms" if n else "no frames"
+            why = f"{t:.1f} ms is outside this video ({span})"
+            return PositionFrame(position, None, None, None,
+                                 f"{note}; {why}" if note else why)
+        return PositionFrame(position, f, float(ts[f]), source, note)
+
     if rec is not None and position in rec.frames:
         f = rec.frames[position]
         if 0 <= f < n:
             return PositionFrame(position, f, float(ts[f]), "annotation")
         note = f"saved frame {f} is outside this video (0–{n - 1})"
-        if position in rec.timestamps_ms and n:
-            f = nearest_frame(ts, rec.timestamps_ms[position])
-            return PositionFrame(position, f, float(ts[f]), "annotation timestamp", note)
+        if position in rec.timestamps_ms:
+            return at_time(rec.timestamps_ms[position], "annotation timestamp", note)
         return PositionFrame(position, None, None, None, note)
-    if rec is not None and position in rec.timestamps_ms and n:
-        f = nearest_frame(ts, rec.timestamps_ms[position])
-        return PositionFrame(position, f, float(ts[f]), "annotation timestamp")
+    if rec is not None and position in rec.timestamps_ms:
+        return at_time(rec.timestamps_ms[position], "annotation timestamp")
 
     if partner is not None:
         pf = resolve_position(partner, position)
-        if pf.frame is not None and pf.source == "annotation" and n:
-            f = nearest_frame(ts, pf.timestamp_ms)
-            return PositionFrame(position, f, float(ts[f]), "partner view",
-                                 f"{position} not annotated here; taken from the "
-                                 f"{VIEW_LABELS[partner.view]} annotation at "
-                                 f"{pf.timestamp_ms:.1f} ms on the shared trigger clock")
+        if pf.frame is not None and pf.source == "annotation":
+            return at_time(pf.timestamp_ms, "partner view",
+                           f"{position} not annotated here; taken from the "
+                           f"{VIEW_LABELS[partner.view]} annotation at "
+                           f"{pf.timestamp_ms:.1f} ms on the shared trigger clock")
     return PositionFrame(position, None, None, None, f"{position} not annotated")
 
 
