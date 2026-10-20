@@ -92,7 +92,7 @@ untouched. Full doc: [docs/dual-view-comparison.md](docs/dual-view-comparison.md
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/ -q   # 545 tests
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # 554 tests
 ./run.sh                                                             # app on :8501
 ```
 GPU containers need `--device nvidia.com/gpu=all --security-opt=label=disable`, and
@@ -102,7 +102,9 @@ Blackwell (sm_120) needs cu128 or newer. Details and the CDI-regeneration fix: S
 - `requirements.txt` is unpinned. `pose_landmarker.task` (~5.7MB) must be at repo root.
 - Test coverage is lopsided: almost all of it is on paths B and C and the dual-view tab.
   Path A (the Analyze tab) has essentially none beyond the app smoke test.
-- Running two podman containers on the repo at once with `:Z` relabels it for the newest
-  one and the older (e.g. a running app) gets `PermissionError` on `/app`.
+- **Never mount footage with `:z`/`:Z`** (even `:ro,Z`): it relabels the host files. Use
+  `--security-opt label=disable` and plain `:ro` mounts, as `run.sh` and the commands above
+  do. `run.sh` mounts user/reference read-only and never chmods or chcons anything
+  (`tests/test_run_sh.py`). `:Z` on the repo also locks out any other container using it.
 - `data/annotations.json.pre-videos-move` and `.host-backup` are stale restructure
   backups.

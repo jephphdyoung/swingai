@@ -26,7 +26,41 @@ SWINGAI_USER_DIR=~/Golf/Videos/2026-07-27/SwingCatalyst ./run.sh
 
 Open <http://localhost:8501> → **Dual-View Comparison**.
 
-`SWINGAI_REFERENCE_DIR` and `SWINGAI_OUTPUT_DIR` work the same way. Annotations are
+`SWINGAI_REFERENCE_DIR` and `SWINGAI_OUTPUT_DIR` work the same way. `SWINGAI_PORT`
+changes the port; `SWINGAI_DRY_RUN=1 ./run.sh` prints the exact `podman run` command
+without building or running anything.
+
+### What run.sh does to your files: nothing
+
+| Mount | Container path | Mode |
+|---|---|---|
+| `SWINGAI_USER_DIR` | `/app/videos/user` | **read-only** |
+| `SWINGAI_REFERENCE_DIR` | `/app/videos/reference` | **read-only** |
+| `SWINGAI_OUTPUT_DIR` | `/app/videos/output` | read-write (renders, pose cache) |
+| `data/` | `/app/data` | read-write (annotations) |
+
+- No `chmod`, `chcon` or `chown`, and no `:z`/`:Z` mount option. `:Z` relabels the host
+  directory even with `:ro`, so it is not used anywhere.
+- SELinux (Fedora, enforcing) is handled with `--security-opt label=disable` for this
+  container only: it reads files under their existing labels instead of relabelling them.
+  The trade-off is that this container runs without SELinux confinement.
+- Rootless podman maps the container's root to your own UID, so owner permissions are
+  enough to read your videos and write output/annotations. If the output or data directory
+  isn't writable by you, `run.sh` stops with an error rather than changing permissions.
+- `--replace` takes over a stale `swingai_container` left by a crashed earlier run.
+- Under rootful (sudo) podman the same mounts apply, but container root is real root.
+
+**Validation procedure** (done 2026-10-20 against `~/Golf/Videos/2026-07-27/SwingCatalyst`):
+record `find <dir> -type f -printf '%M %u:%g %s %T@ %Z %p\n'` for each video directory (plus
+`sha256sum` of a few clips), run `./run.sh`, use the app, stop it, record again, `diff`.
+Identical. Inside the running container, `touch /app/videos/user/x` fails with
+"Read-only file system". `tests/test_run_sh.py` checks the generated command and the
+script text on every test run.
+
+**Earlier launchers did modify libraries.** The previous `run.sh` ran `chmod -R a+rw` and
+`chcon -Rt svirt_sandbox_file_t` on every mounted directory, and older docs used `:ro,Z`.
+Files touched that way show up as `-rwxrwxrwx` with a `container_file_t` label. The new
+launcher does not repair them; see STATUS.md for restore commands. Annotations are
 saved to `data/annotations.json`; extracted poses are cached in
 `<output dir>/pose_cache/` (default `videos/output/pose_cache/`, git-ignored).
 
@@ -161,7 +195,7 @@ feeds the Analyze tab.
 ## Tests
 
 ```bash
-podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/ -q
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q
 ```
 
 New: `test_joint_measurements.py` (known angles, invariance, fixed-P1 scale, handedness,

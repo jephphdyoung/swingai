@@ -156,10 +156,10 @@ Also present: Ollama with `qwen2.5-coder:32b`, `qwen2.5:14b`, `llama3.2:3b`,
 
 ```bash
 # tests (no local pytest; the container has the deps)
-podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/ -q
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q
 
 # detect P-positions for one swing (partner view found automatically)
-podman run --rm -v "$PWD":/app:Z -v "<session>":/swing:ro,Z swingai \
+podman run --rm --security-opt label=disable -v "$PWD":/app -v "<session>":/swing:ro swingai \
   python scripts/detect_p_positions.py --swing "/swing/<clip>.mp4" \
   --out-dir /app/videos/output
 
@@ -169,6 +169,23 @@ podman run --rm -v "$PWD":/app:Z -v "<session>":/swing:ro,Z swingai \
 # the app
 ./run.sh          # http://localhost:8501
 ```
+
+`run.sh` mounts user/reference footage **read-only** with no relabelling and never
+chmods or chcons (see dual-view-comparison.md). Never add `:z`/`:Z` to a footage mount.
+
+**Files modified by the old launcher (found 2026-10-20, not yet restored):** the clips under
+`~/Golf/Videos/2026-07-27/SwingCatalyst/` are `-rwxrwxrwx` and labelled
+`container_file_t:s0:c262,c689` (the old `run.sh` ran `chmod -R a+rw` + `chcon -Rt`). Their
+contents and mtimes are intact. To restore, after checking the intended modes:
+
+```bash
+restorecon -Rv ~/Golf/Videos                         # SELinux labels back to policy default
+find ~/Golf/Videos -type f -exec chmod 644 {} +      # if 644 was the original mode
+find ~/Golf/Videos -type d -exec chmod 755 {} +
+```
+
+The repo's own `videos/` and `data/` also carry container labels from `:Z` test runs;
+`restorecon -Rv videos data` resets those.
 
 Capture library lives at `~/Golf/Videos/2026-07-27/` (SwingCatalyst + FSGolf);
 `~/Golf/Claude.md` documents how to remount the Windows partition for more.
