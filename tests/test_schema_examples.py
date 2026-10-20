@@ -255,6 +255,120 @@ def test_capture_manifest_accepts_forward_slash_relative_paths(path):
     assert not list(validator.iter_errors(manifest)), f"{path!r} should be accepted"
 
 
+# --- identifiers usable as directory names ------------------------------------
+#
+# A shot id becomes a directory name verbatim, so the schema has to refuse
+# everything ``swingai-core``'s ``ShotId``/``CameraId`` refuse. These lists
+# mirror the Rust tests in ``native/crates/swingai-core/src/ids.rs``; if one side
+# gains a rule and the other does not, the seam has two answers to "is this a
+# legal id" and a capture that Rust wrote could fail schema validation.
+
+RESERVED_DEVICE_NAMES = [
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *[f"COM{n}" for n in range(1, 10)],
+    *[f"LPT{n}" for n in range(1, 10)],
+]
+
+INVALID_IDENTIFIERS = [
+    *RESERVED_DEVICE_NAMES,
+    # Case does not rescue a device name.
+    "Con",
+    "con",
+    "cOn",
+    "com1",
+    "nUl",
+    "lpt9",
+    "AuX",
+    # Neither does an extension -- Windows resolves the device from the stem.
+    "CON.txt",
+    "nul.capture",
+    "COM1.data",
+    "aux.tar.gz",
+    # Windows strips a trailing period or space, so these do not round-trip.
+    "shot.",
+    "shot ",
+    "2026-07-31T14-22-05Z.",
+    # Path separators and the rest of the Windows-invalid set.
+    "shots/one",
+    "shots\\one",
+    "a:b",
+    "a*b",
+    "a?b",
+    'a"b',
+    "a<b",
+    "a>b",
+    "a|b",
+    "fox\ndtl",
+    "fox\tdtl",
+    ".",
+    "..",
+    "",
+]
+
+VALID_IDENTIFIERS = [
+    "2026-07-31T14-22-05.412Z",
+    "2026-07-31T16-22-05+02-00",
+    "fox-dtl",
+    "sim-face-on",
+    # Narrow rules only: these merely resemble reserved names.
+    "CON-shot",
+    "COM10",
+    "COM0",
+    "console",
+    "NULL",
+    "camera.1",
+    "shot-name",
+    "my-con",
+    "LPT",
+    "COM",
+]
+
+
+@pytest.mark.parametrize("identifier", INVALID_IDENTIFIERS)
+def test_capture_manifest_rejects_an_unusable_shot_id(identifier):
+    validator = _validator("capture-manifest.schema.json")
+    manifest = _load(SCHEMAS / "examples" / "capture-manifest.example.json")
+    manifest["shot_id"] = identifier
+    assert list(validator.iter_errors(manifest)), f"{identifier!r} should be rejected"
+
+
+@pytest.mark.parametrize("identifier", INVALID_IDENTIFIERS)
+def test_capture_manifest_rejects_an_unusable_camera_id(identifier):
+    validator = _validator("capture-manifest.schema.json")
+    manifest = _load(SCHEMAS / "examples" / "capture-manifest.example.json")
+    manifest["streams"][0]["camera_id"] = identifier
+    assert list(validator.iter_errors(manifest)), f"{identifier!r} should be rejected"
+
+
+@pytest.mark.parametrize("identifier", INVALID_IDENTIFIERS)
+def test_analysis_result_rejects_an_unusable_shot_id(identifier):
+    validator = _validator("analysis-result.schema.json")
+    result = _load(SCHEMAS / "examples" / "analysis-result.example.json")
+    result["shot_id"] = identifier
+    assert list(validator.iter_errors(result)), f"{identifier!r} should be rejected"
+
+
+@pytest.mark.parametrize("identifier", VALID_IDENTIFIERS)
+def test_capture_manifest_accepts_a_usable_identifier(identifier):
+    """The rule has to be narrow, or it eats ordinary ids."""
+    validator = _validator("capture-manifest.schema.json")
+    manifest = _load(SCHEMAS / "examples" / "capture-manifest.example.json")
+    manifest["shot_id"] = identifier
+    manifest["streams"][0]["camera_id"] = identifier
+    assert not list(validator.iter_errors(manifest)), f"{identifier!r} should be accepted"
+
+
+@pytest.mark.parametrize("identifier", VALID_IDENTIFIERS)
+def test_analysis_result_accepts_a_usable_shot_id(identifier):
+    validator = _validator("analysis-result.schema.json")
+    result = _load(SCHEMAS / "examples" / "analysis-result.example.json")
+    result["shot_id"] = identifier
+    assert not list(validator.iter_errors(result)), f"{identifier!r} should be accepted"
+
+
 def test_capture_manifest_rejects_the_python_view_abbreviation():
     """``utils/swing_pairing.py`` says ``dtl``; the contract says
     ``down_the_line``. The bridge maps between them, and the contract refuses to

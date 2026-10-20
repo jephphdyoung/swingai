@@ -44,6 +44,16 @@ code, no ring buffer, no MVS binding** — this is the seam only. Rationale and 
 deliberately deferred decisions: [adr/0001-hybrid-rust-python-runtime.md](adr/0001-hybrid-rust-python-runtime.md).
 The Python suite is now 282 tests (207 + 75 schema-example checks).
 
+**Deterministic capture core** (added 2026-07-31) — `native/crates/swingai-capture` adds the
+capture model itself: a `FrameSource` trait with a deterministic synthetic implementation,
+per-camera timestamp-based ring buffers (time *and* byte limits, strict ordering, sequence-gap
+detection), a multi-camera `CaptureSession` whose trigger extracts `[T - pre_roll, T]` from
+each stream independently, and a shot-directory writer that emits PGM image sequences plus a
+real `capture-manifest.json`. `native/apps/swingai-capture-sim` runs a two-camera scenario
+end to end. 207 Rust tests. **Still no cameras, no microphone, no MVS binding, no ring-buffer
+threading and no device-clock conversion** — the synthetic sources are already in the session
+clock domain, which is precisely the assumption real hardware will not satisfy (A1 below).
+
 Two things the contracts make the capture work owe: timestamps are nanoseconds since the
 session's monotonic origin (persisted origin zero, unsigned), so **each device clock must
 be converted with a measured offset and rate** before anything can be written — the

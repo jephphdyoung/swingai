@@ -1,6 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["crates/swingai-core", "crates/swingai-contracts", "apps/swingai-contract-check"]
+members = [
+    "crates/swingai-core",
+    "crates/swingai-contracts",
+    "crates/swingai-capture",
+    "apps/swingai-contract-check",
+    "apps/swingai-capture-sim",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -12,6 +18,7 @@ repository = "https://github.com/jephphdyoung/swingai"
 [workspace.dependencies]
 swingai-core = { path = "crates/swingai-core" }
 swingai-contracts = { path = "crates/swingai-contracts" }
+swingai-capture = { path = "crates/swingai-capture" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 # RFC 3339 parsing for `created_at`. `time`'s `well_known::Rfc3339` is precisely
