@@ -1,6 +1,6 @@
 # Status & Next Steps
 
-Working state as of **2026-07-27**. Read this first when picking the work back up.
+Working state as of **2026-10-20**. Read this first when picking the work back up.
 
 Design rationale lives in [p-position-detection.md](p-position-detection.md);
 the longer-range vision is in [ROADMAP.md](ROADMAP.md). This file is just where
@@ -60,6 +60,20 @@ be converted with a measured offset and rate** before anything can be written �
 audio→frame mapping risk in A1 below, made unavoidable rather than assumable. And the
 schema version matches exactly for now, so a contract change is a lockstep deploy of both
 sides.
+
+**Offline dual-view comparison** (PR #3, 2026-10-20) — new **Dual-View Comparison** tab:
+your DTL + face-on pair vs. a reference DTL + face-on, four frames at one P-position with
+skeletons, plus 2D joint-angle / body-relative displacement tables (`you − reference`, DTL
+and face-on kept separate). Positions come only from saved annotations, under the
+canonical P-system (P7 = impact); legacy entries are flagged until confirmed. New pose
+layer with named landmarks, no carry-forward, and an on-disk cache (~16 s per 240fps
+capture, once). Verified on real footage (2026-06-20 150221 vs. `GW_DTL`/`GW_faceon`).
+How to run it and what each number means: [dual-view-comparison.md](dual-view-comparison.md).
+
+Still needs **manual annotation** before it is fully useful: `GW_DTL.mp4` has none (the
+reference DTL panel is empty at every P), your 150221 face-on has none (use the
+partner-view fill or annotate it), the 2026-07-27 library has none, and all three existing
+entries predate the P7 = impact marker and need their P6/P7 reviewed and confirmed.
 
 ### Detection quality: not yet validated
 

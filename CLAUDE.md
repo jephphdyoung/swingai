@@ -44,10 +44,19 @@ Treat these as a documented, tested shelf — not part of any running path. Wiri
 would mean replacing the detector in `analyze_swing` step 3, and mapping frames back from
 its resampled 60Hz timeline to original video frames before rendering.
 
+## Dual-view comparison (PR #3)
+`dual_view_tab.py` → `utils/dual_view.py` → `utils/pose_data.py` + `utils/joint_measurements.py`.
+Four panels (your DTL/FO vs. reference DTL/FO) at one P-position, from **saved annotations
+only**, with 2D joint measurements. Uses the canonical P-system (P7 = impact) and its own
+pose layer: named landmarks (`utils/landmarks.py`), pixel coordinates, per-frame `detected`,
+**no carry-forward**, cached on disk under `<output>/pose_cache/`. Path A's extractor is
+untouched. Full doc: [docs/dual-view-comparison.md](docs/dual-view-comparison.md).
+
 ## Entry points
 - `app.py` — Streamlit UI. **Analyze** tab (pick user + reference video → custom HTML5
   player with P-position jump buttons, skeleton toggle, side-by-side / overlay switch) and
-  **Annotate** tab (`annotator.py`: frame-by-frame manual P-marking + save).
+  **Annotate** tab (`annotator.py`: frame-by-frame manual P-marking + save), and
+  **Dual-View Comparison** tab (`dual_view_tab.py`).
 - `main.py` — CLI: `python main.py <user_video> <reference_video>`.
 - `analyzer.py::analyze_swing` — the orchestrator both call (5 reported steps; logs to
   stderr, reports progress via an optional `progress_callback`).
@@ -64,7 +73,9 @@ its resampled 60Hz timeline to original video frames before rendering.
 - `utils/annotations.py` ↔ `data/annotations.json`: per-video P-positions (frame +
   `timestamp_ms`) and a `_view_angle` (`face_on` / `dtl`), keyed by normalized relative
   path. Ground truth is keyed by `timestamp_ms`, not frame, on purpose — frame-rate
-  independence. Schema example: `data/ground_truth_example.json`.
+  independence. Schema example: `data/ground_truth_example.json`. Saves now also write
+  `_p_convention: "p7-impact"`; entries without it are legacy (may call impact P6) and
+  are flagged in the UI until confirmed.
 
 ## Pose extraction conventions (easy to get wrong)
 - `pose_extractor.py` selects **23 of MediaPipe's 33** landmarks
@@ -81,7 +92,7 @@ its resampled 60Hz timeline to original video frames before rendering.
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/ -q   # 207 tests
+podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/ -q   # 531 tests
 ./run.sh                                                             # app on :8501
 ```
 GPU containers need `--device nvidia.com/gpu=all --security-opt=label=disable`, and
@@ -89,7 +100,9 @@ Blackwell (sm_120) needs cu128 or newer. Details and the CDI-regeneration fix: S
 
 ## Gotchas
 - `requirements.txt` is unpinned. `pose_landmarker.task` (~5.7MB) must be at repo root.
-- Test coverage is lopsided: almost all of it is on paths B and C. Path A — the one the
-  app actually runs — has essentially none.
+- Test coverage is lopsided: almost all of it is on paths B and C and the dual-view tab.
+  Path A (the Analyze tab) has essentially none beyond the app smoke test.
+- Running two podman containers on the repo at once with `:Z` relabels it for the newest
+  one and the older (e.g. a running app) gets `PermissionError` on `/app`.
 - `data/annotations.json.pre-videos-move` and `.host-backup` are stale restructure
   backups.
