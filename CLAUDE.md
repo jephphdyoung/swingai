@@ -52,6 +52,24 @@ pose layer: named landmarks (`utils/landmarks.py`), pixel coordinates, per-frame
 **no carry-forward**, cached on disk under `<output>/pose_cache/`. Path A's extractor is
 untouched. Full doc: [docs/dual-view-comparison.md](docs/dual-view-comparison.md).
 
+## Pose backends (PR #4)
+`utils/pose_data.py` holds the `PoseBackend` protocol, `make_backend("mediapipe"|"rtmpose")`
+and the cache. RTMPose (`utils/pose_rtmpose.py`: YOLOX-m + RTMPose-m Halpe26, ONNX Runtime
+CUDA) runs only in the GPU image: `SWINGAI_GPU=1 ./run.sh`. **MediaPipe stays the default**:
+accuracy vs. human labels is not measured yet (labelling set in `data/joint_labels/`).
+Gotchas:
+- Confidence is **per backend** (MediaPipe visibility 0.5, RTMPose SimCC 0.3), carried on
+  each `PoseSequence`; never compare the scores.
+- Cache identity includes model hashes, preprocessing config, ORT version, device and a
+  **runtime fingerprint**. The same MediaPipe gives different landmarks in the Debian CPU
+  image vs. the Ubuntu GPU image, so entries are per environment.
+- `onnxruntime-gpu` 1.31 needs **CUDA 13**; on CUDA 12 its provider silently fails to load
+  and ORT falls back to CPU (the backend refuses that).
+- `/etc/cdi/nvidia.yaml` goes stale on driver updates; `run.sh` uses a per-user spec in
+  `~/.local/share/swingai/cdi` via `podman --cdi-spec-dir` instead (no sudo).
+- Both images install with `-c constraints.txt` (frozen CPU-image versions).
+Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-backends-2026-10-20.md).
+
 ## Entry points
 - `app.py` — Streamlit UI. **Analyze** tab (pick user + reference video → custom HTML5
   player with P-position jump buttons, skeleton toggle, side-by-side / overlay switch) and
@@ -92,8 +110,9 @@ untouched. Full doc: [docs/dual-view-comparison.md](docs/dual-view-comparison.md
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # 554 tests
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # 600 pass, 4 GPU-only skip
 ./run.sh                                                             # app on :8501
+SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```
 GPU containers need `--device nvidia.com/gpu=all --security-opt=label=disable`, and
 Blackwell (sm_120) needs cu128 or newer. Details and the CDI-regeneration fix: STATUS.md.

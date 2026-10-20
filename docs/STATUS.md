@@ -83,6 +83,14 @@ real footage (150221 pair vs. `GW_DTL`/`GW_faceon`), but every label it uses nee
 Use **Confirm reviewed** in the Dual-View tab after checking each. The 2026-07-27 library has
 no annotations.
 
+**GPU pose estimation** (PR #4, 2026-10-20). RTMPose-m (Halpe26) + YOLOX-m on ONNX Runtime
+CUDA, selectable in the Dual-View tab under `SWINGAI_GPU=1 ./run.sh`. Verified executing on
+the RTX 5070 Ti (99.8% of node time on CUDA, 15 ms/frame, 20× the CPU path). Benchmarked
+against MediaPipe on 7 videos ([report](benchmarks/pose-backends-2026-10-20.md)): MediaPipe
+swaps left/right labels (16 events) where RTMPose doesn't, and the two disagree by tens of
+degrees on some P4 measurements. **Accuracy is unmeasured until a person labels the 20-frame
+set** (`data/joint_labels/labeler.html`, see the report). MediaPipe stays the default.
+
 ### Detection quality: not yet validated
 
 The pipeline runs. Whether its numbers are *right* is unmeasured, and there are

@@ -28,7 +28,10 @@ import numpy as np
 
 from utils.landmarks import LANDMARK_INDEX, LANDMARK_NAMES, MEDIAPIPE_INDEX
 
-# Landmarks below this confidence are treated as not observed.
+# Landmarks below this confidence are treated as not observed. This is the
+# MediaPipe value; each backend declares its own (`min_confidence`), because
+# confidence scores are not comparable across models -- MediaPipe reports a
+# visibility probability, RTMPose an uncalibrated SimCC peak height.
 DEFAULT_MIN_CONFIDENCE = 0.5
 
 # Bump when the cached array layout changes.
@@ -50,9 +53,10 @@ class FrameObservation:
 
 
 class PoseBackend(Protocol):
-    """What a pose model has to provide. MediaPipe today; RTMPose next."""
+    """What a pose model has to provide (MediaPipe, RTMPose)."""
 
     name: str
+    min_confidence: float   # default threshold for this backend's confidence scores
 
     def identity(self) -> str:
         """Changes whenever outputs could change (model file, library version)."""
@@ -78,6 +82,7 @@ class PoseSequence:
     z: np.ndarray               # (N, J)
     confidence: np.ndarray      # (N, J)
     detected: np.ndarray        # (N,) bool -- backend returned a pose
+    default_min_confidence: float = DEFAULT_MIN_CONFIDENCE   # the backend's threshold
     view: Optional[str] = None          # "dtl" | "face_on"; set by the caller
     handedness: str = "right"           # set by the caller; not part of the cache
 
@@ -85,7 +90,9 @@ class PoseSequence:
     def frame_count(self):
         return len(self.timestamps_ms)
 
-    def is_valid(self, frame, name, min_confidence=DEFAULT_MIN_CONFIDENCE):
+    def is_valid(self, frame, name, min_confidence=None):
+        if min_confidence is None:
+            min_confidence = self.default_min_confidence
         if not 0 <= frame < self.frame_count or not self.detected[frame]:
             return False
         j = LANDMARK_INDEX[name]
@@ -94,13 +101,13 @@ class PoseSequence:
         conf = self.confidence[frame, j]
         return bool(np.isnan(conf) or conf >= min_confidence)
 
-    def point(self, frame, name, min_confidence=DEFAULT_MIN_CONFIDENCE):
+    def point(self, frame, name, min_confidence=None):
         """Pixel (x, y) of a landmark, or None when not validly observed."""
         if not self.is_valid(frame, name, min_confidence):
             return None
         return self.xy[frame, LANDMARK_INDEX[name]].copy()
 
-    def points(self, frame, min_confidence=DEFAULT_MIN_CONFIDENCE):
+    def points(self, frame, min_confidence=None):
         """{name: (x, y)} for every validly observed landmark in a frame."""
         out = {}
         for name in LANDMARK_NAMES:
@@ -149,10 +156,26 @@ def _file_sha256(path):
     return h.hexdigest()
 
 
+@lru_cache(maxsize=None)
+def runtime_fingerprint():
+    """Short hash of the runtime pieces that change outputs for identical
+    weights. Measured: the same MediaPipe version and model give different
+    landmarks in the CPU image (Debian) and the GPU image (Ubuntu) -- median
+    0.3 px, up to 28 px where video-mode tracking diverges -- so cache
+    entries must not be shared across environments."""
+    import platform
+    import sys
+    import cv2
+    parts = (f"py{sys.version_info.major}.{sys.version_info.minor}",
+             "-".join(platform.libc_ver()), f"cv{cv2.__version__}", f"np{np.__version__}")
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()[:8]
+
+
 class MediaPipeBackend:
     """MediaPipe Pose Landmarker in VIDEO mode (temporal tracking on)."""
 
     name = "mediapipe"
+    min_confidence = DEFAULT_MIN_CONFIDENCE   # visibility: P(landmark visible)
 
     def __init__(self, model_path=None):
         from utils.pose_extractor import MODEL_PATH
@@ -161,7 +184,8 @@ class MediaPipeBackend:
 
     def identity(self):
         import mediapipe as mp
-        return f"mediapipe-{mp.__version__}-{_file_sha256(self.model_path)[:16]}"
+        return (f"mediapipe-{mp.__version__}-{_file_sha256(self.model_path)[:16]}"
+                f"-env{runtime_fingerprint()}")
 
     def open(self):
         from mediapipe.tasks.python import BaseOptions, vision
@@ -207,6 +231,19 @@ def mediapipe_observation(landmarks):
         if vis is not None:
             conf[j] = vis
     return FrameObservation(xy_norm=xy, z=z, confidence=conf)
+
+
+BACKEND_LABELS = {"mediapipe": "MediaPipe (CPU)", "rtmpose": "RTMPose GPU"}
+
+
+def make_backend(name):
+    """Backend by name. RTMPose is imported lazily: the CPU image lacks its runtime."""
+    if name == "mediapipe":
+        return MediaPipeBackend()
+    if name == "rtmpose":
+        from utils.pose_rtmpose import RTMPoseBackend
+        return RTMPoseBackend()
+    raise ValueError(f"unknown pose backend {name!r}")
 
 
 # --- Extraction -----------------------------------------------------------
@@ -264,6 +301,7 @@ def extract_pose_sequence(video_path, backend: PoseBackend,
         z=np.asarray(zs, dtype=float).reshape(-1, n),
         confidence=np.asarray(confs, dtype=float).reshape(-1, n),
         detected=np.asarray(detected, dtype=bool),
+        default_min_confidence=float(getattr(backend, "min_confidence", DEFAULT_MIN_CONFIDENCE)),
     )
 
 
@@ -311,6 +349,7 @@ def save_pose_sequence(seq: PoseSequence, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     meta = {"video_path": seq.video_path, "backend": seq.backend, "fps": seq.fps,
             "width": seq.width, "height": seq.height, "schema": CACHE_SCHEMA,
+            "min_confidence": seq.default_min_confidence,
             "landmarks": list(LANDMARK_NAMES)}
     tmp = path + ".tmp.npz"
     np.savez_compressed(tmp, timestamps_ms=seq.timestamps_ms, xy=seq.xy, z=seq.z,
@@ -338,6 +377,8 @@ def load_pose_sequence(path, video_path=None):
             z=data["z"],
             confidence=data["confidence"],
             detected=data["detected"].astype(bool),
+            # Caches written before backends declared thresholds are MediaPipe's.
+            default_min_confidence=meta.get("min_confidence", DEFAULT_MIN_CONFIDENCE),
         )
 
 

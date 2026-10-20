@@ -18,3 +18,9 @@ docs/reference/
 # Local backups / scratch
 *.host-backup
 data/annotations.json.pre-videos-move
+
+# Downloaded model weights (scripts/fetch_rtmpose_models.py)
+models/
+
+# Labeller page embeds video frames -- local only
+data/joint_labels/labeler.html

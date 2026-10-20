@@ -1,0 +1,241 @@
+{
+ "joints": [
+  "nose",
+  "left_ear",
+  "right_ear",
+  "left_shoulder",
+  "right_shoulder",
+  "left_elbow",
+  "right_elbow",
+  "left_wrist",
+  "right_wrist",
+  "left_hip",
+  "right_hip",
+  "left_knee",
+  "right_knee",
+  "left_ankle",
+  "right_ankle"
+ ],
+ "frames": [
+  {
+   "id": "00",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 395,
+   "reason": "P1 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "01",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 504,
+   "reason": "backends disagree most (0.09 torso)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "02",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 652,
+   "reason": "P4 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "03",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 730,
+   "reason": "P7 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "04",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 1238,
+   "reason": "backends disagree most (0.10 torso)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "05",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 395,
+   "reason": "P1 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "06",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 601,
+   "reason": "backends disagree most (0.14 torso)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "07",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 652,
+   "reason": "P4 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "08",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 736,
+   "reason": "fastest hand motion (RTMPose track)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "09",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 774,
+   "reason": "backends disagree most (0.17 torso)",
+   "p1_frame": 395,
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0
+  },
+  {
+   "id": "10",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 104,
+   "reason": "P1 (annotated frame, used only to sample)",
+   "p1_frame": 104,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  },
+  {
+   "id": "11",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 205,
+   "reason": "backends disagree most (0.15 torso)",
+   "p1_frame": 104,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  },
+  {
+   "id": "12",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 280,
+   "reason": "P4 (annotated frame, used only to sample)",
+   "p1_frame": 104,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  },
+  {
+   "id": "13",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 355,
+   "reason": "fastest hand motion (RTMPose track)",
+   "p1_frame": 104,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  },
+  {
+   "id": "14",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 378,
+   "reason": "backends disagree most (0.12 torso)",
+   "p1_frame": 104,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  },
+  {
+   "id": "15",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 53,
+   "reason": "P1 (annotated frame, used only to sample)",
+   "p1_frame": 53,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  },
+  {
+   "id": "16",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 278,
+   "reason": "P4 (annotated frame, used only to sample)",
+   "p1_frame": 53,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  },
+  {
+   "id": "17",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 343,
+   "reason": "P7 (annotated frame, used only to sample)",
+   "p1_frame": 53,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  },
+  {
+   "id": "18",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 401,
+   "reason": "backends disagree most (0.21 torso)",
+   "p1_frame": 53,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  },
+  {
+   "id": "19",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 472,
+   "reason": "backends disagree most (0.22 torso)",
+   "p1_frame": 53,
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0
+  }
+ ]
+}

@@ -4,6 +4,7 @@ Poses are pre-seeded into the cache under the real MediaPipe backend identity,
 so the Dual-View tab finds them without running inference.
 """
 
+import importlib.util
 import os
 
 import pytest
@@ -94,3 +95,26 @@ def test_saving_an_annotation_refreshes_counts_and_tables(app_env):
     assert "P4 (4/4)" in at.radio(key="dv_position").options
     assert at.dataframe[0].value["Your value"].notna().any()
     assert ann.load_annotations(app_env[("user", "dtl")])["P4"] == 20
+
+
+def test_backend_selector_switches_without_mixing_results(app_env):
+    at = AppTest.from_file(os.path.join(REPO, "app.py"), default_timeout=60)
+    at.session_state["dv_position"] = "P4"
+    at.run()
+    assert at.radio(key="dv_backend").value == "mediapipe"        # default unchanged
+    assert len(at.dataframe) == 2
+
+    at.radio(key="dv_backend").set_value("rtmpose").run()
+    assert not at.exception, [e.value for e in at.exception]
+    if importlib.util.find_spec("onnxruntime") is None:
+        # CPU image: a clear message, never MediaPipe landmarks under the RTMPose label.
+        assert any("not available" in e.value for e in at.error)
+        assert len(at.dataframe) == 0
+    else:
+        # GPU image: RTMPose has no cache for these fixtures yet, so it asks to extract.
+        assert any("has not processed" in w.value for w in at.warning)
+
+    at.radio(key="dv_backend").set_value("mediapipe").run()
+    assert not at.exception
+    assert len(at.dataframe) == 2
+    assert at.radio(key="dv_position").value == "P4"              # selection preserved

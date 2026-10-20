@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Joint Labeler</title>
+<style>
+  :root { --bg:#f6f6f4; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#d9d9d4;
+          --accent:#2a6fdb; --ok:#1f8a4c; --warn:#b26a00; --skip:#8a8a85; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161615; --panel:#1f1f1d; --ink:#ecece8; --muted:#a0a09a; --line:#3a3a37;
+            --accent:#6ea2ff; --ok:#4cc27e; --warn:#f0a646; --skip:#77776f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display:flex; gap:12px; align-items:center; padding:10px 16px;
+           border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0 12px 0 0; }
+  input[type=text] { padding:6px 8px; border:1px solid var(--line); border-radius:6px;
+                     background:var(--bg); color:var(--ink); }
+  button { padding:6px 12px; border:1px solid var(--line); border-radius:6px;
+           background:var(--panel); color:var(--ink); cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  main { display:grid; grid-template-columns: 220px 1fr 260px; gap:12px; padding:12px 16px;
+         height: calc(100vh - 58px); }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+           overflow:auto; }
+  #frames div { padding:6px 10px; border-bottom:1px solid var(--line); cursor:pointer; }
+  #frames div.sel { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  #frames small { color:var(--muted); display:block; }
+  #stage { position:relative; display:flex; flex-direction:column; min-width:0; }
+  #canvasWrap { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; }
+  canvas#img { max-width:100%; max-height:100%; cursor:crosshair; border-radius:6px; }
+  #info { padding:6px 2px; color:var(--muted); }
+  #loupe { position:absolute; right:8px; top:8px; width:180px; height:180px;
+           border:2px solid var(--accent); border-radius:6px; background:#000; }
+  #joints div { display:flex; justify-content:space-between; padding:5px 10px;
+                border-bottom:1px solid var(--line); cursor:pointer; }
+  #joints div.cur { outline:2px solid var(--accent); outline-offset:-2px; }
+  .st-vis { color:var(--ok); } .st-occ { color:var(--warn); } .st-skip { color:var(--skip); }
+  .help { padding:10px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); }
+  kbd { border:1px solid var(--line); border-radius:3px; padding:0 4px; font-size:11px; }
+  label.toggle { display:flex; gap:6px; align-items:center; padding:8px 10px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; height:auto; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Joint Labeler</h1>
+  <label>Labelled by <input type="text" id="who" placeholder="your name (required)"></label>
+  <span id="progress"></span>
+  <span style="flex:1"></span>
+  <button id="export" class="primary">Export labels.json</button>
+</header>
+<main>
+  <div class="panel" id="frames"></div>
+  <div id="stage">
+    <div id="canvasWrap"><canvas id="img"></canvas></div>
+    <canvas id="loupe" width="180" height="180"></canvas>
+    <div id="info"></div>
+  </div>
+  <div class="panel">
+    <label class="toggle"><input type="checkbox" id="occ"> Next point is occluded
+      (position estimated) <kbd>O</kbd></label>
+    <div id="joints"></div>
+    <div class="help">
+      Click the joint centre. Points auto-advance.<br>
+      <kbd>O</kbd> occluded toggle · <kbd>S</kbd> can't place (skip) ·
+      <kbd>Backspace</kbd> clear current · <kbd>[</kbd>/<kbd>]</kbd> joint ·
+      <kbd>←</kbd>/<kbd>→</kbd> frame<br>
+      Left/right are the golfer's own sides. Ears: the ear canal; hips: the hip joint
+      centre, not the belt line.
+    </div>
+  </div>
+</main>
+<script>
+const DATA = /*__DATA__*/null;
+const KEY = "swingai-joint-labels-" + DATA.frames.map(f => f.video + f.frame).join("|").length;
+let state = JSON.parse(localStorage.getItem(KEY) || "null") || {who: "", labels: {}};
+let fi = 0, ji = 0;
+const img = new Image();
+const cv = document.getElementById("img"), ctx = cv.getContext("2d");
+const lp = document.getElementById("loupe"), lctx = lp.getContext("2d");
+const SEGS = [["left_shoulder","right_shoulder"],["left_hip","right_hip"],
+  ["left_shoulder","left_elbow"],["left_elbow","left_wrist"],["right_shoulder","right_elbow"],
+  ["right_elbow","right_wrist"],["left_shoulder","left_hip"],["right_shoulder","right_hip"],
+  ["left_hip","left_knee"],["left_knee","left_ankle"],["right_hip","right_knee"],
+  ["right_knee","right_ankle"],["left_ear","right_ear"]];
+
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+function cur() { return DATA.frames[fi]; }
+function labs() { const f = cur(); return (state.labels[f.id] ||= {}); }
+
+function renderFrames() {
+  const el = document.getElementById("frames"); el.innerHTML = "";
+  let done = 0;
+  DATA.frames.forEach((f, i) => {
+    const l = state.labels[f.id] || {};
+    const n = DATA.joints.filter(j => l[j]).length;
+    if (n === DATA.joints.length) done++;
+    const d = document.createElement("div");
+    d.className = i === fi ? "sel" : "";
+    d.innerHTML = `<b>${f.id}</b> ${f.video.split("/").pop().slice(0, 26)}
+      <small>frame ${f.frame} · ${f.view} · ${n}/${DATA.joints.length}</small>
+      <small>${f.reason}</small>`;
+    d.onclick = () => { fi = i; ji = firstOpen(); load(); };
+    el.appendChild(d);
+  });
+  document.getElementById("progress").textContent =
+    `${done}/${DATA.frames.length} frames complete`;
+}
+
+function renderJoints() {
+  const el = document.getElementById("joints"); el.innerHTML = "";
+  const l = labs();
+  DATA.joints.forEach((j, i) => {
+    const v = l[j];
+    const st = !v ? "" : v.skip ? '<span class="st-skip">skipped</span>'
+      : v.visible ? '<span class="st-vis">visible</span>' : '<span class="st-occ">occluded</span>';
+    const d = document.createElement("div");
+    d.className = i === ji ? "cur" : "";
+    d.innerHTML = `<span>${j.replace("_", " ")}</span>${st}`;
+    d.onclick = () => { ji = i; renderJoints(); draw(); };
+    el.appendChild(d);
+  });
+}
+
+function firstOpen() {
+  const l = labs(); const i = DATA.joints.findIndex(j => !l[j]); return i < 0 ? 0 : i;
+}
+
+function toPx(e) {      // canvas click -> original-video pixels
+  const r = cv.getBoundingClientRect(), f = cur();
+  const x = (e.clientX - r.left) * cv.width / r.width;
+  const y = (e.clientY - r.top) * cv.height / r.height;
+  return [x / f.display_scale, y / f.display_scale, x, y];
+}
+
+function draw() {
+  ctx.drawImage(img, 0, 0);
+  const f = cur(), l = labs(), s = f.display_scale;
+  const r = Math.max(3, cv.width / 300);
+  ctx.lineWidth = Math.max(1, cv.width / 700);
+  for (const [a, b] of SEGS) {
+    if (l[a] && l[b] && !l[a].skip && !l[b].skip) {
+      ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.beginPath();
+      ctx.moveTo(l[a].x * s, l[a].y * s); ctx.lineTo(l[b].x * s, l[b].y * s); ctx.stroke();
+    }
+  }
+  DATA.joints.forEach((j, i) => {
+    const v = l[j]; if (!v || v.skip) return;
+    ctx.fillStyle = i === ji ? "#ff3b30" : v.visible ? "#34c759" : "#ff9f0a";
+    ctx.beginPath(); ctx.arc(v.x * s, v.y * s, r, 0, 7); ctx.fill();
+  });
+  document.getElementById("info").textContent =
+    `${f.video} · frame ${f.frame} · ${f.width}×${f.height} · placing: ${DATA.joints[ji]}`;
+  renderJoints(); renderFrames();
+}
+
+function load() {
+  img.onload = () => { cv.width = img.width; cv.height = img.height; draw(); };
+  img.src = "data:image/jpeg;base64," + cur().jpg;
+}
+
+cv.addEventListener("click", e => {
+  const [x, y] = toPx(e);
+  labs()[DATA.joints[ji]] = {x: +x.toFixed(1), y: +y.toFixed(1),
+                             visible: !document.getElementById("occ").checked};
+  document.getElementById("occ").checked = false;
+  save(); ji = Math.min(DATA.joints.length - 1, firstOpen()); draw();
+});
+
+cv.addEventListener("mousemove", e => {
+  const [, , cx, cy] = toPx(e), z = 4, w = lp.width / z;
+  lctx.imageSmoothingEnabled = false;
+  lctx.drawImage(cv, cx - w / 2, cy - w / 2, w, w, 0, 0, lp.width, lp.height);
+  lctx.strokeStyle = "#ff3b30"; lctx.beginPath();
+  lctx.moveTo(lp.width / 2, 0); lctx.lineTo(lp.width / 2, lp.height);
+  lctx.moveTo(0, lp.height / 2); lctx.lineTo(lp.width, lp.height / 2); lctx.stroke();
+});
+
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" && e.target.type === "text") return;
+  const k = e.key;
+  if (k === "o" || k === "O") document.getElementById("occ").click();
+  else if (k === "s" || k === "S") { labs()[DATA.joints[ji]] = {skip: true}; save();
+    ji = firstOpen(); draw(); }
+  else if (k === "Backspace") { delete labs()[DATA.joints[ji]]; save(); draw(); e.preventDefault(); }
+  else if (k === "]") { ji = Math.min(DATA.joints.length - 1, ji + 1); draw(); }
+  else if (k === "[") { ji = Math.max(0, ji - 1); draw(); }
+  else if (k === "ArrowRight") { fi = Math.min(DATA.frames.length - 1, fi + 1); ji = firstOpen(); load(); }
+  else if (k === "ArrowLeft") { fi = Math.max(0, fi - 1); ji = firstOpen(); load(); }
+});
+
+const who = document.getElementById("who");
+who.value = state.who || "";
+who.addEventListener("input", () => { state.who = who.value; save(); });
+
+document.getElementById("export").onclick = () => {
+  if (!state.who.trim()) { alert("Enter your name first: labels must say who verified them."); return; }
+  const out = {schema: 1, verified_by: state.who.trim(), exported_at: new Date().toISOString(),
+    semantics: "x,y in original video pixels; visible=false means occluded and the position is " +
+               "the labeller's estimate; joints that could not be placed are omitted",
+    videos: {}};
+  for (const f of DATA.frames) {
+    const l = state.labels[f.id]; if (!l) continue;
+    const v = (out.videos[f.video] ||= {verified_by: out.verified_by, p1_frame: f.p1_frame,
+                                        view: f.view, frames: {}});
+    const joints = {};
+    for (const [j, p] of Object.entries(l)) if (!p.skip) joints[j] = p;
+    v.frames[f.frame] = joints;
+  }
+  const blob = new Blob([JSON.stringify(out, null, 1)], {type: "application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "labels.json"; a.click();
+};
+
+load();
+</script>
+</body>
+</html>
