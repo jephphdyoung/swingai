@@ -1,8 +1,11 @@
 import cv2
 import streamlit as st
-from utils.annotations import load_annotations, save_annotations, load_view_angle
+from utils.annotations import (
+    P_DEFINITIONS, P_POSITIONS, confirm_annotations, convention_warnings, is_confirmed,
+    load_annotation_record, load_annotations, load_view_angle, save_annotations,
+)
 
-P_POSITIONS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"]
+VIEW_ANGLE_LABELS = {"face_on": "Face On", "dtl": "DTL"}
 
 
 def _get_frame(video_path: str, frame_num: int):
@@ -28,7 +31,8 @@ def _step_frame(slider_key, delta, max_frame):
     st.session_state[slider_key] = max(0, min(max_frame, current + delta))
 
 
-def render_annotator(video_path: str, key_prefix: str):
+def render_annotator(video_path: str, key_prefix: str, default_view_angle=None,
+                     on_save=None):
     fps, total_frames = _get_video_info(video_path)
     if total_frames == 0:
         st.error(f"Cannot read video: {video_path}")
@@ -46,8 +50,8 @@ def render_annotator(video_path: str, key_prefix: str):
         st.session_state[marks_key] = saved if saved else {}
         st.session_state[video_key] = video_path
         st.session_state[slider_key] = 0
-        saved_angle = load_view_angle(video_path)
-        st.session_state[angle_key] = saved_angle or "Face On"
+        saved_angle = load_view_angle(video_path) or default_view_angle
+        st.session_state[angle_key] = VIEW_ANGLE_LABELS.get(saved_angle, "Face On")
 
     marks = st.session_state[marks_key]
 
@@ -86,6 +90,10 @@ def render_annotator(video_path: str, key_prefix: str):
     if frame_img is not None:
         st.image(frame_img, use_container_width=True)
 
+    record = load_annotation_record(video_path)
+    for warning in convention_warnings(record):
+        st.warning(warning)
+
     st.markdown("**Mark P-positions** at the current frame:")
     for row_start in range(0, len(P_POSITIONS), 5):
         row = P_POSITIONS[row_start:row_start + 5]
@@ -94,22 +102,46 @@ def render_annotator(video_path: str, key_prefix: str):
             with col:
                 current = marks.get(pos)
                 label = f"{pos}: {current}" if current is not None else f"{pos}: --"
-                if st.button(label, key=f"{key_prefix}_mark_{pos}", use_container_width=True):
+                if st.button(label, key=f"{key_prefix}_mark_{pos}", use_container_width=True,
+                             help=P_DEFINITIONS[pos]):
                     marks[pos] = frame_num
                     st.session_state[marks_key] = marks
                     st.rerun()
 
+    with st.expander("P-position definitions (P6 = shaft parallel, P7 = impact)"):
+        st.markdown("\n".join(f"- **{p}** — {P_DEFINITIONS[p]}" for p in P_POSITIONS))
+
     marked_count = sum(1 for p in P_POSITIONS if p in marks)
     st.markdown(f"**{marked_count}/{len(P_POSITIONS)}** positions marked")
 
-    col_save, col_clear = st.columns(2)
+    def saved(message):
+        if on_save is not None:
+            on_save(message)
+        else:
+            st.success(message)
+
+    unconfirmed = record is not None and not is_confirmed(record)
+    if unconfirmed:
+        col_save, col_confirm, col_clear = st.columns(3)
+    else:
+        col_save, col_clear = st.columns(2)
+    angle_val = "face_on" if view_angle == "Face On" else "dtl"
     with col_save:
         if st.button("Save annotations", key=f"{key_prefix}_save",
                       use_container_width=True, type="primary",
                       disabled=marked_count == 0):
-            angle_val = "face_on" if view_angle == "Face On" else "dtl"
             save_annotations(video_path, marks, fps, view_angle=angle_val)
-            st.success(f"Saved {marked_count} positions ({view_angle})")
+            saved(f"Saved {marked_count} positions ({view_angle})"
+                  + (" — still unconfirmed" if unconfirmed else ""))
+    if unconfirmed:
+        with col_confirm:
+            if st.button("Save + confirm reviewed", key=f"{key_prefix}_confirm",
+                         use_container_width=True, disabled=marked_count == 0,
+                         help="I have checked every marked position on screen against "
+                              "the definitions above (P6 = shaft parallel, P7 = impact)."):
+                save_annotations(video_path, marks, fps, view_angle=angle_val)
+                confirm_annotations(video_path)
+                saved(f"Saved and confirmed {marked_count} positions ({view_angle})")
     with col_clear:
         if st.button("Clear all", key=f"{key_prefix}_clear",
                       use_container_width=True):

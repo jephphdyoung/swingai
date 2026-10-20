@@ -127,5 +127,32 @@
       "timestamp_ms": 3080.6
     },
     "_view_angle": "dtl"
+  },
+  "videos/reference/GW_DTL.mp4": {
+    "P1": {
+      "frame": 104,
+      "timestamp_ms": 3470.1
+    },
+    "P4": {
+      "frame": 280,
+      "timestamp_ms": 9342.7
+    },
+    "_view_angle": "dtl",
+    "_handedness": "right",
+    "_p_convention": "p7-impact",
+    "_needs_review": "P1/P4 proposed by Claude from a frame contact sheet (2026-10-20); not checked by a person"
+  },
+  "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4": {
+    "P1": {
+      "frame": 395,
+      "timestamp_ms": 1584.4
+    },
+    "P4": {
+      "frame": 652,
+      "timestamp_ms": 2615.3
+    },
+    "_view_angle": "face_on",
+    "_p_convention": "p7-impact",
+    "_needs_review": "P1/P4 copied by Claude from your DTL labels via the shared trigger clock and eyeballed on a contact sheet (2026-10-20); not checked by a person"
   }
 }

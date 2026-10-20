@@ -1,6 +1,6 @@
 # Status & Next Steps
 
-Working state as of **2026-07-27**. Read this first when picking the work back up.
+Working state as of **2026-10-20**. Read this first when picking the work back up.
 
 Design rationale lives in [p-position-detection.md](p-position-detection.md);
 the longer-range vision is in [ROADMAP.md](ROADMAP.md). This file is just where
@@ -60,6 +60,28 @@ be converted with a measured offset and rate** before anything can be written �
 audio→frame mapping risk in A1 below, made unavoidable rather than assumable. And the
 schema version matches exactly for now, so a contract change is a lockstep deploy of both
 sides.
+
+**Offline dual-view comparison** (PR #3, 2026-10-20) — new **Dual-View Comparison** tab:
+your DTL + face-on pair vs. a reference DTL + face-on, four frames at one P-position with
+skeletons, plus 2D joint-angle / body-relative displacement tables (`you − reference`, DTL
+and face-on kept separate). Positions come only from saved annotations, under the
+canonical P-system (P7 = impact); legacy entries are flagged until confirmed. New pose
+layer with named landmarks, no carry-forward, and an on-disk cache (~16 s per 240fps
+capture, once). Verified on real footage (2026-06-20 150221 vs. `GW_DTL`/`GW_faceon`).
+How to run it and what each number means: [dual-view-comparison.md](dual-view-comparison.md).
+
+**Human verification still owed** (2026-10-20). A full four-view P1/P4 comparison now runs on
+real footage (150221 pair vs. `GW_DTL`/`GW_faceon`), but every label it uses needs a person:
+
+| Video | P1 / P4 | Status |
+|---|---|---|
+| your 150221 DTL | 395 / 652 | yours, legacy (pre-P7-impact): confirm P6/P7 too |
+| your 150221 face-on | 395 / 652 | **proposed by Claude** (shared clock from your DTL, eyeballed) |
+| `GW_DTL.mp4` | 104 / 280 | **proposed by Claude** from a contact sheet (slow-mo clip) |
+| `GW_faceon.mp4` | 53 / 278 | yours, legacy: confirm P6/P7 too |
+
+Use **Confirm reviewed** in the Dual-View tab after checking each. The 2026-07-27 library has
+no annotations.
 
 ### Detection quality: not yet validated
 
@@ -134,10 +156,10 @@ Also present: Ollama with `qwen2.5-coder:32b`, `qwen2.5:14b`, `llama3.2:3b`,
 
 ```bash
 # tests (no local pytest; the container has the deps)
-podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/ -q
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q
 
 # detect P-positions for one swing (partner view found automatically)
-podman run --rm -v "$PWD":/app:Z -v "<session>":/swing:ro,Z swingai \
+podman run --rm --security-opt label=disable -v "$PWD":/app -v "<session>":/swing:ro swingai \
   python scripts/detect_p_positions.py --swing "/swing/<clip>.mp4" \
   --out-dir /app/videos/output
 
@@ -147,6 +169,23 @@ podman run --rm -v "$PWD":/app:Z -v "<session>":/swing:ro,Z swingai \
 # the app
 ./run.sh          # http://localhost:8501
 ```
+
+`run.sh` mounts user/reference footage **read-only** with no relabelling and never
+chmods or chcons (see dual-view-comparison.md). Never add `:z`/`:Z` to a footage mount.
+
+**Files modified by the old launcher (found 2026-10-20, not yet restored):** the clips under
+`~/Golf/Videos/2026-07-27/SwingCatalyst/` are `-rwxrwxrwx` and labelled
+`container_file_t:s0:c262,c689` (the old `run.sh` ran `chmod -R a+rw` + `chcon -Rt`). Their
+contents and mtimes are intact. To restore, after checking the intended modes:
+
+```bash
+restorecon -Rv ~/Golf/Videos                         # SELinux labels back to policy default
+find ~/Golf/Videos -type f -exec chmod 644 {} +      # if 644 was the original mode
+find ~/Golf/Videos -type d -exec chmod 755 {} +
+```
+
+The repo's own `videos/` and `data/` also carry container labels from `:Z` test runs;
+`restorecon -Rv videos data` resets those.
 
 Capture library lives at `~/Golf/Videos/2026-07-27/` (SwingCatalyst + FSGolf);
 `~/Golf/Claude.md` documents how to remount the Windows partition for more.

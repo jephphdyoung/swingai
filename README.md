@@ -378,7 +378,7 @@ it found and exits nonzero.
 The same examples are validated against the JSON Schemas from the Python side:
 
 ```bash
-podman run --rm -v "$PWD":/app:Z swingai python -m pytest tests/test_schema_examples.py -q
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/test_schema_examples.py -q
 ```
 
 ### Layout

@@ -142,7 +142,7 @@ def print_summary(result):
 
 
 def save_to_annotations(result):
-    from utils.annotations import save_annotations
+    from utils.annotations import P_CONVENTION, save_annotations
 
     views = result["views"]
     written = []
@@ -154,8 +154,10 @@ def save_to_annotations(result):
         }
         if not frames:
             continue
+        # Detector output replaces the whole entry, under the P7 = impact system.
         save_annotations(views[view_name]["path"], frames,
-                         views[view_name]["fps"], view_angle=view_name)
+                         views[view_name]["fps"], view_angle=view_name,
+                         convention=P_CONVENTION)
         written.append(views[view_name]["path"])
     return written
 

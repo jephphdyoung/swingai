@@ -4,6 +4,7 @@ import os
 import base64
 from analyzer import analyze_swing, render_overlay
 from annotator import render_annotator
+from dual_view_tab import render_dual_view_tab
 from overlay_component import overlay_editor
 from utils.annotations import has_annotations
 from utils.paths import get_reference_dir, get_user_dir, list_videos
@@ -270,7 +271,7 @@ def create_video_player_html(video_path: str, video_path_no_skeleton: str, p_tim
 
 st.title("Golf Swing Analyzer")
 
-tab_analyze, tab_annotate = st.tabs(["Analyze", "Annotate"])
+tab_analyze, tab_annotate, tab_dual = st.tabs(["Analyze", "Annotate", "Dual-View Comparison"])
 
 with tab_analyze:
     user_files, user_labels = _label_videos(MY_DIR)
@@ -389,3 +390,6 @@ with tab_annotate:
     vid = annot_files[annot_idx]
     if vid:
         render_annotator(os.path.join(vid_dir, vid), key_prefix="annot")
+
+with tab_dual:
+    render_dual_view_tab(MY_DIR, SAMPLE_DIR)
