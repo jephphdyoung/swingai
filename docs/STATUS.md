@@ -94,6 +94,13 @@ degrees on some P4 measurements. **Accuracy is unmeasured until a person labels 
 set** (`data/joint_labels/labeler.html`, see the report); `scripts/evaluate_joint_labels.py`
 then scores both models per view. MediaPipe stays the default.
 
+A first full pass of labels (2026-10-21) is kept as
+`data/joint_labels/labels-old-labeller-2026-10-21.json`. It was exported from a labeller
+still open from before the digest change, so the evaluator refuses it (no `image_sha1`).
+Checked by decoding: 16 of its 20 frames were labelled on the right image. DTL 730/1238 and
+face-on 736/774 were labelled on the frame before. Not yet decided: relabel those 4 and
+merge, score them at N−1, or relabel all 20.
+
 **Known issue (pre-existing, not fixed in PR #4): OpenCV seeking lands one frame early on the
 240fps captures** from about frame 700 on (the stream's average frame rate, 249.30, differs
 from its nominal one). Pose extraction decodes sequentially, so wherever the UI *seeks*
