@@ -8,6 +8,8 @@ present -- i.e. they run only in the GPU image with the GPU attached:
       --security-opt label=disable -v "$PWD":/app swingai-gpu python -m pytest tests/test_gpu_rtmpose.py
 """
 
+import importlib.util
+import json
 import os
 
 import cv2
@@ -27,6 +29,7 @@ def _gpu_backend():
         pytest.skip(f"no GPU RTMPose here: {e}")
 
 
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VIDEO = "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4"
 
 
@@ -47,9 +50,57 @@ def _frame(path, idx):
     return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
-def test_runs_on_cuda(backend):
-    assert backend.providers[0] == "CUDAExecutionProvider"
+def test_both_networks_run_on_cuda(backend):
+    assert set(backend.providers) == set(rt.NETWORKS)
+    for net, providers in backend.providers.items():
+        assert providers[0] == "CUDAExecutionProvider", net
     assert "-cuda-env" in backend.identity()
+
+
+def _verify_gpu():
+    spec = importlib.util.spec_from_file_location(
+        "verify_gpu", os.path.join(REPO, "scripts", "verify_gpu.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture(scope="module")
+def evidence(tmp_path_factory):
+    """verify_gpu.py's per-network evidence, gathered on real frames."""
+    vg = _verify_gpu()
+    gpu = rt.RTMPoseBackend(device="cuda", profile_dir=str(tmp_path_factory.mktemp("prof")))
+    try:
+        gpu.open()
+    except rt.RTMPoseUnavailable as e:
+        pytest.skip(f"no GPU RTMPose here: {e}")
+    imgs = [_frame(VIDEO, i) for i in (395, 652, 730)]
+    for img in imgs:
+        assert gpu.detect(img, 0) is not None
+    profiles = {}
+    for net, path in gpu.end_profiling().items():
+        with open(path) as f:
+            profiles[net] = vg.tally_profile(json.load(f))
+    cpu = rt.RTMPoseBackend(device="cpu")
+    cpu.open()
+    reports = {net: vg.verify_network(net, gpu, cpu, profiles[net], imgs[1], imgs)
+               for net in rt.NETWORKS}
+    yield vg, reports
+    gpu.close()
+    cpu.close()
+
+
+@pytest.mark.parametrize("net", rt.NETWORKS)
+def test_each_network_executes_cuda_kernels(evidence, net):
+    vg, reports = evidence
+    r = reports[net]
+    assert "Conv" in r["profile"][vg.CUDA]["ops"]          # the real work, on CUDA
+    assert vg.judge_network(net, r) == [], vg.describe(net, r)
+
+
+def test_verification_covers_both_networks(evidence):
+    vg, reports = evidence
+    assert vg.judge(reports) == []
 
 
 def test_real_frame_keypoints_lie_on_the_golfer(backend):

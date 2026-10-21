@@ -1,22 +1,41 @@
-"""Prove that RTMPose actually executes on the NVIDIA GPU -- not just that CUDA exists.
+"""Prove that BOTH RTMPose networks execute CUDA kernels on the NVIDIA GPU.
 
 Run inside the GPU image (SWINGAI_GPU=1 ./run.sh verify-gpu does this):
 
-    python scripts/verify_gpu.py [video]
+    python scripts/verify_gpu.py [video] [--json report.json]
 
-Evidence collected:
-  1. ONNX Runtime per-node profile: which execution provider ran each operator.
-  2. nvidia-smi: GPU memory held by *this* process while the sessions are live.
-  3. Timing on real frames, CUDA vs CPU.
-  4. Output parity: CUDA keypoints match CPU keypoints on the same frames.
-Exits non-zero if any check fails.
+The YOLOX-m person detector and the RTMPose-m keypoint network are separate
+ONNX Runtime sessions. ONNX Runtime places each session -- and each node in
+it -- on an execution provider independently, so one network on the GPU says
+nothing about the other. Each is checked on its own:
+
+  1. Session providers: CUDA first.
+  2. Per-node profile of the backend's *own* sessions on real frames: which
+     provider executed every node. At least 90% of node time on CUDA, and no
+     compute-heavy op (Conv, MatMul, Gemm) executed on the CPU.
+  3. Kernel execution: NVML `utilization.gpu`, defined as the percent of time
+     one or more kernels was executing on the GPU, sampled while only this
+     network runs back to back. It must rise clearly above both an idle
+     baseline and a negative control -- the same network, same loop, on the
+     CPU provider. (The onnxruntime-gpu wheel is built without CUPTI, so its
+     profile names the provider per node but cannot list kernels; NVML is the
+     kernel-level evidence.)
+  4. Output parity: CUDA and CPU outputs agree on identical inputs.
+  5. Timing, CUDA vs CPU (reported, not judged).
+
+End to end: GPU memory held while the sessions are live, the golfer found in
+the sampled frames, and full-pipeline CUDA/CPU keypoint parity.
+Exits non-zero, naming the network, if any check fails.
 """
 
+import argparse
 import glob
 import json
 import os
+import statistics
 import subprocess
 import sys
+import tempfile
 import time
 
 import numpy as np
@@ -25,11 +44,99 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import cv2  # noqa: E402
 
-from utils.pose_rtmpose import RTMPoseBackend, RTMPoseUnavailable  # noqa: E402
+from utils.pose_rtmpose import (  # noqa: E402
+    CONFIG, NETWORKS, RTMPoseBackend, RTMPoseUnavailable, crop_to_frame, decode_simcc,
+    select_golfer,
+)
 
 DEFAULT_VIDEO = "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4"
 N_FRAMES = 60
+N_PARITY = 20
+CUDA, CPU = "CUDAExecutionProvider", "CPUExecutionProvider"
 
+MIN_CUDA_SHARE = 0.9            # of profiled node time
+HEAVY_OPS = {"Conv", "ConvTranspose", "FusedConv", "MatMul", "FusedMatMul", "Gemm"}
+MIN_UTIL_RISE = 20.0            # percentage points over max(idle, CPU control)
+UTIL_WINDOW_S = 3.0
+UTIL_SETTLE_S = 1.0             # NVML averages over a trailing window; drop its lag
+# Detector: golfer-box corners in frame pixels. YOLOX sees the frame at <=640
+# px, so one letterbox pixel is ~2.3 frame pixels on 1440-wide video.
+MAX_BOX_PARITY_PX = 5.0
+# Pose: one SimCC bin at this crop scale is ~2 frame pixels.
+MAX_KEYPOINT_PARITY_PX = 3.0
+PARITY_LIMIT = {"detector": MAX_BOX_PARITY_PX, "pose": MAX_KEYPOINT_PARITY_PX}
+
+
+# --- judging (pure; unit-tested without a GPU) ------------------------------
+
+def tally_profile(events):
+    """ONNX Runtime profile events -> {provider: {"nodes", "us", "ops": {op: n}}}."""
+    out = {}
+    for e in events:
+        if e.get("cat") != "Node" or not e.get("name", "").endswith("_kernel_time"):
+            continue
+        args = e.get("args", {})
+        t = out.setdefault(args.get("provider", "?"), {"nodes": 0, "us": 0, "ops": {}})
+        t["nodes"] += 1
+        t["us"] += e.get("dur", 0)
+        op = args.get("op_name", "?")
+        t["ops"][op] = t["ops"].get(op, 0) + 1
+    return out
+
+
+def parse_utilization(text):
+    """`nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits` lines -> ints."""
+    return [int(x) for x in text.split() if x.strip().isdigit()]
+
+
+def judge_network(net, r):
+    """Failure messages for one network's evidence (empty list = passed)."""
+    fails = []
+    prov = r.get("providers") or []
+    if not prov or prov[0] != CUDA:
+        fails.append(f"{net}: session providers {prov}, CUDA is not first")
+
+    prof = r.get("profile") or {}
+    total = sum(t["us"] for t in prof.values())
+    cuda = prof.get(CUDA, {"nodes": 0, "us": 0})
+    if not cuda["nodes"]:
+        fails.append(f"{net}: no profiled node executed on CUDA")
+    elif total and cuda["us"] / total < MIN_CUDA_SHARE:
+        fails.append(f"{net}: only {cuda['us'] / total:.0%} of node time ran on CUDA")
+    heavy = sorted(op for op in prof.get(CPU, {}).get("ops", {}) if op in HEAVY_OPS)
+    if heavy:
+        fails.append(f"{net}: compute ops executed on the CPU: {', '.join(heavy)}")
+
+    u = r.get("utilization") or {}
+    idle, on_gpu, on_cpu = u.get("idle"), u.get("cuda"), u.get("cpu")
+    if None in (idle, on_gpu, on_cpu):
+        fails.append(f"{net}: no NVML utilization samples (is nvidia-smi available?)")
+    elif on_gpu - max(idle, on_cpu) < MIN_UTIL_RISE:
+        fails.append(f"{net}: GPU kernel activity {on_gpu:.0f}% while running is not clearly "
+                     f"above idle {idle:.0f}% / CPU-provider control {on_cpu:.0f}%")
+
+    parity = r.get("parity_px")
+    if parity is None:
+        fails.append(f"{net}: no CUDA/CPU parity measured")
+    elif parity > PARITY_LIMIT[net]:
+        fails.append(f"{net}: CUDA and CPU outputs differ by {parity:.1f} px "
+                     f"(limit {PARITY_LIMIT[net]:.0f})")
+    return fails
+
+
+def judge(reports):
+    """Failures across networks. A network with no evidence fails; one network
+    passing never stands in for the other."""
+    fails = []
+    for net in NETWORKS:
+        if net not in reports:
+            fails.append(f"{net}: not verified (no evidence collected)")
+        else:
+            fails += judge_network(net, reports[net])
+    return fails
+
+
+# --- measurement -------------------------------------------------------------
 
 def frames(path, n):
     cap = cv2.VideoCapture(path)
@@ -63,33 +170,113 @@ def gpu_memory_of_this_process():
     return sum(int(r[1]) for r in rows) if rows else 0, out.strip() or "(no compute apps)"
 
 
-def profile_providers(backend, img):
-    """Re-create the pose session with profiling on and tally node providers."""
-    import onnxruntime as ort
-    opts = ort.SessionOptions()
-    opts.enable_profiling = True
-    opts.profile_file_prefix = "/tmp/rtmpose_profile"
-    opts.log_severity_level = 3
-    path = backend._pose._model_path if hasattr(backend._pose, "_model_path") else \
-        os.path.join(backend.model_dir, "rtmpose-m_body7-halpe26_256x192.onnx")
-    sess = ort.InferenceSession(path, opts, providers=["CUDAExecutionProvider",
-                                                       "CPUExecutionProvider"])
-    inp = np.random.rand(1, 3, 256, 192).astype(np.float32)
-    for _ in range(3):
-        sess.run(None, {sess.get_inputs()[0].name: inp})
-    prof = sess.end_profiling()
-    events = json.load(open(prof))
-    tally, dur = {}, {}
-    for e in events:
-        if e.get("cat") == "Node" and e.get("name", "").endswith("_kernel_time"):
-            p = e.get("args", {}).get("provider", "?")
-            tally[p] = tally.get(p, 0) + 1
-            dur[p] = dur.get(p, 0) + e.get("dur", 0)
-    return tally, dur
+def utilization_while(fn, seconds=UTIL_WINDOW_S, settle=UTIL_SETTLE_S):
+    """Median NVML utilization.gpu while fn() runs back to back, plus ms per call."""
+    interval_ms = 100
+    try:
+        smi = subprocess.Popen(["nvidia-smi", "--query-gpu=utilization.gpu",
+                                "--format=csv,noheader,nounits", "-lms", str(interval_ms)],
+                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    except OSError:
+        return {"median": None, "samples": 0, "ms_per_run": None}
+    t0 = time.monotonic()
+    runs = 0
+    while time.monotonic() - t0 < seconds:
+        fn()
+        runs += 1
+    elapsed = time.monotonic() - t0
+    smi.terminate()
+    out, _ = smi.communicate(timeout=10)
+    # Samples arrive every interval_ms (output may be buffered, so position,
+    # not arrival time, says when each was taken).
+    vals = parse_utilization(out)[int(settle * 1000 / interval_ms):]
+    return {"median": float(statistics.median(vals)) if vals else None,
+            "samples": len(vals), "ms_per_run": elapsed / runs * 1000}
 
 
-def main():
-    video = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_VIDEO
+def golfer_box(backend, rgb):
+    return select_golfer(backend._run_det(np.ascontiguousarray(rgb[..., ::-1])))
+
+
+def box_parity(gpu, cpu, imgs):
+    """Max golfer-box corner difference, CUDA vs CPU detector, frame pixels."""
+    worst = 0.0
+    for rgb in imgs:
+        a, b = golfer_box(gpu, rgb), golfer_box(cpu, rgb)
+        if (a is None) != (b is None):
+            return float("inf")
+        if a is not None:
+            worst = max(worst, float(np.max(np.abs(a[:4] - b[:4]))))
+    return worst
+
+
+def keypoint_parity(gpu, cpu, imgs):
+    """Max keypoint difference, CUDA vs CPU pose network on identical crops, frame px."""
+    worst, out_wh = 0.0, CONFIG["pose_input_wh"]
+    for rgb in imgs:
+        box = golfer_box(gpu, rgb)
+        if box is None:
+            continue
+        crop, center, scale = gpu.crop(rgb, box)
+        pts = []
+        for b in (gpu, cpu):
+            locs, _ = decode_simcc(*b._run_pose(crop))
+            pts.append(crop_to_frame(locs, center, scale, out_wh))
+        worst = max(worst, float(np.nanmax(np.abs(pts[0] - pts[1]))))
+    return worst
+
+
+def verify_network(net, gpu, cpu, profile, rgb, parity_imgs):
+    """All evidence for one network. `rgb` must contain the golfer."""
+    if net == "detector":
+        inp = np.ascontiguousarray(rgb[..., ::-1])
+        call = {"cuda": lambda: gpu._run_det(inp), "cpu": lambda: cpu._run_det(inp)}
+        parity = box_parity(gpu, cpu, parity_imgs)
+    else:
+        crop, _, _ = gpu.crop(rgb, golfer_box(gpu, rgb))
+        call = {"cuda": lambda: gpu._run_pose(crop), "cpu": lambda: cpu._run_pose(crop)}
+        parity = keypoint_parity(gpu, cpu, parity_imgs)
+    idle = utilization_while(lambda: time.sleep(0.02))
+    on_gpu = utilization_while(call["cuda"])
+    on_cpu = utilization_while(call["cpu"])
+    return {
+        "providers": gpu.providers[net],
+        "profile": profile,
+        "utilization": {"idle": idle["median"], "cuda": on_gpu["median"],
+                        "cpu": on_cpu["median"],
+                        "samples": [idle["samples"], on_gpu["samples"], on_cpu["samples"]]},
+        "ms": {"cuda": on_gpu["ms_per_run"], "cpu": on_cpu["ms_per_run"]},
+        "parity_px": parity,
+    }
+
+
+def describe(net, r):
+    prof = r["profile"]
+    total = sum(t["us"] for t in prof.values()) or 1
+    nodes = {p.replace("ExecutionProvider", ""): t["nodes"] for p, t in prof.items()}
+    cpu_ops = prof.get(CPU, {}).get("ops", {})
+    u, ms = r["utilization"], r["ms"]
+    return "\n".join([
+        f"[{net}]",
+        f"  session providers:      {r['providers']}",
+        f"  profiled node runs:     {nodes}; "
+        f"{prof.get(CUDA, {'us': 0})['us'] / total:.1%} of node time on CUDA",
+        f"  ops executed on CPU:    {cpu_ops or 'none'}",
+        f"  GPU kernel activity:    idle {u['idle']}%, CPU-provider run {u['cpu']}%, "
+        f"CUDA run {u['cuda']}%  (NVML samples {u['samples']})",
+        f"  per call:               CUDA {ms['cuda']:.1f} ms, CPU {ms['cpu']:.1f} ms "
+        f"({ms['cpu'] / ms['cuda']:.1f}x)",
+        f"  CUDA vs CPU output:     max {r['parity_px']:.2f} px "
+        f"(limit {PARITY_LIMIT[net]:.0f})",
+    ])
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("video", nargs="?", default=DEFAULT_VIDEO)
+    ap.add_argument("--json", help="also write the evidence as JSON here")
+    args = ap.parse_args(argv)
+    video = args.video
     if not os.path.exists(video):
         video = sorted(glob.glob("videos/**/*.mp4", recursive=True))[0]
     import onnxruntime as ort
@@ -99,14 +286,15 @@ def main():
     print(f"GPU: {smi.stdout.strip() or smi.stderr.strip()}")
 
     failures = []
-    gpu = RTMPoseBackend(device="cuda")
+    profile_dir = tempfile.mkdtemp(prefix="rtmpose_profile_")
+    gpu = RTMPoseBackend(device="cuda", profile_dir=profile_dir)
     t = time.perf_counter()
     try:
         gpu.open()
     except RTMPoseUnavailable as e:
         print(f"FAIL: {e}")
         return 1
-    print(f"CUDA sessions: providers {gpu.providers}; init {time.perf_counter() - t:.2f}s")
+    print(f"CUDA sessions: {gpu.providers}; init {time.perf_counter() - t:.2f}s")
 
     imgs = frames(video, N_FRAMES)
     print(f"video: {video} ({len(imgs)} frames sampled, {imgs[0].shape[1]}x{imgs[0].shape[0]})")
@@ -116,43 +304,56 @@ def main():
     print(f"nvidia-smi compute apps while sessions live: {raw!r}")
     if not mem:
         failures.append("no GPU memory held by the inference process")
-
-    tally, dur = profile_providers(gpu, imgs[0])
-    print(f"pose graph node executions by provider: {tally}")
-    total = sum(dur.values()) or 1
-    cuda_share = dur.get("CUDAExecutionProvider", 0) / total
-    print(f"share of node time on CUDA: {cuda_share:.1%}")
-    if cuda_share < 0.9:
-        failures.append(f"only {cuda_share:.0%} of node time ran on CUDA")
+    # Profiles of the sessions that just processed the real frames.
+    profiles = {}
+    for net, path in gpu.end_profiling().items():
+        with open(path) as f:
+            profiles[net] = tally_profile(json.load(f))
 
     cpu = RTMPoseBackend(device="cpu")
     cpu.open()
-    run(cpu, imgs[:2])
-    cpu_obs, cpu_dt = run(cpu, imgs[:20])
-    print(f"per-frame (detector + pose): CUDA {gpu_dt * 1000:.1f} ms, CPU {cpu_dt * 1000:.1f} ms "
-          f"({cpu_dt / gpu_dt:.1f}x)")
+    with_golfer = [img for img, o in zip(imgs, gpu_obs) if o is not None]
+    if not with_golfer:
+        print("FAIL: no golfer detected in any sampled frame; nothing to verify the pose "
+              "network on")
+        return 1
+    rgb = with_golfer[len(with_golfer) // 2]
+    parity_imgs = imgs[:N_PARITY]
+    reports = {}
+    for net in NETWORKS:
+        reports[net] = verify_network(net, gpu, cpu, profiles[net], rgb, parity_imgs)
+        print(describe(net, reports[net]))
+    failures += judge(reports)
 
+    run(cpu, imgs[:2])
+    cpu_obs, cpu_dt = run(cpu, parity_imgs)
+    print(f"end to end per frame (detector + pose): CUDA {gpu_dt * 1000:.1f} ms, "
+          f"CPU {cpu_dt * 1000:.1f} ms ({cpu_dt / gpu_dt:.1f}x)")
     diffs = []
-    for g, c in zip(gpu_obs[:20], cpu_obs):
+    h, w = imgs[0].shape[:2]
+    for g, c in zip(gpu_obs[:N_PARITY], cpu_obs):
         if g is None or c is None:
             if (g is None) != (c is None):
                 failures.append("CUDA and CPU disagree on whether a person was found")
             continue
-        h, w = imgs[0].shape[:2]
-        d = np.abs((g.xy_norm - c.xy_norm) * (w, h))
-        diffs.append(np.nanmax(d))
+        diffs.append(np.nanmax(np.abs((g.xy_norm - c.xy_norm) * (w, h))))
     if diffs:
-        print(f"CUDA vs CPU keypoint difference: max {max(diffs):.2f} px, "
+        print(f"end to end CUDA vs CPU keypoints: max {max(diffs):.2f} px, "
               f"median {np.median(diffs):.2f} px over {len(diffs)} frames")
-        if max(diffs) > 3.0:
-            failures.append(f"CUDA/CPU keypoints differ by {max(diffs):.1f} px")
+        if max(diffs) > MAX_KEYPOINT_PARITY_PX:
+            failures.append(f"end to end CUDA/CPU keypoints differ by {max(diffs):.1f} px")
     found = sum(o is not None for o in gpu_obs)
     print(f"golfer detected in {found}/{len(gpu_obs)} sampled frames")
+
+    if args.json:
+        with open(args.json, "w") as f:
+            json.dump({"video": video, "onnxruntime": ort.__version__, "gpu": smi.stdout.strip(),
+                       "networks": reports, "failures": failures}, f, indent=1)
 
     if failures:
         print("FAIL: " + "; ".join(failures))
         return 1
-    print("PASS: RTMPose inference executed on the GPU")
+    print("PASS: both networks (YOLOX detector and RTMPose) executed CUDA kernels on the GPU")
     return 0
 
 

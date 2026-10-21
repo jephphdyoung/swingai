@@ -57,6 +57,9 @@ class PoseBackend(Protocol):
 
     name: str
     min_confidence: float   # default threshold for this backend's confidence scores
+    # True only when the score estimates whether the joint is visible
+    # (MediaPipe). RTMPose's is a heatmap peak: occluded joints score high too.
+    score_is_visibility: bool
 
     def identity(self) -> str:
         """Changes whenever outputs could change (model file, library version)."""
@@ -176,6 +179,7 @@ class MediaPipeBackend:
 
     name = "mediapipe"
     min_confidence = DEFAULT_MIN_CONFIDENCE   # visibility: P(landmark visible)
+    score_is_visibility = True
 
     def __init__(self, model_path=None):
         from utils.pose_extractor import MODEL_PATH

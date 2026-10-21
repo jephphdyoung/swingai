@@ -76,7 +76,8 @@
 </main>
 <script>
 const DATA = /*__DATA__*/null;
-const KEY = "swingai-joint-labels-" + DATA.frames.map(f => f.video + f.frame).join("|").length;
+// Progress is keyed by the images themselves: a regenerated set starts clean.
+const KEY = "swingai-joint-labels-" + DATA.frames.map(f => f.image_sha1.slice(0, 8)).join("");
 let state = JSON.parse(localStorage.getItem(KEY) || "null") || {who: "", labels: {}};
 let fi = 0, ji = 0;
 const img = new Image();
@@ -206,10 +207,11 @@ document.getElementById("export").onclick = () => {
   for (const f of DATA.frames) {
     const l = state.labels[f.id]; if (!l) continue;
     const v = (out.videos[f.video] ||= {verified_by: out.verified_by, p1_frame: f.p1_frame,
-                                        view: f.view, frames: {}});
+                                        view: f.view, frames: {}, image_sha1: {}});
     const joints = {};
     for (const [j, p] of Object.entries(l)) if (!p.skip) joints[j] = p;
     v.frames[f.frame] = joints;
+    v.image_sha1[f.frame] = f.image_sha1;
   }
   const blob = new Blob([JSON.stringify(out, null, 1)], {type: "application/json"});
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob);

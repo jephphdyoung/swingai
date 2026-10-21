@@ -24,6 +24,14 @@ from utils.swing_pairing import find_pairs
 VIEWS = ("dtl", "face_on")
 SLOT_KEYS = [(role, view) for view in VIEWS for role in ("user", "reference")]
 
+SCORE_CAVEAT = (
+    "**{model} keypoint scores are not visibility and not accuracy.** A score is the "
+    "height of the model's heatmap peak, so a joint hidden behind the body -- the lead "
+    "arm and knee from down the line especially -- can score above the {threshold} "
+    "threshold while its position is a guess. Those points are drawn solid and measured "
+    "like seen joints. Every value below is an unverified model estimate: this model's "
+    "accuracy has not yet been measured against human-labelled joints.")
+
 
 def _guess_view(path):
     rec = load_annotation_record(path)
@@ -181,6 +189,9 @@ def render_dual_view_tab(user_dir, reference_dir):
         st.error(f"{BACKEND_LABELS[backend_name]} is not available here: {e}")
         st.info("Select MediaPipe to keep working on the CPU.")
         return
+    if not backend.score_is_visibility:
+        st.warning(SCORE_CAVEAT.format(model=BACKEND_LABELS[backend_name],
+                                       threshold=backend.min_confidence))
 
     paths = {("user", "dtl"): pair.dtl.path, ("user", "face_on"): pair.face_on.path,
              ("reference", "dtl"): ref_dtl, ("reference", "face_on"): ref_fo}
@@ -201,6 +212,8 @@ def render_dual_view_tab(user_dir, reference_dir):
                 _extract(missing, backend, backend_id)
             except RTMPoseUnavailable as e:
                 st.error(f"{BACKEND_LABELS[backend_name]} failed: {e}")
+                st.caption("Nothing was cached for the video that failed. Select MediaPipe "
+                           "to keep working on the CPU.")
                 return
             st.rerun()
 
@@ -250,17 +263,19 @@ def render_dual_view_tab(user_dir, reference_dir):
 
     with st.expander("Advanced"):
         min_conf = st.slider(
-            f"Minimum landmark confidence ({BACKEND_LABELS[backend_name]})", 0.0, 1.0,
+            f"Minimum landmark score ({BACKEND_LABELS[backend_name]})", 0.0, 1.0,
             float(backend.min_confidence), 0.05, key=f"dv_min_conf_{backend_name}",
             help="Landmarks below this score are treated as not observed (drawn hollow grey; "
                  "their measurements are unavailable). Scores differ by model: MediaPipe "
-                 "reports a visibility probability (default 0.5), RTMPose an uncalibrated "
-                 "SimCC peak (default 0.3). From down-the-line the lead arm and knee are "
-                 "often occluded.")
+                 "reports a visibility probability (default 0.5); RTMPose an uncalibrated "
+                 "SimCC peak (default 0.3) that is neither visibility nor accuracy, and stays "
+                 "high on occluded joints. From down the line the lead arm and knee are often "
+                 "occluded. Neither score says a point is correct.")
         st.caption(f"Pose model identity: `{backend_id}`")
 
     comparison = build_comparison(slots, position, use_partner_view=use_partner,
-                                  min_confidence=min_conf)
+                                  min_confidence=min_conf,
+                                  score_is_visibility=backend.score_is_visibility)
 
     # --- four panels ------------------------------------------------------
     for view in VIEWS:
@@ -293,7 +308,9 @@ def render_dual_view_tab(user_dir, reference_dir):
         "plane (2D), so DTL and face-on values are separate measurements and are never "
         "compared with each other. Displacements are from each video's own P1, in units "
         "of that video's P1 torso length. Elbow/knee flexion is 180° minus the 2D "
-        "included angle (0° = straight). A difference is not by itself a swing fault.")
+        "included angle (0° = straight). A difference is not by itself a swing fault. "
+        "All values are model estimates; none has been checked against human-labelled "
+        "joints.")
     for view in VIEWS:
         st.markdown(f"**{VIEW_LABELS[view]}**")
         rows = comparison.rows.get(view, [])

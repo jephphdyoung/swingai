@@ -24,6 +24,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from utils import joint_labels as jl  # noqa: E402
 from utils import pose_metrics as pm  # noqa: E402
 from utils.paths import repo_relative  # noqa: E402
 from utils.pose_data import (  # noqa: E402
@@ -89,22 +90,10 @@ def behaviour(seq):
     }
 
 
-def accuracy(seq, video_labels):
-    frames = video_labels.get("frames", {})
-    scale = None
-    p1 = video_labels.get("p1_frame")
-    if p1 is not None and str(p1) in frames:
-        scale = pm.label_torso(frames[str(p1)])
-    if scale is None:
+def accuracy(seq, key, video_labels):
+    if jl.video_scale(video_labels) is None:
         return {"error": "no labelled P1 torso for this video"}
-    rows = pm.label_errors(seq, frames, scale)
-    return {
-        "all": pm.summarize_errors(rows),
-        "visible": pm.summarize_errors([r for r in rows if r["visible"]]),
-        "occluded": pm.summarize_errors([r for r in rows if not r["visible"]]),
-        "per_joint": {j: pm.summarize_errors([r for r in rows if r["joint"] == j])
-                      for j in pm.COMMON_JOINTS},
-    }
+    return jl.group_summary(jl.score_video(seq, key, video_labels), pm.COMMON_JOINTS)
 
 
 def run(videos, labels, backends=("mediapipe", "rtmpose")):
@@ -141,7 +130,7 @@ def run(videos, labels, backends=("mediapipe", "rtmpose")):
                  "gpu_mem_peak_mib": gpu_mem, "cache_load_s": load,
                  **behaviour(seq)}
             vl = labels.get(key)
-            r["accuracy"] = accuracy(seq, vl) if vl else None
+            r["accuracy"] = accuracy(seq, key, vl) if vl else None
             entry["backends"][name] = r
             print(f"  {os.path.basename(path)[:44]:44s} {name:9s} {seq.frame_count:5d} f "
                   f"{elapsed:6.1f}s {r['fps']:6.1f} fps  gpu {gpu_mem if gpu_mem is not None else '-':>5} MiB  "
@@ -161,6 +150,7 @@ def main(argv=None):
     ap.add_argument("--view", action="append", default=[],
                     help="view for each extra video, in order (dtl|face_on)")
     ap.add_argument("--labels", default="data/joint_labels/labels.json")
+    ap.add_argument("--manifest", default="data/joint_labels/manifest.json")
     ap.add_argument("--out", required=True)
     args = ap.parse_args(argv)
 
@@ -171,10 +161,12 @@ def main(argv=None):
 
     labels = {}
     if os.path.exists(args.labels):
-        data = json.load(open(args.labels))
-        verified = {k: v for k, v in data.get("videos", {}).items() if v.get("verified_by")}
-        labels = verified
-        print(f"labels: {len(verified)} video(s) with human-verified joints")
+        try:
+            labels = jl.load_labels(args.labels, args.manifest)
+        except jl.LabelError as e:
+            sys.exit("invalid labels, refusing to score against them:\n  - "
+                     + "\n  - ".join(e.problems))
+        print(f"labels: {len(labels)} video(s) with human-verified joints")
     else:
         print(f"labels: none at {args.labels} -- accuracy will not be computed")
 

@@ -16,6 +16,10 @@ only choose frames; they are not ground truth), the frames where MediaPipe
 and RTMPose disagree most (where accuracy actually differs), and the fastest
 hand-motion frame. Nothing is pre-filled -- a pre-placed point would anchor
 the labeller toward one model.
+
+Frames are decoded sequentially, exactly as pose extraction reads them, and
+each one's pixel SHA-1 goes into the manifest and the exported labels, so the
+evaluation can prove labels and poses refer to the same image.
 """
 
 import base64
@@ -30,10 +34,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cv2  # noqa: E402
 
 from utils.annotations import load_annotation_record  # noqa: E402
+from utils.joint_labels import decode_frames, frame_digest  # noqa: E402
 from utils.landmarks import LANDMARK_INDEX  # noqa: E402
 from utils.paths import repo_relative  # noqa: E402
 from utils.pose_data import get_pose_sequence, make_backend  # noqa: E402
-from utils.pose_metrics import COMMON_JOINTS, agreement, body_scale, valid_mask  # noqa: E402
+from utils.pose_metrics import COMMON_JOINTS, body_scale, valid_mask  # noqa: E402
 
 VIDEOS = [
     ("videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4", "dtl"),
@@ -96,13 +101,7 @@ def swing_window(path, n):
     return 0, n
 
 
-def encode(path, frame):
-    cap = cv2.VideoCapture(path)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
-    ok, img = cap.read()
-    cap.release()
-    if not ok:
-        return None, None
+def encode(img):
     h, w = img.shape[:2]
     scale = min(1.0, MAX_WIDTH / w)
     if scale < 1:
@@ -120,12 +119,16 @@ def main():
         n = int(cv2.VideoCapture(path).get(cv2.CAP_PROP_FRAME_COUNT))
         rec = load_annotation_record(path)
         p1 = rec.frames.get("P1") if rec else None
-        for frame, reason in pick_frames(path, swing_window(path, n)):
-            b64, size = encode(path, frame)
-            if b64 is None:
+        picks = pick_frames(path, swing_window(path, n))
+        # Decoded sequentially, as pose extraction reads them -- not by seeking.
+        images = decode_frames(path, [f for f, _ in picks])
+        for frame, reason in picks:
+            if frame not in images:
                 continue
+            b64, size = encode(images[frame])
             item = {"id": f"{len(manifest):02d}", "video": repo_relative(path), "view": view,
-                    "frame": int(frame), "reason": reason, "p1_frame": p1, **size}
+                    "frame": int(frame), "reason": reason, "p1_frame": p1,
+                    "image_sha1": frame_digest(images[frame]), **size}
             manifest.append(item)
             items.append({**item, "jpg": b64})
             print(f"{item['id']}  {os.path.basename(path)[:44]:44s} frame {frame:5d}  {reason}")

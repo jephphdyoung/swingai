@@ -31,7 +31,9 @@ In the **Dual-View Comparison** tab pick **Pose model → RTMPose GPU**. Each mo
 are cached separately (see below). If a video hasn't been processed by the selected
 model, the tab offers **Extract poses**. In the CPU image, selecting RTMPose shows an
 error saying why it isn't available. It never falls back to MediaPipe under the RTMPose
-label.
+label. If a network fails partway through a video (CUDA out of memory, a kernel error), extraction
+stops with an error naming the network and the frame time
+(`detector inference failed on cuda at 41.7 ms: …`). Nothing partial is cached.
 
 `SWINGAI_GPU=1 ./run.sh` does, in order:
 
@@ -135,28 +137,77 @@ In practice RTMPose scores ≥ 0.3 almost everywhere, **including the occluded D
 where MediaPipe reports low visibility. A confident RTMPose point is not evidence that the
 point is right. Only the labelled evaluation can show that.
 
+The Dual-View tab says so. With RTMPose selected (any backend whose `score_is_visibility`
+is false) it shows a warning that keypoint scores are neither visibility nor accuracy and
+that every value is an unverified estimate. Each DTL measurement row that uses a lead
+elbow, wrist or knee gets a note that the joint is often hidden from down the line and that
+the value is unverified. Nothing in the tab calls a measurement verified, and a test checks
+this.
+
 ## Verification
 
-`SWINGAI_GPU=1 ./run.sh verify-gpu` (`scripts/verify_gpu.py`), 2026-10-20:
+`SWINGAI_GPU=1 ./run.sh verify-gpu` (`scripts/verify_gpu.py`), 2026-10-21:
 
 ```
 onnxruntime 1.31.0; available providers ['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider']
 GPU: NVIDIA GeForce RTX 5070 Ti, 615.78.08, 12.0, 16303 MiB
-CUDA sessions: providers ['CUDAExecutionProvider', 'CPUExecutionProvider']; init 4.04s
+CUDA sessions: {'detector': ['CUDAExecutionProvider', 'CPUExecutionProvider'], 'pose': ['CUDAExecutionProvider', 'CPUExecutionProvider']}; init 4.18s
 video: videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4 (60 frames sampled, 1440x1080)
-nvidia-smi compute apps while sessions live: '1, 908'
-pose graph node executions by provider: {'CUDAExecutionProvider': 555, 'CPUExecutionProvider': 6}
-share of node time on CUDA: 99.8%
-per-frame (detector + pose): CUDA 15.0 ms, CPU 303.5 ms (20.2x)
-CUDA vs CPU keypoint difference: max 2.13 px, median 1.66 px over 20 frames
+nvidia-smi compute apps while sessions live: '53, 908'
+[detector]
+  session providers:      ['CUDAExecutionProvider', 'CPUExecutionProvider']
+  profiled node runs:     {'CUDA': 20658, 'CPU': 264}; 100.0% of node time on CUDA
+  ops executed on CPU:    {'Gather': 66, 'Less': 66, 'Where': 66, 'Reshape': 66}
+  GPU kernel activity:    idle 0.0%, CPU-provider run 0.0%, CUDA run 75.0%  (NVML samples [20, 20, 21])
+  per call:               CUDA 10.2 ms, CPU 46.1 ms (4.5x)
+  CUDA vs CPU output:     max 0.62 px (limit 5)
+[pose]
+  session providers:      ['CUDAExecutionProvider', 'CPUExecutionProvider']
+  profiled node runs:     {'CUDA': 12210, 'CPU': 132}; 99.8% of node time on CUDA
+  ops executed on CPU:    {'Slice': 66, 'Concat': 66}
+  GPU kernel activity:    idle 0.0%, CPU-provider run 0.0%, CUDA run 83.0%  (NVML samples [20, 20, 20])
+  per call:               CUDA 1.9 ms, CPU 5.2 ms (2.7x)
+  CUDA vs CPU output:     max 1.67 px (limit 3)
+end to end per frame (detector + pose): CUDA 16.4 ms, CPU 55.0 ms (3.3x)
+end to end CUDA vs CPU keypoints: max 2.13 px, median 1.66 px over 20 frames
 golfer detected in 60/60 sampled frames
-PASS: RTMPose inference executed on the GPU
+PASS: both networks (YOLOX detector and RTMPose) executed CUDA kernels on the GPU
 ```
 
-The evidence is the process's GPU memory, ONNX Runtime's per-node profile (which provider
-actually executed each operator), the speed-up, and CPU/GPU output parity. The 6 CPU nodes
-are shape ops ONNX Runtime deliberately keeps on the host. The script exits non-zero if any
-of these fail.
+The YOLOX detector and the RTMPose network are **separate ONNX Runtime sessions, and each is
+verified on its own**: ONNX Runtime places each session, and each node in it, on a provider
+independently, so the pose network on the GPU says nothing about the detector. Provider
+availability alone is not taken as evidence. For each network:
+
+1. **Session providers**: CUDA first. `RTMPoseBackend.open()` also refuses to start if
+   either session lands on the CPU, or if either fails its warm-up run, and the error names
+   the network.
+2. **Per-node profile of the backend's own sessions**, recorded while they process the real
+   frames (`RTMPoseBackend(profile_dir=...)`). It shows which provider executed every node.
+   Pass: ≥ 90% of node time on CUDA and no compute op (Conv, MatMul, Gemm) on the CPU. The
+   CPU nodes listed are shape and indexing ops that ONNX Runtime deliberately keeps on the host.
+3. **Kernel execution.** The PyPI `onnxruntime-gpu` wheel is built without CUPTI, so its
+   profile names the provider per node but can't list kernels. The kernel-level evidence is
+   NVML's `utilization.gpu`, defined as *the percent of time one or more kernels was
+   executing on the GPU*. It is sampled while only that network runs back to back, against
+   an idle baseline and against a negative control: the same network in the same loop on the
+   CPU provider. Pass: ≥ 20 points above both. The detector reads 75%, pose 83%, idle and
+   control 0%.
+4. **Output parity** on identical inputs, CUDA vs CPU: detector golfer box ≤ 5 px (one
+   640-letterbox pixel is ~2.3 px of 1440-wide video); pose keypoints ≤ 3 px (one SimCC bin
+   is ~2 px).
+5. **Timing** is reported, not judged.
+
+The script exits non-zero if either network fails any check, naming the network. Its judging
+logic is unit-tested without a GPU (`tests/test_verify_gpu.py`). The same checks run on the
+real GPU in `tests/test_gpu_rtmpose.py`. `--json report.json` saves the evidence.
+
+**The old "20× faster than CPU" figure was wrong.** CPU-mode sessions spin-waited between
+calls, and with two sessions alternating every frame the idle one's threads starved the
+other: 311 ms/frame against 56 ms with spinning off, with identical output. CPU-mode sessions
+now disable spinning (`session.intra_op.allow_spinning=0`; CUDA sessions are unchanged, so
+the benchmark's GPU numbers stand). The honest end-to-end speed-up is ~3×. CPU mode exists
+only for verification and parity.
 
 GPU tests (`tests/test_gpu_rtmpose.py`) skip unless a working CUDA provider and the models
 are present:

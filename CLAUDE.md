@@ -68,6 +68,17 @@ Gotchas:
 - `/etc/cdi/nvidia.yaml` goes stale on driver updates; `run.sh` uses a per-user spec in
   `~/.local/share/swingai/cdi` via `podman --cdi-spec-dir` instead (no sudo).
 - Both images install with `-c constraints.txt` (frozen CPU-image versions).
+- YOLOX and RTMPose are **separate ORT sessions**, and each lands on a provider independently.
+  `open()` and `verify-gpu` check each network on its own. The ORT wheel has no CUPTI, so
+  kernel execution is shown with NVML `utilization.gpu` against a CPU-provider control.
+- RTMPose's score is **not visibility** (`score_is_visibility = False`): occluded joints
+  score high. The UI must never present its measurements as verified.
+- **OpenCV seeking is one frame early** on the 240fps captures past ~frame 700. Pose
+  extraction decodes sequentially, so anything that must match pose frames has to decode
+  sequentially (`utils/joint_labels.decode_frames`). The annotator and the panel images
+  still seek (STATUS.md).
+- Joint-accuracy evaluation: `scripts/evaluate_joint_labels.py`. It only runs on labels a
+  person exported from `labeler.html`.
 Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-backends-2026-10-20.md).
 
 ## Entry points
@@ -110,7 +121,7 @@ Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-bac
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # 600 pass, 4 GPU-only skip
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 679 pass, 7 GPU/ORT-only skip
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```

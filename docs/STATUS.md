@@ -84,12 +84,24 @@ Use **Confirm reviewed** in the Dual-View tab after checking each. The 2026-07-2
 no annotations.
 
 **GPU pose estimation** (PR #4, 2026-10-20). RTMPose-m (Halpe26) + YOLOX-m on ONNX Runtime
-CUDA, selectable in the Dual-View tab under `SWINGAI_GPU=1 ./run.sh`. Verified executing on
-the RTX 5070 Ti (99.8% of node time on CUDA, 15 ms/frame, 20× the CPU path). Benchmarked
+CUDA, selectable in the Dual-View tab under `SWINGAI_GPU=1 ./run.sh`. Both networks (YOLOX
+detector and RTMPose) are verified separately to execute CUDA kernels on the RTX 5070 Ti
+(`verify-gpu`: per-node profile, NVML kernel activity with a CPU control, CUDA/CPU parity).
+That's 16 ms/frame end to end, ~3× the CPU path. Benchmarked
 against MediaPipe on 7 videos ([report](benchmarks/pose-backends-2026-10-20.md)): MediaPipe
 swaps left/right labels (16 events) where RTMPose doesn't, and the two disagree by tens of
 degrees on some P4 measurements. **Accuracy is unmeasured until a person labels the 20-frame
-set** (`data/joint_labels/labeler.html`, see the report). MediaPipe stays the default.
+set** (`data/joint_labels/labeler.html`, see the report); `scripts/evaluate_joint_labels.py`
+then scores both models per view. MediaPipe stays the default.
+
+**Known issue (pre-existing, not fixed in PR #4): OpenCV seeking lands one frame early on the
+240fps captures** from about frame 700 on (the stream's average frame rate, 249.30, differs
+from its nominal one). Pose extraction decodes sequentially, so wherever the UI *seeks*
+(`utils/dual_view.read_frame`, the annotator), the image shown is frame *f*−1 while the
+skeleton, measurements and saved P-position index are frame *f*. That's 4 ms, but the hands
+move far in 4 ms near impact. Measured on the 150221 pair: frames 730/736/774/1238 are off by
+one; 395–652 are exact; Grant Waite's 30fps clips are exact. The joint-label set was fixed for
+this (sequential decode plus per-frame pixel digests). The annotator and panels still need it.
 
 ### Detection quality: not yet validated
 

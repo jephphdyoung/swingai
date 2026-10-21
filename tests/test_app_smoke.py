@@ -6,6 +6,7 @@ so the Dual-View tab finds them without running inference.
 
 import importlib.util
 import os
+import re
 
 import pytest
 
@@ -118,3 +119,86 @@ def test_backend_selector_switches_without_mixing_results(app_env):
     assert not at.exception
     assert len(at.dataframe) == 2
     assert at.radio(key="dv_position").value == "P4"              # selection preserved
+
+
+class FakeRTMPose(FakeBackend):
+    """Stands in for RTMPose: its score is a heatmap peak, not visibility."""
+
+    name = "rtmpose"
+    min_confidence = 0.3
+    score_is_visibility = False
+
+
+def _texts(at):
+    out = []
+    for kind in ("markdown", "caption", "warning", "info", "error", "success"):
+        out += [e.value for e in getattr(at, kind)]
+    return out
+
+
+def _claims_verified(text):
+    """'verified' not preceded by a negation ('unverified' doesn't match)."""
+    return [m for m in re.finditer(r"\bverified\b", text, re.I)
+            if "not" not in text[max(0, m.start() - 9):m.start()].lower()]
+
+
+def test_rtmpose_scores_are_not_presented_as_visibility_or_verified(app_env, monkeypatch):
+    import dual_view_tab
+    fake = FakeRTMPose(n_frames=60, identity="rtmpose-fake-1")
+    for (role, view), path in app_env.items():
+        seq = pd.extract_pose_sequence(path, FakeRTMPose(view=view, n_frames=60,
+                                                         identity="rtmpose-fake-1"))
+        pd.save_pose_sequence(seq, pd.cached_pose_path(path, fake))
+    real = dual_view_tab.make_backend
+    monkeypatch.setattr(dual_view_tab, "make_backend",
+                        lambda name: fake if name == "rtmpose" else real(name))
+
+    at = AppTest.from_file(os.path.join(REPO, "app.py"), default_timeout=60)
+    at.session_state["dv_position"] = "P4"
+    at.run()
+    assert at.radio(key="dv_backend").value == "mediapipe"        # still the default
+    assert not any("not visibility" in w.value for w in at.warning)
+    assert not any("often hidden" in n for n in at.dataframe[0].value["Note"])
+
+    at.radio(key="dv_backend").set_value("rtmpose").run()
+    assert not at.exception, [e.value for e in at.exception]
+    caveat = [w.value for w in at.warning if "not visibility and not accuracy" in w.value]
+    assert caveat and "unverified model estimate" in caveat[0]
+    assert "lead arm and knee from down the line" in caveat[0]
+    assert "0.3 threshold" in caveat[0]
+    dtl, fo = at.dataframe[0].value, at.dataframe[1].value
+    notes = dict(zip(dtl["Measurement"], dtl["Note"]))
+    assert "often hidden from down the line" in notes["Lead elbow flexion"]
+    assert "often hidden" not in notes["Trail elbow flexion"]
+    assert not any("often hidden" in n for n in fo["Note"])
+    assert any("none has been checked against human-labelled joints" in c.value
+               for c in at.caption)
+    for text in _texts(at):
+        assert not _claims_verified(text), text
+
+
+def test_backend_failure_during_extraction_is_reported(app_env, monkeypatch):
+    import dual_view_tab
+    from utils.pose_rtmpose import RTMPoseInferenceError
+
+    class Failing(FakeRTMPose):
+        def detect(self, rgb_frame, timestamp_ms):
+            raise RTMPoseInferenceError(f"detector inference failed on cuda at "
+                                        f"{timestamp_ms:.1f} ms: CUDA out of memory")
+
+    failing = Failing(identity="rtmpose-failing")
+    real = dual_view_tab.make_backend
+    monkeypatch.setattr(dual_view_tab, "make_backend",
+                        lambda name: failing if name == "rtmpose" else real(name))
+    cache = pd.default_cache_dir()
+    before = sorted(os.listdir(cache))
+    at = AppTest.from_file(os.path.join(REPO, "app.py"), default_timeout=60)
+    at.run()
+    at.radio(key="dv_backend").set_value("rtmpose").run()
+    at.button(key="dv_extract").click().run()
+    assert not at.exception, [e.value for e in at.exception]
+    err = [e.value for e in at.error]
+    assert any("RTMPose GPU failed: detector inference failed on cuda" in e
+               and "CUDA out of memory" in e for e in err), err
+    assert any("Nothing was cached" in c.value for c in at.caption)
+    assert sorted(os.listdir(cache)) == before

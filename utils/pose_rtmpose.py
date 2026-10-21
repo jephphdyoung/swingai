@@ -21,8 +21,9 @@ an uncalibrated score, not a probability and not comparable to MediaPipe's
 visibility; the default threshold is therefore backend-specific
 (RTMPOSE_MIN_CONFIDENCE).
 
-GPU only by default: if the CUDA execution provider is unavailable or fails to
-run, `open()` raises RTMPoseUnavailable instead of silently using the CPU.
+GPU only by default: if the CUDA execution provider is unavailable, or either
+network's session lands on the CPU or fails its warm-up run, `open()` raises
+RTMPoseUnavailable naming that network instead of silently using the CPU.
 """
 
 from functools import lru_cache
@@ -50,6 +51,8 @@ MODELS = {
         "onnx_sha256": "3dea6513388889f0fff4b77bf7a26013600321b9eb9ceb0e9a400a82572f5f23",
     },
 }
+
+NETWORKS = ("detector", "pose")
 
 # Everything that changes outputs for given weights. Part of the cache key.
 CONFIG = {
@@ -91,6 +94,10 @@ HALPE26_FOR.update({
 
 class RTMPoseUnavailable(RuntimeError):
     """RTMPose can't run here (no onnxruntime-gpu, no GPU, missing models)."""
+
+
+class RTMPoseInferenceError(RTMPoseUnavailable):
+    """A network failed mid-video (e.g. CUDA out of memory). Nothing is cached."""
 
 
 def default_model_dir():
@@ -221,15 +228,17 @@ class RTMPoseBackend:
 
     name = "rtmpose"
     min_confidence = RTMPOSE_MIN_CONFIDENCE
+    score_is_visibility = False
 
-    def __init__(self, model_dir=None, device="cuda"):
+    def __init__(self, model_dir=None, device="cuda", profile_dir=None):
         if device not in ("cuda", "cpu"):
             raise ValueError(device)
         self.model_dir = model_dir or default_model_dir()
         self.device = device
+        self.profile_dir = profile_dir      # ONNX Runtime per-node profiles (verify_gpu.py)
         self._pose = self._det = None
         self.last_box = None
-        self.providers = None
+        self.providers = {}                 # network -> session providers, after open()
 
     def _paths(self):
         paths = {k: os.path.join(self.model_dir, spec["file"]) for k, spec in MODELS.items()}
@@ -273,25 +282,46 @@ class RTMPoseBackend:
             providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         else:
             providers = ["CPUExecutionProvider"]
-        opts = ort.SessionOptions()
-        opts.log_severity_level = 3
-        try:
-            self._det = ort.InferenceSession(paths["detector"], opts, providers=providers)
-            self._pose = ort.InferenceSession(paths["pose"], opts, providers=providers)
-        except Exception as e:
-            raise RTMPoseUnavailable(f"could not create ONNX Runtime sessions: {e}") from e
-        self.providers = self._pose.get_providers()
-        if self.device == "cuda" and self.providers[0] != "CUDAExecutionProvider":
-            raise RTMPoseUnavailable(f"CUDA provider not active (got {self.providers})")
+        sessions, self.providers = {}, {}
+        # Each network is created, checked and warmed up on its own, so a
+        # failure names the network: ONNX Runtime falls back to the CPU per
+        # session, and one network on the GPU says nothing about the other.
+        for net in NETWORKS:
+            opts = ort.SessionOptions()
+            opts.log_severity_level = 3
+            if self.device == "cpu":
+                # The two sessions alternate every frame; the idle one's
+                # spin-waiting thread pool starves the other (measured 311 vs
+                # 56 ms per frame). Same outputs either way.
+                opts.add_session_config_entry("session.intra_op.allow_spinning", "0")
+            if self.profile_dir:
+                opts.enable_profiling = True
+                opts.profile_file_prefix = os.path.join(self.profile_dir, f"rtmpose_{net}")
+            try:
+                sessions[net] = ort.InferenceSession(paths[net], opts, providers=providers)
+            except Exception as e:
+                raise RTMPoseUnavailable(
+                    f"could not create the {net} ONNX Runtime session: {e}") from e
+            self.providers[net] = sessions[net].get_providers()
+            if self.device == "cuda" and self.providers[net][0] != "CUDAExecutionProvider":
+                raise RTMPoseUnavailable(
+                    f"CUDA provider not active for the {net} (got {self.providers[net]})")
+        self._det, self._pose = sessions["detector"], sessions["pose"]
         # Fail now, not mid-video, if the GPU can't actually run the graphs
         # (e.g. no kernels for this architecture).
-        try:
-            self._run_pose(np.zeros((256, 192, 3), np.float32))
-            self._run_det(np.zeros((480, 640, 3), np.uint8))
-        except Exception as e:
-            self.close()
-            raise RTMPoseUnavailable(f"{self.device} inference failed: {e}") from e
+        warmup = {"detector": lambda: self._run_det(np.zeros((480, 640, 3), np.uint8)),
+                  "pose": lambda: self._run_pose(np.zeros((256, 192, 3), np.float32))}
+        for net in NETWORKS:
+            try:
+                warmup[net]()
+            except Exception as e:
+                self.close()
+                raise RTMPoseUnavailable(f"{net} inference failed on {self.device}: {e}") from e
         self.last_box = None
+
+    def end_profiling(self):
+        """{network: profile JSON path}; only when created with `profile_dir`."""
+        return {"detector": self._det.end_profiling(), "pose": self._pose.end_profiling()}
 
     def _run_det(self, bgr):
         img, ratio = letterbox(bgr)
@@ -310,22 +340,35 @@ class RTMPoseBackend:
         simcc_x, simcc_y = self._pose.run(None, {self._pose.get_inputs()[0].name: inp})
         return simcc_x[0], simcc_y[0]
 
-    def detect(self, rgb_frame, timestamp_ms):
+    def crop(self, rgb_frame, box):
+        """Pose-network input for one person box: (crop, center, scale)."""
         import cv2
-        h, w = rgb_frame.shape[:2]
-        boxes = self._run_det(np.ascontiguousarray(rgb_frame[..., ::-1]))
-        box = select_golfer(boxes, self.last_box)
-        self.last_box = box
-        if box is None:
-            return None
         out_wh = CONFIG["pose_input_wh"]
         center, scale = bbox_center_scale(box)
         scale = fix_aspect(scale, out_wh[0] / out_wh[1])
         crop = cv2.warpAffine(rgb_frame, crop_matrix(center, scale, out_wh), out_wh,
                               flags=cv2.INTER_LINEAR)
-        simcc_x, simcc_y = self._run_pose(crop)
+        return crop, center, scale
+
+    def _infer(self, net, fn, arg, timestamp_ms):
+        try:
+            return fn(arg)
+        except Exception as e:
+            raise RTMPoseInferenceError(
+                f"{net} inference failed on {self.device} at {timestamp_ms:.1f} ms: {e}") from e
+
+    def detect(self, rgb_frame, timestamp_ms):
+        h, w = rgb_frame.shape[:2]
+        boxes = self._infer("detector", self._run_det,
+                            np.ascontiguousarray(rgb_frame[..., ::-1]), timestamp_ms)
+        box = select_golfer(boxes, self.last_box)
+        self.last_box = box
+        if box is None:
+            return None
+        crop, center, scale = self.crop(rgb_frame, box)
+        simcc_x, simcc_y = self._infer("pose", self._run_pose, crop, timestamp_ms)
         locs, scores = decode_simcc(simcc_x, simcc_y)
-        keypoints = crop_to_frame(locs, center, scale, out_wh)
+        keypoints = crop_to_frame(locs, center, scale, CONFIG["pose_input_wh"])
         return halpe26_observation(keypoints, scores, w, h)
 
     def close(self):

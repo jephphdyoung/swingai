@@ -56,15 +56,41 @@ The labelling set is ready:
   hips, knees, ankles), each marked visible or occluded (position estimated), or skipped.
 
 ```bash
-python scripts/make_joint_label_set.py        # (GPU image) regenerates data/joint_labels/labeler.html
 xdg-open data/joint_labels/labeler.html       # label, enter your name, Export
 mv ~/Downloads/labels.json data/joint_labels/labels.json
-# re-run the benchmark command above: the accuracy table fills in
+podman --cdi-spec-dir ~/.local/share/swingai/cdi run --rm --device nvidia.com/gpu=all \
+  --security-opt label=disable -v "$PWD":/app \
+  -v "$PWD/videos/user":/app/videos/user:ro -v "$PWD/videos/reference":/app/videos/reference:ro \
+  -v "$PWD/models":/app/models:ro swingai-gpu \
+  python scripts/evaluate_joint_labels.py --out docs/benchmarks/joint-accuracy-<date>.json \
+  --md docs/benchmarks/joint-accuracy-<date>.md
 ```
 
-The labeller has no pre-placed points (they would anchor you toward one model). It stores
-coordinates in original-video pixels. Errors are reported in P1 torso lengths from your own
-P1 labels, with PCK@0.05/0.1 overall and split into visible and occluded joints.
+The labeller has no pre-placed points, since they would anchor you toward one model. It
+stores coordinates in original-video pixels. `evaluate_joint_labels.py` then:
+
+1. **Validates** `labels.json` against the manifest and refuses it, listing every problem,
+   if it has no `verified_by`, has frames or joints outside the set, has coordinates off the
+   frame or non-boolean visibility, or was labelled on a different image than the manifest's.
+   Nothing is repaired or filled in.
+2. **Checks the pixels.** Each labelled frame is decoded *sequentially*, as pose extraction
+   reads it, and its SHA-1 must match the digest the labeller exported. This matters: on the
+   240fps captures OpenCV's seek lands one frame early past ~frame 700, and the first
+   labeller (2026-10-20) used seeking, so frames 03, 04, 08 and 09 showed frame *f*−1. The
+   set was regenerated on 2026-10-21 with sequential decoding. The frames are the same and
+   only those four images changed. Its progress key now depends on the images, so it starts
+   clean, and exports from the old labeller are refused.
+3. **Scores both models, separately for DTL and face-on**: error in P1 torso lengths (from
+   your P1 labels; mean and median), frame misses (no person found) and joint misses (no
+   point above the model's own threshold), PCK@0.05/0.1/0.2 with a miss counted as a
+   failure, all split into visible vs occluded labels, per joint, plus how often each model
+   answered on joints you marked occluded. RTMPose − MediaPipe PCK comes with a 95%
+   bootstrap interval over labelled frames. With 10 frames per view, an interval containing
+   0 is no evidence of a difference.
+
+It reads both models' poses from the pose cache (run in the GPU image, where this report's
+caches were made; `--extract` computes missing ones). The benchmark script uses the same
+validation and scoring for its per-video accuracy table.
 
 ## How much the model changes the measurements
 

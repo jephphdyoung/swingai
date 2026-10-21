@@ -278,3 +278,149 @@ def test_missing_model_files_are_reported(tmp_path):
     b = rt.RTMPoseBackend(model_dir=str(tmp_path))
     with pytest.raises(rt.RTMPoseUnavailable, match="fetch_rtmpose_models"):
         b._paths()
+
+
+# --- failure reporting: which network failed, and how ------------------------
+
+class FakeOrt:
+    """Just enough onnxruntime to drive RTMPoseBackend.open()."""
+
+    __version__ = "fake"
+
+    def __init__(self, available=("CUDAExecutionProvider", "CPUExecutionProvider"),
+                 lands_on=None, create_fails=(), run_fails=()):
+        self.available = list(available)
+        self.lands_on = lands_on or {}          # network -> providers the session reports
+        self.create_fails, self.run_fails = set(create_fails), set(run_fails)
+        self.options = {}
+        ort = self
+
+        class SessionOptions:
+            def __init__(self):
+                self.config = {}
+                self.enable_profiling = False
+
+            def add_session_config_entry(self, k, v):
+                self.config[k] = v
+
+        class InferenceSession:
+            def __init__(self, path, opts, providers):
+                net = "detector" if "yolox" in path else "pose"
+                ort.options[net] = opts
+                if net in ort.create_fails:
+                    raise RuntimeError("cudnn init failed")
+                self.net = net
+                self.providers = ort.lands_on.get(net, providers)
+
+            def get_providers(self):
+                return list(self.providers)
+
+            def get_inputs(self):
+                return [type("I", (), {"name": "input"})()]
+
+            def run(self, _outputs, feeds):
+                if self.net in ort.run_fails:
+                    raise RuntimeError("no kernel image is available for execution on the device")
+                if self.net == "detector":
+                    return [np.zeros((1, 0, 5)), np.zeros((1, 0))]
+                return [np.zeros((1, 26, 384)), np.zeros((1, 26, 512))]
+
+            def end_profiling(self):
+                return f"/tmp/{self.net}.json"
+
+        self.SessionOptions, self.InferenceSession = SessionOptions, InferenceSession
+
+    def get_available_providers(self):
+        return self.available
+
+
+@pytest.fixture
+def fake_ort(monkeypatch, tmp_path):
+    def install(**kw):
+        ort = FakeOrt(**kw)
+        monkeypatch.setattr(rt.RTMPoseBackend, "_ort", staticmethod(lambda: ort))
+        monkeypatch.setattr(rt.RTMPoseBackend, "_paths", lambda self: {
+            k: str(tmp_path / spec["file"]) for k, spec in rt.MODELS.items()})
+        return ort
+    return install
+
+
+class TestFailureReporting:
+    def test_both_networks_on_cuda_opens(self, fake_ort):
+        fake_ort()
+        b = rt.RTMPoseBackend(device="cuda")
+        b.open()
+        assert set(b.providers) == {"detector", "pose"}
+        assert all(p[0] == "CUDAExecutionProvider" for p in b.providers.values())
+
+    def test_no_cuda_provider(self, fake_ort):
+        fake_ort(available=("CPUExecutionProvider",))
+        with pytest.raises(rt.RTMPoseUnavailable, match="has no CUDA execution provider"):
+            rt.RTMPoseBackend(device="cuda").open()
+
+    @pytest.mark.parametrize("net", rt.NETWORKS)
+    def test_one_network_falling_back_to_cpu_is_refused(self, fake_ort, net):
+        # ONNX Runtime places sessions independently: the other network on
+        # CUDA must not hide this one on the CPU.
+        fake_ort(lands_on={net: ["CPUExecutionProvider"]})
+        with pytest.raises(rt.RTMPoseUnavailable,
+                           match=f"CUDA provider not active for the {net}"):
+            rt.RTMPoseBackend(device="cuda").open()
+
+    @pytest.mark.parametrize("net", rt.NETWORKS)
+    def test_session_creation_failure_names_the_network(self, fake_ort, net):
+        fake_ort(create_fails={net})
+        with pytest.raises(rt.RTMPoseUnavailable,
+                           match=f"could not create the {net} ONNX Runtime session: cudnn"):
+            rt.RTMPoseBackend(device="cuda").open()
+
+    @pytest.mark.parametrize("net", rt.NETWORKS)
+    def test_warmup_failure_names_the_network_and_closes(self, fake_ort, net):
+        fake_ort(run_fails={net})
+        b = rt.RTMPoseBackend(device="cuda")
+        with pytest.raises(rt.RTMPoseUnavailable,
+                           match=f"{net} inference failed on cuda: no kernel image"):
+            b.open()
+        assert b._det is None and b._pose is None
+
+    def test_mid_video_failure_names_network_and_time(self, fake_ort):
+        ort = fake_ort()
+        b = rt.RTMPoseBackend(device="cuda")
+        b.open()
+        ort.run_fails.add("detector")
+        with pytest.raises(rt.RTMPoseInferenceError,
+                           match=r"detector inference failed on cuda at 41\.7 ms"):
+            b.detect(np.zeros((480, 640, 3), np.uint8), 41.7)
+
+    def test_mid_video_failure_caches_nothing(self, fake_ort, tmp_path):
+        ort = fake_ort()
+        video = write_video(tmp_path / "v.avi", 5, 30.0)
+        b = rt.RTMPoseBackend(device="cuda")
+        b.identity = lambda: "rtmpose-fake"
+        real_open = b.open
+
+        def open_then_break():
+            real_open()
+            ort.run_fails.add("detector")
+        b.open = open_then_break
+        cache = tmp_path / "cache"
+        with pytest.raises(rt.RTMPoseUnavailable):
+            pd.get_pose_sequence(video, b, cache_dir=str(cache))
+        assert not cache.exists() or not any(cache.iterdir())
+
+    def test_cpu_sessions_do_not_spin(self, fake_ort):
+        ort = fake_ort()
+        rt.RTMPoseBackend(device="cpu").open()
+        for net in rt.NETWORKS:
+            assert ort.options[net].config == {"session.intra_op.allow_spinning": "0"}
+        rt.RTMPoseBackend(device="cuda").open()
+        assert all(o.config == {} for o in ort.options.values())
+
+    def test_profiling_covers_both_networks(self, fake_ort, tmp_path):
+        ort = fake_ort()
+        b = rt.RTMPoseBackend(device="cuda", profile_dir=str(tmp_path))
+        b.open()
+        for net in rt.NETWORKS:
+            assert ort.options[net].enable_profiling
+            assert ort.options[net].profile_file_prefix == str(tmp_path / f"rtmpose_{net}")
+        assert set(b.end_profiling()) == {"detector", "pose"}
