@@ -43,11 +43,16 @@ low-resolution footage with bystanders) and your 2026-07-27 135006 pair, which S
 flags as hard for DTL tracking. Every frame of every video was processed by both models
 (7 videos, 7,243 frames each).
 
-## Ground truth (pending: needs a person)
+## Ground truth
+
+**Labelled 2026-10-21: results in [joint-accuracy-2026-10-21](joint-accuracy-2026-10-21.md).** On the
+6 blind face-on frames, RTMPose has 69.7% of joints within 0.1 torso lengths vs MediaPipe's 44.7%:
++25.0 points, 95% interval +15.9 to +34.3. DTL is not scored yet: its P1 frames lack the far-side
+shoulder and hip that the torso scale needs ([STATUS](../STATUS.md)).
 
 Accuracy has to be measured against joints a person has placed and verified. Claude can't
 supply that, and the Claude-proposed P-position labels are not used as truth for anything.
-The labelling set is ready:
+The labelling set:
 
 - **20 frames**, 5 from each of the four main videos: P1/P4/P7 where annotated (the
   annotations only *choose* frames), the two frames where the models disagree most, and the

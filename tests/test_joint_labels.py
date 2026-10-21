@@ -557,6 +557,21 @@ def test_committed_manifest_is_valid():
     assert {v: len(s) for v, s in views.items()} == {"dtl": 2, "face_on": 2}
 
 
+def test_committed_labels_are_valid_and_human_only():
+    """The 2026-10-21 export behind docs/benchmarks/joint-accuracy-2026-10-21:
+    every benchmark frame, no model-sourced point, and the two DTL videos
+    unscorable because their P1 far-side shoulder/hip were marked can't-place."""
+    path = os.path.join(REPO, "data/joint_labels/labels.json")
+    labels = jl.load_labels(path, os.path.join(REPO, "data/joint_labels/manifest.json"))
+    with open(os.path.join(REPO, "data/joint_labels/manifest.json")) as f:
+        cov = jl.coverage(labels, jl.load_manifest_dict(json.load(f)))
+    assert (cov["frames_labelled"], cov["frames_blind_labelled"],
+            cov["frames_assisted_labelled"]) == (20, 12, 8)
+    assert cov["assisted_points"] == {"model_accepted": {}, "model_corrected": {}}
+    assert sorted(os.path.basename(v) for v in cov["unscorable"]) == \
+        ["GW_DTL.mp4", "Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4"]
+
+
 def test_benchmark_frames_and_images_are_pinned():
     """The 20 frames MediaPipe and RTMPose are compared on, and the exact
     images (SHA-1), are those of the 2026-10-21 set. Adding points, groups or

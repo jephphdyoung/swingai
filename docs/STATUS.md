@@ -90,9 +90,8 @@ detector and RTMPose) are verified separately to execute CUDA kernels on the RTX
 That's 16 ms/frame end to end, ~3× the CPU path. Benchmarked
 against MediaPipe on 7 videos ([report](benchmarks/pose-backends-2026-10-20.md)): MediaPipe
 swaps left/right labels (16 events) where RTMPose doesn't, and the two disagree by tens of
-degrees on some P4 measurements. **Accuracy is unmeasured until a person labels the 20-frame
-set** (`data/joint_labels/labeler.html`, see the report); `scripts/evaluate_joint_labels.py`
-then scores both models per view. MediaPipe stays the default.
+degrees on some P4 measurements. **Accuracy against human labels is measured for face-on only**
+(below); DTL is not scored yet. MediaPipe stays the default.
 
 A first full pass of labels (2026-10-21) is kept as
 `data/joint_labels/labels-old-labeller-2026-10-21.json`. It was exported from a labeller
@@ -108,6 +107,25 @@ model output and are the fair comparison. The other 8 get suggestions from the c
 of both models. Disagreements over 0.1 torso lengths are flagged with no first choice, and
 the first-choice model alternates. Assisted frames are scored and reported separately, never
 pooled. Accepted model points need the labeller's sign-off.
+
+**First joint-accuracy results (2026-10-21)** ([report](benchmarks/joint-accuracy-2026-10-21.md),
+labels in `data/joint_labels/labels.json`, all 20 frames, 238/300 joints):
+- **Face-on, 6 blind frames (76 joints, both golfers):** RTMPose is closer to the labels.
+  Within 0.1 torso lengths: RTMPose 69.7% vs MediaPipe 44.7%, a difference of +25.0 points
+  (95% interval +15.9 to +34.3). Mean error 0.074 vs 0.166 torso lengths. That's good evidence,
+  but from 6 frames of 2 golfers.
+- **DTL: not scored.** Errors are scaled by the P1 torso length, which needs both shoulders and both hips.
+  On both DTL P1 frames (Jeff 395, GW 104) the far-side shoulder and hip are hidden and were marked
+  can't-place. Two ways to score DTL: place them as occluded estimates, or change the scale to fall back
+  to the near-side shoulder→hip. Neither is decided. A scratch preview with the near-side fallback gave
+  RTMPose 71.9% vs MediaPipe 63.2% (+8.8, interval −7.4 to +24.6: no clear difference). It is not in the
+  report.
+- **The 8 assisted frames were labelled without suggestions.** Suggestions unlock only when every blind
+  frame's Body group is complete, which needs hidden joints marked occluded or can't-place, and most
+  blind frames have blank hidden joints. No label came from a model. The 8 frames are still reported as
+  assisted, because the export can't prove that nothing was shown.
+- Hidden joints were left blank or marked can't-place, never estimated, so the occluded-joint numbers are
+  empty: every scored joint is one the labeller could see.
 
 The labeller now also has optional **Feet** and **Hands/Club** groups, and the manifest can
 hold **sequences** for P2–P3, P5–P8 and heel-lift work, all outside the benchmark score

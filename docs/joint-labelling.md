@@ -141,6 +141,9 @@ split is fixed in the manifest before any suggestion was generated:
   for them exists in the page, and the validator refuses any model-sourced point on them.
   They are the fair MediaPipe vs RTMPose comparison. P1 is always blind because it sets
   every video's torso scale.
+  The scale needs **both shoulders and both hips on P1**. Where one is hidden (the far side
+  in DTL), place your best estimate and press **O**. A can't-place there leaves the whole
+  video unscored, which is why the 2026-10-21 DTL results are missing.
 - **8 assisted frames**: suggestions from both models. They are scored and reported
   **separately**. They are never pooled with the blind frames, because they can't fairly
   compare the models.

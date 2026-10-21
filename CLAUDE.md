@@ -56,7 +56,8 @@ untouched. Full doc: [docs/dual-view-comparison.md](docs/dual-view-comparison.md
 `utils/pose_data.py` holds the `PoseBackend` protocol, `make_backend("mediapipe"|"rtmpose")`
 and the cache. RTMPose (`utils/pose_rtmpose.py`: YOLOX-m + RTMPose-m Halpe26, ONNX Runtime
 CUDA) runs only in the GPU image: `SWINGAI_GPU=1 ./run.sh`. **MediaPipe stays the default**:
-accuracy vs. human labels is not measured yet (labelling set in `data/joint_labels/`).
+accuracy vs. human labels is measured for face-on only (RTMPose ahead, 6 frames;
+`docs/benchmarks/joint-accuracy-2026-10-21.md`); DTL is unscored (P1 far-side torso can't-place).
 Gotchas:
 - Confidence is **per backend** (MediaPipe visibility 0.5, RTMPose SimCC 0.3), carried on
   each `PoseSequence`; never compare the scores.
@@ -131,7 +132,7 @@ Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-bac
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 758 pass, 7 GPU/ORT-only skip
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 759 pass, 7 GPU/ORT-only skip
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```
