@@ -93,7 +93,10 @@ def behaviour(seq):
 def accuracy(seq, key, video_labels):
     if jl.video_scale(video_labels) is None:
         return {"error": "no labelled P1 torso for this video"}
-    return jl.group_summary(jl.score_video(seq, key, video_labels), pm.COMMON_JOINTS)
+    # Independent (blind) frames only: assisted labels lean toward the model accepted.
+    rows = [r for r in jl.score_video(seq, key, video_labels)
+            if jl.frame_mode(video_labels, r["frame"]) == "blind"]
+    return jl.group_summary(rows, pm.COMMON_JOINTS)
 
 
 def run(videos, labels, backends=("mediapipe", "rtmpose")):

@@ -18,6 +18,13 @@ silently. --repick chooses benchmark frames afresh (only before anyone has
 labelled). --add-sequence appends a run of consecutive frames (e.g. P5-P8, or
 around heel-lift onset) as a separate, non-benchmark set.
 
+Assisted labelling: a fixed, model-blind subset of the benchmark frames gets no
+model output at all (assign_blind). Every other frame gets proposals read from
+the pose cache (never re-inferred unless --extract): both models' points where
+both have the point, flagged where they disagree, with the first-choice model
+alternating so neither is favoured. Run it in the GPU image, where both
+models' caches live. --no-assist builds without proposals.
+
 --review-prior offers an earlier export's points again, as unconfirmed
 candidates, on frames whose labelled image is identical to the current one
 (utils.joint_labels.review_prior). An export without digests came from the
@@ -36,6 +43,7 @@ evaluation can prove labels and poses refer to the same image.
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import sys
@@ -128,6 +136,111 @@ def encode(img):
         img = cv2.resize(img, (round(w * scale), round(h * scale)), interpolation=cv2.INTER_AREA)
     ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 92])
     return base64.b64encode(buf).decode(), {"width": w, "height": h, "display_scale": scale}
+
+
+BLIND_PER_VIDEO = 3
+BLIND_SALT = "swingai-blind-v1"
+BLIND_RULE = (f"per video: the P1 frame, then the other benchmark frames in order of "
+              f"sha1('{BLIND_SALT}' + image_sha1) until {BLIND_PER_VIDEO} are blind; "
+              "chosen before any model proposal was generated, never from model output")
+ASSIST_MODELS = ("rtmpose", "mediapipe")      # first-choice model alternates in this order
+# Models disagree on a point when it's this far apart (torso lengths): the
+# PCK@0.1 radius, so a disagreement means at least one of them would fail it.
+DISAGREE_TORSO = 0.1
+
+
+def _blind_order(f):
+    return hashlib.sha1((BLIND_SALT + f["image_sha1"]).encode()).hexdigest()
+
+
+def assign_blind(frames, per_video=BLIND_PER_VIDEO):
+    """Mark which benchmark frames are blind. Once set, flags never change.
+
+    Uses only the frame list and image digests, never model output, so the
+    blind subset can't be chosen by where the models do well or badly.
+    """
+    bench = [f for f in frames if f["set"] == jl.BENCHMARK]
+    if any("blind" in f for f in bench):
+        for f in frames:
+            f.setdefault("blind", False)
+        return frames
+    by_video = {}
+    for f in bench:
+        by_video.setdefault(f["video"], []).append(f)
+    for fs in by_video.values():
+        p1 = [f for f in fs if f["frame"] == f["p1_frame"]]
+        rest = sorted((f for f in fs if f not in p1), key=_blind_order)
+        for f in (p1 + rest)[:per_video]:
+            f["blind"] = True
+    for f in frames:
+        f.setdefault("blind", False)
+    return frames
+
+
+def assign_primary(frames):
+    """First-choice model per assisted frame, alternating within each video."""
+    by_video = {}
+    for f in frames:
+        if f["blind"]:
+            f.pop("assist_primary", None)
+        elif "assist_primary" not in f:
+            by_video.setdefault((f["video"], f["set"]), []).append(f)
+    for fs in by_video.values():
+        for i, f in enumerate(sorted(fs, key=lambda f: (_blind_order(f), f["frame"]))):
+            f["assist_primary"] = ASSIST_MODELS[i % len(ASSIST_MODELS)]
+    return frames
+
+
+def frame_proposals(frame, seqs, scale):
+    """{point: {model: [x, y], ..., "disagree": torso lengths | None}} from cached poses.
+
+    Only points a model really produces (label_points.proposal_columns), each
+    under that model's own confidence threshold. Nothing for contact, marker,
+    equipment or floor points.
+    """
+    out = {}
+    for name, cols in lp.proposal_columns().items():
+        pts = {}
+        for model, col in cols.items():
+            seq = seqs.get(model)
+            p = seq.point(frame, col) if seq is not None and frame < seq.frame_count else None
+            if p is not None:
+                pts[model] = [round(float(p[0]), 1), round(float(p[1]), 1)]
+        if not pts:
+            continue
+        if len(pts) == 2 and scale and np.isfinite(scale):
+            a, b = (np.array(pts[m]) for m in sorted(pts))
+            pts["disagree"] = round(float(np.linalg.norm(a - b) / scale), 3)
+        out[name] = pts
+    return out
+
+
+def assist_data(frames, extract=False):
+    """Proposals for every non-blind frame, from the pose cache; and model identities."""
+    from utils.pose_rtmpose import RTMPoseUnavailable
+    backends, identities = {}, {}
+    for model in ASSIST_MODELS:
+        try:
+            backends[model] = make_backend(model)
+            identities[model] = backends[model].identity()
+        except RTMPoseUnavailable as e:
+            raise SystemExit(f"assisted labelling needs both models' caches; {model}: {e}\n"
+                             "Run this in the GPU image, or pass --no-assist.")
+    proposals = {}
+    for video in sorted({f["video"] for f in frames if not f["blind"]}):
+        seqs = {m: get_pose_sequence(video, b, extract_if_missing=extract)
+                for m, b in backends.items()}
+        missing = [m for m, q in seqs.items() if q is None]
+        if missing:
+            print(f"  no proposals for {os.path.basename(video)}: no cached {missing} poses "
+                  "(pass --extract to compute them)")
+            continue
+        scales = [body_scale(q) for q in seqs.values()]
+        scale = float(np.nanmean(scales)) if np.isfinite(scales).any() else None
+        for f in frames:
+            if f["video"] == video and not f["blind"]:
+                proposals[(video, f["frame"])] = frame_proposals(f["frame"], seqs, scale)
+    return proposals, identities
 
 
 def p_position(frame, rec):
@@ -250,6 +363,18 @@ def prior_review(path, manifest):
     return out
 
 
+def labeler_data(items, review, assist):
+    return {"schema": jl.SCHEMA, "benchmark_joints": list(lp.BENCHMARK_POINTS),
+            "catalogue": lp.catalogue(), "frames": items, "review": review, "assist": assist}
+
+
+def assert_blind_frames_have_no_model_output(data):
+    """The page itself must hold nothing a blind frame could be anchored by."""
+    for f in data["frames"]:
+        if f["blind"] and ("proposals" in f or "assist_primary" in f):
+            raise SystemExit(f"internal error: blind frame {f['id']} carries model output")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--repick", action="store_true",
@@ -259,6 +384,9 @@ def main(argv=None):
     ap.add_argument("--step", type=int, default=1, help="frame step for --add-sequence")
     ap.add_argument("--purpose", help="what an added sequence is for, e.g. 'P5-P8'")
     ap.add_argument("--review-prior", help="earlier labels.json to offer again for review")
+    ap.add_argument("--no-assist", action="store_true", help="no model proposals at all")
+    ap.add_argument("--extract", action="store_true",
+                    help="run a model on videos it has no cached poses for")
     args = ap.parse_args(argv)
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -299,16 +427,18 @@ def main(argv=None):
         images.update(imgs)
         print(f"added sequence {name}: {len(new)} frames of {video}")
 
+    assign_primary(assign_blind(frames))
     for i, f in enumerate(frames):
         f["id"] = f"{i:02d}"
         pp = p_position(f["frame"], load_annotation_record(f["video"]))
         f.pop("p_position", None)
         if pp:
             f["p_position"] = pp
+        mode = "blind" if f["blind"] else f"assist:{f['assist_primary']}"
         print(f"{f['id']}  {os.path.basename(f['video'])[:44]:44s} frame {f['frame']:5d}  "
-              f"{f['set']:9s} {pp['label'] if pp else '':8s} {f['reason']}")
+              f"{f['set']:9s} {mode:16s} {pp['label'] if pp else '':10s} {f['reason']}")
     manifest = {"schema": jl.SCHEMA, "joints": list(lp.BENCHMARK_POINTS),
-                "catalogue": lp.catalogue(), "frames": frames}
+                "blind_rule": BLIND_RULE, "catalogue": lp.catalogue(), "frames": frames}
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=1, ensure_ascii=False)
 
@@ -320,11 +450,24 @@ def main(argv=None):
         for r in review["refused"]:
             print(f"  not offered: {os.path.basename(r['video'])} frame {r['frame']}: {r['why']}")
 
-    items = [{**f, "jpg": encode(images[(f["video"], f["frame"])])[0]} for f in frames]
+    assist = None
+    proposals = {}
+    if not args.no_assist:
+        proposals, identities = assist_data(frames, args.extract)
+        assist = {"models": identities, "disagree_torso": DISAGREE_TORSO,
+                  "blind_rule": BLIND_RULE}
+        print(f"assist: proposals for {len(proposals)} frames; "
+              f"{sum(f['blind'] for f in frames)} blind frames have none")
+    items = []
+    for f in frames:
+        item = {**f, "jpg": encode(images[(f["video"], f["frame"])])[0]}
+        if not f["blind"] and (f["video"], f["frame"]) in proposals:
+            item["proposals"] = proposals[(f["video"], f["frame"])]
+        items.append(item)
     html = open(os.path.join(os.path.dirname(__file__), "joint_labeler.html")).read()
-    data = {"schema": jl.SCHEMA, "benchmark_joints": list(lp.BENCHMARK_POINTS),
-            "catalogue": lp.catalogue(), "frames": items, "review": review}
+    data = labeler_data(items, review, assist)
     html = html.replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False))
+    assert_blind_frames_have_no_model_output(data)
     with open(os.path.join(OUT_DIR, "labeler.html"), "w") as f:
         f.write(html)
     print(f"{len(frames)} frames -> {OUT_DIR}/labeler.html")

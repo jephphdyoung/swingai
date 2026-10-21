@@ -23,8 +23,13 @@ Each point has a `kind`:
 `models` says, per pose model, whether the model has the point at all
 (``point``: the model's own keypoint name, or None), how closely that point
 matches the label's definition (``match``: "same", "approximate"), and
-whether SwingAI's pose layer keeps it today (``extracted``). A point a model
-doesn't have is never estimated for it.
+whether SwingAI's pose layer keeps it today (``extracted``, and ``column``:
+the PoseSequence landmark that holds it). A point a model doesn't have is
+never estimated for it.
+
+`proposal_columns()` is what the assisted labeller may propose: exactly the
+extracted points. Contact, marker and equipment points are never proposed;
+floor references are only carried over from a person's own labels.
 """
 
 from utils.pose_metrics import COMMON_JOINTS
@@ -35,16 +40,18 @@ KINDS = ("anatomical", "contact", "reference", "marker", "equipment")
 MODELS = ("mediapipe", "rtmpose")
 
 
-def _m(point=None, match=None, extracted=False, note=None):
-    out = {"point": point, "match": match if point else None, "extracted": bool(point and extracted)}
+def _m(point=None, match=None, column=None, note=None):
+    column = column if point else None
+    out = {"point": point, "match": match if point else None, "extracted": column is not None,
+           "column": column}
     if note:
         out["note"] = note
     return out
 
 
 def _both(name, mp_index, halpe_index):
-    return {"mediapipe": _m(f"{name} ({mp_index})", "same", True),
-            "rtmpose": _m(f"{name} ({halpe_index})", "same", True)}
+    return {"mediapipe": _m(f"{name} ({mp_index})", "same", name),
+            "rtmpose": _m(f"{name} ({halpe_index})", "same", name)}
 
 
 _BODY_HELP = {
@@ -99,7 +106,8 @@ def _feet():
              "models": {"mediapipe": _m(note=f"its foot_index ({mp_foot}) is the front of "
                                              "the foot, not the big toe, and is never scored "
                                              "as one"),
-                        "rtmpose": _m(f"{side}_big_toe ({h_big})", "same", True,
+                        "rtmpose": _m(f"{side}_big_toe ({h_big})", "same",
+                                      f"{side}_foot_index",
                                       note="kept in the foot_index column for drawing only")}},
             {"name": f"{side}_little_toe", "group": "feet", "kind": "anatomical",
              "help": "Tip of the little toe through the shoe.",
@@ -135,7 +143,8 @@ def _hands_club():
             out.append({"name": f"{side}_{finger}", "group": "hands_club", "kind": "anatomical",
                         "help": help_ + " Skip it when the grip hides it.",
                         "models": {"mediapipe": _m(f"{side}_{finger} ({mp[finger]})",
-                                                   "approximate", True, note=pose_note),
+                                                   "approximate", f"{side}_{finger}",
+                                                   note=pose_note),
                                    "rtmpose": _m(note="Body26/Halpe26 has no finger "
                                                       "points")}})
         out += [
@@ -166,6 +175,16 @@ POINT = {p["name"]: p for p in POINTS}
 GROUP_POINTS = {g: tuple(p["name"] for p in POINTS if p["group"] == g) for g in GROUPS}
 # The original benchmark: only these are scored against MediaPipe and RTMPose.
 BENCHMARK_POINTS = GROUP_POINTS["body"]
+
+
+def proposal_columns():
+    """{point: {model: PoseSequence column}} for every point a model can propose."""
+    out = {}
+    for p in POINTS:
+        cols = {m: s["column"] for m, s in p["models"].items() if s["column"]}
+        if cols:
+            out[p["name"]] = cols
+    return out
 
 
 def catalogue():

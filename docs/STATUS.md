@@ -102,6 +102,13 @@ face-on 736/774 were labelled on the frame before. **Decided:** the rebuilt labe
 the 16 for checking (hollow rings: keep or move each), and the 4 are relabelled from
 scratch. Nothing is certified without that check.
 
+**Assisted labelling (2026-10-21).** 12 of the 20 benchmark frames are fixed as **blind**:
+each video's P1 plus two chosen by image hash, before any suggestion existed. They show no
+model output and are the fair comparison. The other 8 get suggestions from the cached poses
+of both models. Disagreements over 0.1 torso lengths are flagged with no first choice, and
+the first-choice model alternates. Assisted frames are scored and reported separately, never
+pooled. Accepted model points need the labeller's sign-off.
+
 The labeller now also has optional **Feet** and **Hands/Club** groups, and the manifest can
 hold **sequences** for P2–P3, P5–P8 and heel-lift work, all outside the benchmark score
 ([joint labelling](joint-labelling.md)). Not done yet:

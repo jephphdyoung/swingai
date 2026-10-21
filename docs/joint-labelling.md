@@ -94,12 +94,18 @@ yet.
 
 ## The labeller
 
+Build it in the **GPU image**, where both models' pose caches live. Suggestions are read from
+those caches; nothing is re-inferred unless you pass `--extract`.
+
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai \
+podman --cdi-spec-dir ~/.local/share/swingai/cdi run --rm --device nvidia.com/gpu=all \
+  --security-opt label=disable -v "$PWD":/app swingai-gpu \
   python scripts/make_joint_label_set.py \
   --review-prior data/joint_labels/labels-old-labeller-2026-10-21.json
 xdg-open data/joint_labels/labeler.html
 ```
+
+`--no-assist` builds without suggestions (works in the CPU image too).
 
 Rebuilding keeps the manifest's frames. Each one is decoded again in order and must match
 its recorded SHA-1, or the build stops. For each frame, the labeller shows:
@@ -115,10 +121,106 @@ Each frame shows its progress per group. The header shows overall progress: Body
 the 20 benchmark frames, and Feet and Hands/Club as complete or started.
 
 Progress is saved in the browser **per image digest**. Adding frames never resets it, and a
-label can't move to a different image. The export (schema 2) contains:
+label can't move to a different image. The export (schema 3) contains:
 - per video, `image_sha1` for every exported frame
-- per frame, `frame_status`: which groups are complete, which points couldn't be placed,
-  and any carried-over points kept unchanged
+- per frame, `frame_status`:
+  - `mode`: blind or assisted
+  - which groups are complete, and which points couldn't be placed
+  - `origins`: where each point came from
+  - `review`: earlier-export points kept unchanged
+  - `assist`: who confirmed accepted suggestions, when, and the exact model versions
+
+## Blind and assisted frames
+
+Model suggestions save time, but a label that started from a model's point leans toward that
+model: a "close enough" point gets accepted. So the 20 benchmark frames are split, and the
+split is fixed in the manifest before any suggestion was generated:
+
+- **12 blind frames**: each video's P1 frame plus two more, chosen by hashing the image
+  digests (`assign_blind`; the rule is in the manifest as `blind_rule`). No model output
+  for them exists in the page, and the validator refuses any model-sourced point on them.
+  They are the fair MediaPipe vs RTMPose comparison. P1 is always blind because it sets
+  every video's torso scale.
+- **8 assisted frames**: suggestions from both models. They are scored and reported
+  **separately**. They are never pooled with the blind frames, because they can't fairly
+  compare the models.
+
+| Video | Blind | Assisted (first-choice model) |
+|---|---|---|
+| Jeff DTL | 395, 730, 1238 | 504 (RTMPose), 652 (MediaPipe) |
+| Jeff face-on | 395, 652, 774 | 601 (MediaPipe), 736 (RTMPose) |
+| GW DTL | 104, 280, 378 | 205 (MediaPipe), 355 (RTMPose) |
+| GW face-on | 53, 401, 472 | 278 (MediaPipe), 343 (RTMPose) |
+
+**Blind first.** The frame list puts the blind frames first. Suggestions on assisted frames
+stay hidden until every blind frame's Body group is complete (placed or can't-place), so
+seeing the models' picks can't shape your blind labels.
+
+### What gets suggested
+
+Only points a model really produces and SwingAI keeps (`label_points.proposal_columns()`):
+- **Body**: both models.
+- **Big toes**: RTMPose only. MediaPipe's `foot_index` is not a big toe, so it is never offered.
+- **Thumb, index, pinky**: MediaPipe only, and only approximate.
+
+Never suggested:
+- heels and little toes (the models have them, but the cache doesn't keep them)
+- shoe contact points
+- markers, forearm markers, shaft and clubhead points
+
+Each model's own confidence threshold applies. A point below it is simply not offered.
+
+**Floor points** are never model output. Once you place or accept `floor_a`/`floor_b` on one
+frame, other frames of the **same video** (same fixed camera) offer it again. That happens
+only when the image patch around the point still correlates at 0.8 or more, meaning the same
+floor mark is visible there. You still accept it, and it is recorded as carried from that
+frame.
+
+### Disagreements and the first-choice model
+
+Where the two models' points are more than 0.1 torso lengths apart (the PCK@0.1 radius), the
+point is flagged *models disagree* and neither is pre-selected. Both are drawn, joined by a
+dashed line. Pick one with **M** or **R**, or click the right spot. Elsewhere a first-choice
+model is shown. It alternates between the assisted frames of each video, so neither model
+is favoured. **P** switches it on a frame, and **V** shows both models everywhere.
+
+### Accepting, correcting, confirming
+
+| Key | Action |
+|---|---|
+| Enter | accept the shown suggestion: your earlier label first, then the model's, then a carried floor point |
+| M / R | take MediaPipe's / RTMPose's point |
+| click | place or correct; a corrected suggestion is recorded as *corrected* |
+| C | confirm every remaining agreed suggestion in this group on this frame, after a check prompt |
+| O | toggle occluded on a placed point (accepted points start as visible) |
+| S | can't place |
+| Backspace | clear; the suggestion comes back |
+| N | next point needing you |
+
+On the image:
+- **Hollow square**: a suggestion (cyan MediaPipe, orange RTMPose, blue carried floor).
+- **Purple ring**: your earlier label, not yet checked.
+- **Filled square**: a suggestion you accepted.
+- **Filled circle**: a point you placed or corrected.
+
+Green means visible and amber occluded.
+
+Nothing becomes a label without one of those actions. An accepted point is exported with
+`origin: model_accepted` and its model. The frame's `assist.confirmed_by` is required, or the
+validator refuses the file.
+
+## Results
+
+`evaluate_joint_labels.py` reports two sections:
+- **Independent (blind)**: the comparison.
+- **Assisted**: shown for completeness, with a warning that it leans toward the accepted
+  model.
+
+Both have the same per-view tables and RTMPose − MediaPipe intervals. It also counts how many
+suggestions were accepted unchanged versus corrected, per model. That count hints at quality,
+but it is biased the same way. `benchmark_pose.py`'s accuracy table uses blind frames only.
+Exports from earlier labellers (schemas 1 and 2) showed no model output, so all their frames
+count as blind.
 
 ## Earlier labels (2026-10-21)
 
@@ -127,9 +229,11 @@ its SHA-1. It came from the pre-digest labeller, which loaded images by seeking.
 `--review-prior` re-creates each labelled image the same way and compares it with the
 current one:
 
-- **16 frames were labelled on the identical image.** *Load 16 earlier frames for checking*
-  puts their points on those frames as hollow rings. They are **not labels yet**: click to
-  move one, press Enter to keep one, or use *Keep all* after checking every ring. Only kept
+- **16 frames were labelled on the identical image.** On blind frames these are your own
+  blind labels, so keeping them keeps the frame blind. On assisted frames they count as
+  assisted, like everything else there. *Load 16 earlier frames for checking* puts their
+  points on those frames as purple rings. They are **not labels yet**: click to move one,
+  press Enter to keep one, or press C after checking every ring. Only kept
   or moved points are exported. Kept points are listed in `frame_status.review` with who
   confirmed them, and the validator refuses a review entry without `confirmed_by`. Points
   still unchecked are left out of the export. The earlier frames have 8 to 15 of the 15

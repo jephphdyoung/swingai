@@ -69,8 +69,11 @@ podman --cdi-spec-dir ~/.local/share/swingai/cdi run --rm --device nvidia.com/gp
   --md docs/benchmarks/joint-accuracy-<date>.md
 ```
 
-The labeller has no model-placed points, since they would anchor you toward one model. The
-only pre-placed points are your own earlier labels, offered for checking on identical images
+Model suggestions would anchor you toward one model, so the comparison uses only the 12
+**blind** benchmark frames, which show no model output. The other 8 frames are labelled with
+suggestions and reported in a separate section, never pooled
+([details](../joint-labelling.md#blind-and-assisted-frames)). Your own earlier labels are
+offered for checking on identical images
 ([details](../joint-labelling.md#earlier-labels-2026-10-21)). It
 stores coordinates in original-video pixels. `evaluate_joint_labels.py` then:
 

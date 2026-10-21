@@ -8,7 +8,9 @@ Run in the GPU image (RTMPose needs it; MediaPipe's cache is per environment):
 Input is `data/joint_labels/labels.json`, exported from labeler.html by the
 person who placed the joints. Only the benchmark frames' 15 body joints are
 scored; feet, hands/club points and sequence frames are validated but not
-part of this benchmark. Without it, or if it fails validation, this
+part of this benchmark. Independent (blind) frames and model-assisted frames
+are scored separately and never pooled: only the blind ones are a fair
+comparison. Without it, or if it fails validation, this
 stops and says why -- it never scores against anything else.
 
 Steps:
@@ -85,6 +87,16 @@ def num(v):
     return "—" if v is None else f"{v:.3f}"
 
 
+SUBSET_TITLES = {
+    "independent": ("Independent (blind) frames: the MediaPipe vs RTMPose comparison",
+                    "No model output was shown on these frames, so neither model was favoured."),
+    "assisted": ("Assisted frames: reported separately, not a fair comparison",
+                 "These labels started from model suggestions (the first-choice model "
+                 "alternated), so they lean toward whichever model was accepted. Never pool "
+                 "them with the independent frames."),
+}
+
+
 def render(result):
     rep, cov = result["report"], result["coverage"]
     out = [f"Labels: `{result['labels_file']}`, verified by {result['verified_by']}. "
@@ -97,10 +109,35 @@ def render(result):
     if cov.get("frames_outside_benchmark"):
         out.append(f"{cov['frames_outside_benchmark']} labelled frames outside the benchmark "
                    "set (sequences) are not scored here.\n")
+    out.append(f"{cov['frames_blind_labelled']} independent (blind) frames of "
+               f"{cov['frames_blind_expected']} expected, {cov['frames_assisted_labelled']} "
+               "assisted.\n")
+    def model_label(m):                 # "mediapipe+rtmpose": both were shown, then corrected
+        return " + ".join(BACKEND_LABELS.get(x, x) for x in m.split("+"))
+    assisted = {o: ", ".join(f"{model_label(m)} {n}" for m, n in by.items())
+                for o, by in cov["assisted_points"].items() if by}
+    if assisted:
+        out.append("Model suggestions on assisted frames: accepted unchanged: "
+                   f"{assisted.get('model_accepted', 'none')}; corrected: "
+                   f"{assisted.get('model_corrected', 'none')}.\n")
     for video, why in cov["unscorable"].items():
         out.append(f"- Not scored: `{video}`: {why}")
     if cov["unscorable"]:
         out.append("")
+    for subset, (title, note) in SUBSET_TITLES.items():
+        out.append(f"## {title}\n\n{note}\n")
+        if not rep[subset]["by_view"]:
+            out.append("No labelled frames.\n")
+        out += render_views(rep[subset])
+    out.append("Errors are in P1 torso lengths from the labels. A miss (no person, or the joint "
+               "below the model's own threshold) counts as a PCK failure. Occluded labels are "
+               "the labeller's estimate of a hidden joint; *answered* is how often the model "
+               "gave a valid point there anyway.")
+    return "\n".join(out)
+
+
+def render_views(rep):
+    out = []
     for view, by_backend in rep["by_view"].items():
         out.append(f"### {VIEW_NAMES[view]}\n")
         out.append("| Model | Frames (missed) | Joints | Joint misses | Mean err | Median err | "
@@ -136,11 +173,7 @@ def render(result):
                 cells.append(f"{pct(s.get('pck@0.1'))} ({s['n']})" if s.get("n") else "—")
             out.append(f"| {j.replace('_', ' ')} | " + " | ".join(cells) + " |")
         out.append("")
-    out.append("Errors are in P1 torso lengths from the labels. A miss (no person, or the joint "
-               "below the model's own threshold) counts as a PCK failure. Occluded labels are "
-               "the labeller's estimate of a hidden joint; *answered* is how often the model "
-               "gave a valid point there anyway.")
-    return "\n".join(out)
+    return out
 
 
 def main(argv=None):
@@ -201,7 +234,7 @@ def main(argv=None):
         "verified_by": ", ".join(sorted({v["verified_by"] for v in labels.values()})),
         "coverage": cov,
         "backends": identities,
-        "report": jl.evaluate(labels, sequences),
+        "report": jl.evaluate_split(labels, sequences),
     }
     md = render(result)
     print(md)

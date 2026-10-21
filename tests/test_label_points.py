@@ -91,3 +91,40 @@ def test_catalogue_is_json_ready_and_grouped():
     cat = json.loads(json.dumps(lp.catalogue()))
     assert [g["id"] for g in cat["groups"]] == list(lp.GROUPS)
     assert sum(len(g["points"]) for g in cat["groups"]) == len(cat["points"])
+
+
+def test_proposals_are_exactly_the_extracted_points():
+    from utils.landmarks import LANDMARK_NAMES
+    cols = lp.proposal_columns()
+    for p in lp.POINTS:
+        for model, m in p["models"].items():
+            assert m["extracted"] == (m["column"] is not None)
+            if m["column"]:
+                assert m["column"] in LANDMARK_NAMES
+                assert cols[p["name"]][model] == m["column"]
+            else:
+                assert model not in cols.get(p["name"], {})
+
+
+def test_nothing_manual_is_ever_proposed():
+    cols = lp.proposal_columns()
+    for p in lp.POINTS:
+        if p["kind"] != "anatomical":
+            assert p["name"] not in cols, p["name"]
+    for name in ("left_shoe_heel_contact", "left_forearm_marker", "clubface_center",
+                 "floor_a", "left_hand_back", "shaft_butt"):
+        assert name not in cols
+
+
+def test_big_toe_comes_only_from_rtmpose_and_fingers_only_from_mediapipe():
+    cols = lp.proposal_columns()
+    assert cols["left_big_toe"] == {"rtmpose": "left_foot_index"}
+    assert cols["right_big_toe"] == {"rtmpose": "right_foot_index"}
+    for side in ("left", "right"):
+        for finger in ("thumb", "index", "pinky"):
+            assert cols[f"{side}_{finger}"] == {"mediapipe": f"{side}_{finger}"}
+        # in the models, but not kept by the pose layer: never proposed
+        assert f"{side}_heel" not in cols and f"{side}_little_toe" not in cols
+    # foot_index is read only as RTMPose's big toe, never as MediaPipe's
+    assert {n for n, m in cols.items() if any("foot_index" in c for c in m.values())} == \
+        {"left_big_toe", "right_big_toe"}

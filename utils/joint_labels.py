@@ -30,6 +30,21 @@ Schema 2 (the current labeller) adds, without changing what is scored:
   who confirmed them on the current image. Unconfirmed carried-over points
   are refused.
 
+Schema 3 (the assisted labeller) adds model-assisted labelling, kept apart:
+
+- every exported frame has a `mode`: "blind" (no model output was shown on
+  it; the manifest fixes which benchmark frames are blind) or "assisted";
+- `origins` per point: placed by the person, an earlier-export point kept,
+  a model proposal accepted or corrected (and which model), or a floor
+  reference carried from another frame of the same video. Accepted model
+  points need the frame's `assist.confirmed_by`, and none may appear on a
+  blind frame.
+
+The benchmark is scored separately on independent (blind) frames and on
+assisted frames, and the two are never pooled (`evaluate_split`). Schema-1
+and schema-2 exports came from labellers that showed no model output, so all
+their frames count as blind.
+
 Schema-1 exports stay valid: body joints only, benchmark frames only.
 """
 
@@ -42,9 +57,13 @@ import numpy as np
 from utils import label_points as lp
 from utils import pose_metrics as pm
 
-SCHEMA = 2
-SCHEMAS = (1, 2)
+SCHEMA = 3
+SCHEMAS = (1, 2, 3)
 BENCHMARK = "benchmark"
+MODES = ("blind", "assisted")
+ORIGINS = ("placed", "earlier_kept", "model_accepted", "model_corrected", "floor_carried")
+MODEL_ORIGINS = ("model_accepted", "model_corrected")
+SUBSETS = {"independent": "blind", "assisted": "assisted"}
 VIEWS = ("dtl", "face_on")
 PCK_THRESHOLDS = (0.05, 0.1, 0.2)
 TORSO = ("left_shoulder", "right_shoulder", "left_hip", "right_hip")
@@ -98,7 +117,7 @@ def load_manifest_dict(m):
     points = [p["name"] for p in cat["points"]] if cat else list(m["joints"])
     frames = {}
     for f in m["frames"]:
-        frames[(f["video"], int(f["frame"]))] = {"set": BENCHMARK, **f}
+        frames[(f["video"], int(f["frame"]))] = {"set": BENCHMARK, "blind": False, **f}
     return {"joints": list(m["joints"]), "points": points, "frames": frames}
 
 
@@ -123,7 +142,7 @@ def validate(data, manifest):
         raise LabelError(problems)
 
     # Schema 1 predates the feet/hands groups and sequence frames.
-    joints_allowed = set(manifest["points"] if schema == 2 else manifest["joints"])
+    joints_allowed = set(manifest["points"] if schema in (2, 3) else manifest["joints"])
     by_video = {}
     for (video, frame), item in manifest["frames"].items():
         by_video.setdefault(video, {})[frame] = item
@@ -154,7 +173,7 @@ def validate(data, manifest):
             if frame not in items:
                 problems.append(f"{where} frame {frame}: not a frame of the labelling set")
                 continue
-            if schema != 2 and items[frame]["set"] != BENCHMARK:
+            if schema == 1 and items[frame]["set"] != BENCHMARK:
                 problems.append(f"{where} frame {frame}: a schema-1 export can't label "
                                 "frames outside the benchmark set")
                 continue
@@ -191,16 +210,25 @@ def validate(data, manifest):
             if clean:
                 frames[frame] = clean
         status = _frame_status(v.get("frame_status"), frames, items, joints_allowed, where,
-                               problems) if schema == 2 else {}
+                               problems, schema) if schema in (2, 3) else {}
+        if schema == 3:
+            for f in frames:
+                if "mode" not in status.get(f, {}):
+                    problems.append(f"{where} frame {f}: no frame_status mode (blind or "
+                                    "assisted)")
+        # Labellers before schema 3 never showed model output: every frame is blind.
+        modes = {f: status.get(f, {}).get("mode", "blind") if schema == 3 else "blind"
+                 for f in frames}
         out[video] = {"view": some["view"], "p1_frame": some["p1_frame"],
                       "verified_by": str(v.get("verified_by") or "").strip(), "frames": frames,
-                      "sets": {f: items[f]["set"] for f in frames}, "frame_status": status}
+                      "sets": {f: items[f]["set"] for f in frames}, "modes": modes,
+                      "frame_status": status}
     if problems:
         raise LabelError(problems)
     return out
 
 
-def _frame_status(raw, frames, items, points, where, problems):
+def _frame_status(raw, frames, items, points, where, problems, schema=2):
     """Per-frame groups finished, points that couldn't be placed, and provenance."""
     if raw is None:
         return {}
@@ -248,8 +276,78 @@ def _frame_status(raw, frames, items, points, where, problems):
                 clean["review"] = {k: review[k] for k in
                                    ("source", "confirmed_by", "confirmed_at")}
                 clean["review"]["points_unchanged"] = list(review.get("points_unchanged", []))
+        if schema == 3:
+            _assist_status(st, clean, placed, items, frame, at, problems)
         out[frame] = clean
     return out
+
+
+def _assist_status(st, clean, placed, items, frame, at, problems):
+    """Schema 3: blind/assisted mode, per-point origins, and the assist sign-off."""
+    mode = st.get("mode")
+    expected = "blind" if items[frame].get("blind") else "assisted"
+    if mode not in MODES:
+        problems.append(f"{at}: mode must be one of {MODES}")
+        return
+    if mode != expected:
+        problems.append(f"{at}: mode {mode!r}, but the manifest makes this frame {expected!r}")
+    clean["mode"] = mode
+    assist = st.get("assist")
+    signed = (isinstance(assist, dict) and str(assist.get("confirmed_by") or "").strip()
+              and str(assist.get("confirmed_at") or "").strip())
+    origins = st.get("origins") or {}
+    if not isinstance(origins, dict):
+        problems.append(f"{at}: origins is not an object")
+        return
+    kept = set((clean.get("review") or {}).get("points_unchanged", []))
+    proposable = lp.proposal_columns()
+    clean_origins = {}
+    for name, o in origins.items():
+        where = f"{at} {name}"
+        if name not in placed:
+            problems.append(f"{where}: origin given for a point that isn't placed")
+            continue
+        kind = o.get("origin") if isinstance(o, dict) else None
+        if kind not in ORIGINS:
+            problems.append(f"{where}: origin must be one of {ORIGINS}")
+            continue
+        entry = {"origin": kind}
+        if kind in MODEL_ORIGINS:
+            model = o.get("model")
+            if mode == "blind":
+                problems.append(f"{where}: a model proposal on a blind frame")
+                continue
+            # A correction may follow two shown suggestions (the models disagreed).
+            models = model if kind == "model_corrected" and isinstance(model, list) else [model]
+            if not models or not all(isinstance(m, str) and m in proposable.get(name, {})
+                                     for m in models):
+                problems.append(f"{where}: {model!r} does not produce this point")
+                continue
+            if not signed:
+                problems.append(f"{where}: model proposal without the frame's "
+                                "assist.confirmed_by / confirmed_at review")
+                continue
+            entry["model"] = model
+        elif kind == "floor_carried":
+            src = o.get("from_frame")
+            if not name.startswith("floor_") or not isinstance(src, int) or src not in items:
+                problems.append(f"{where}: floor_carried needs a floor point and a "
+                                "from_frame in the same video")
+                continue
+            entry["from_frame"] = src
+        elif kind == "earlier_kept" and name not in kept:
+            problems.append(f"{where}: earlier_kept but not in review.points_unchanged")
+            continue
+        clean_origins[name] = entry
+    clean["origins"] = clean_origins
+    if signed:
+        clean["assist"] = {"confirmed_by": str(assist["confirmed_by"]).strip(),
+                           "confirmed_at": assist["confirmed_at"],
+                           "primary": assist.get("primary"), "models": assist.get("models")}
+
+
+def frame_mode(video_labels, frame):
+    return video_labels.get("modes", {}).get(frame, "blind")
 
 
 def benchmark_labels(labels):
@@ -291,12 +389,31 @@ def coverage(labels, manifest):
                if "review" in v.get("frame_status", {}).get(f, {})),
            "frames_outside_benchmark": sum(len(v["frames"]) for v in labels.values())
                                        - sum(len(v["frames"]) for v in bench.values()),
+           "frames_blind_expected": sum(1 for i in manifest["frames"].values()
+                                        if i["set"] == BENCHMARK and i["blind"]),
+           "frames_blind_labelled": sum(1 for v in bench.values() for f in v["frames"]
+                                        if frame_mode(v, f) == "blind"),
+           "frames_assisted_labelled": sum(1 for v in bench.values() for f in v["frames"]
+                                           if frame_mode(v, f) == "assisted"),
+           "assisted_points": _assist_counts(bench),
            "videos_unlabelled": sorted(set(expected) - set(labels)),
            "unscorable": {}}
     for video, v in labels.items():
         if video_scale(v) is None:
             out["unscorable"][video] = (f"P1 (frame {v['p1_frame']}) lacks a labelled "
                                         "shoulder or hip, so errors can't be normalized")
+    return out
+
+
+def _assist_counts(labels):
+    """{origin: {model: n}} for model-proposed points on these labels."""
+    out = {o: {} for o in MODEL_ORIGINS}
+    for v in labels.values():
+        for f in v["frames"]:
+            for o in v.get("frame_status", {}).get(f, {}).get("origins", {}).values():
+                if o["origin"] in MODEL_ORIGINS:
+                    m = o["model"] if isinstance(o["model"], str) else "+".join(o["model"])
+                    out[o["origin"]][m] = out[o["origin"]].get(m, 0) + 1
     return out
 
 
@@ -377,9 +494,12 @@ def paired_bootstrap(rows_a, rows_b, t=0.1, n_boot=4000, seed=0):
             "frames": len(keys)}
 
 
-def evaluate(labels, sequences, joints=pm.COMMON_JOINTS):
+def evaluate(labels, sequences, joints=pm.COMMON_JOINTS, subset=None):
     """sequences: {backend: {video: PoseSequence}} for every scorable video.
 
+    subset: None (every benchmark frame), "independent" (blind frames only) or
+    "assisted". The torso scale always comes from the P1 labels, which are
+    blind frames.
     Returns {"by_view": {view: {backend: group}}, "by_video": {video: {backend:
     group}}, "comparison": {view: {"<b> - <a>": bootstrap}}}.
     """
@@ -392,7 +512,8 @@ def evaluate(labels, sequences, joints=pm.COMMON_JOINTS):
         for b in backends:
             if video not in sequences[b]:
                 raise KeyError(f"{b} has no pose sequence for {video}")
-            rows[b] += score_video(sequences[b][video], video, vl)
+            rows[b] += [r for r in score_video(sequences[b][video], video, vl)
+                        if subset is None or frame_mode(vl, r["frame"]) == SUBSETS[subset]]
 
     report = {"by_view": {}, "by_video": {}, "comparison": {}}
     for view in VIEWS:
@@ -410,6 +531,15 @@ def evaluate(labels, sequences, joints=pm.COMMON_JOINTS):
         if any(per.values()):
             report["by_video"][video] = {b: group_summary(per[b], joints) for b in backends}
     return report
+
+
+def evaluate_split(labels, sequences, joints=pm.COMMON_JOINTS):
+    """Independent (blind) and assisted frames scored separately, never pooled.
+
+    Assisted labels started from one model's proposal, so they lean toward
+    that model; only the independent subset is a fair comparison.
+    """
+    return {s: evaluate(labels, sequences, joints, subset=s) for s in SUBSETS}
 
 
 # --- carrying an earlier export over for review ------------------------------

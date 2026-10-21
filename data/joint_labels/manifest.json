@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "joints": [
   "nose",
   "left_ear",
@@ -17,6 +17,7 @@
   "left_ankle",
   "right_ankle"
  ],
+ "blind_rule": "per video: the P1 frame, then the other benchmark frames in order of sha1('swingai-blind-v1' + image_sha1) until 3 are blind; chosen before any model proposal was generated, never from model output",
  "catalogue": {
   "groups": [
    {
@@ -90,12 +91,14 @@
      "mediapipe": {
       "point": "nose (0)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "nose"
      },
      "rtmpose": {
       "point": "nose (0)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "nose"
      }
     }
    },
@@ -108,12 +111,14 @@
      "mediapipe": {
       "point": "left_ear (7)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_ear"
      },
      "rtmpose": {
       "point": "left_ear (3)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_ear"
      }
     }
    },
@@ -126,12 +131,14 @@
      "mediapipe": {
       "point": "right_ear (8)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_ear"
      },
      "rtmpose": {
       "point": "right_ear (4)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_ear"
      }
     }
    },
@@ -144,12 +151,14 @@
      "mediapipe": {
       "point": "left_shoulder (11)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_shoulder"
      },
      "rtmpose": {
       "point": "left_shoulder (5)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_shoulder"
      }
     }
    },
@@ -162,12 +171,14 @@
      "mediapipe": {
       "point": "right_shoulder (12)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_shoulder"
      },
      "rtmpose": {
       "point": "right_shoulder (6)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_shoulder"
      }
     }
    },
@@ -180,12 +191,14 @@
      "mediapipe": {
       "point": "left_elbow (13)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_elbow"
      },
      "rtmpose": {
       "point": "left_elbow (7)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_elbow"
      }
     }
    },
@@ -198,12 +211,14 @@
      "mediapipe": {
       "point": "right_elbow (14)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_elbow"
      },
      "rtmpose": {
       "point": "right_elbow (8)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_elbow"
      }
     }
    },
@@ -216,12 +231,14 @@
      "mediapipe": {
       "point": "left_wrist (15)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_wrist"
      },
      "rtmpose": {
       "point": "left_wrist (9)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_wrist"
      }
     }
    },
@@ -234,12 +251,14 @@
      "mediapipe": {
       "point": "right_wrist (16)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_wrist"
      },
      "rtmpose": {
       "point": "right_wrist (10)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_wrist"
      }
     }
    },
@@ -253,12 +272,14 @@
       "point": "left_hip (23)",
       "match": "same",
       "extracted": true,
+      "column": "left_hip",
       "note": "COCO-family hips sit on the joint; MediaPipe's somewhat differently"
      },
      "rtmpose": {
       "point": "left_hip (11)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_hip"
      }
     }
    },
@@ -272,12 +293,14 @@
       "point": "right_hip (24)",
       "match": "same",
       "extracted": true,
+      "column": "right_hip",
       "note": "COCO-family hips sit on the joint; MediaPipe's somewhat differently"
      },
      "rtmpose": {
       "point": "right_hip (12)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_hip"
      }
     }
    },
@@ -290,12 +313,14 @@
      "mediapipe": {
       "point": "left_knee (25)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_knee"
      },
      "rtmpose": {
       "point": "left_knee (13)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_knee"
      }
     }
    },
@@ -308,12 +333,14 @@
      "mediapipe": {
       "point": "right_knee (26)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_knee"
      },
      "rtmpose": {
       "point": "right_knee (14)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_knee"
      }
     }
    },
@@ -326,12 +353,14 @@
      "mediapipe": {
       "point": "left_ankle (27)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_ankle"
      },
      "rtmpose": {
       "point": "left_ankle (15)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "left_ankle"
      }
     }
    },
@@ -344,12 +373,14 @@
      "mediapipe": {
       "point": "right_ankle (28)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_ankle"
      },
      "rtmpose": {
       "point": "right_ankle (16)",
       "match": "same",
-      "extracted": true
+      "extracted": true,
+      "column": "right_ankle"
      }
     }
    },
@@ -363,12 +394,14 @@
       "point": "left_heel (29)",
       "match": "approximate",
       "extracted": false,
+      "column": null,
       "note": "in the model; SwingAI's pose layer drops it"
      },
      "rtmpose": {
       "point": "left_heel (24)",
       "match": "approximate",
       "extracted": false,
+      "column": null,
       "note": "in Halpe26; SwingAI's pose layer drops it"
      }
     }
@@ -383,12 +416,14 @@
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "its foot_index (31) is the front of the foot, not the big toe, and is never scored as one"
      },
      "rtmpose": {
       "point": "left_big_toe (20)",
       "match": "same",
       "extracted": true,
+      "column": "left_foot_index",
       "note": "kept in the foot_index column for drawing only"
      }
     }
@@ -402,12 +437,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": "left_small_toe (22)",
       "match": "same",
       "extracted": false,
+      "column": null,
       "note": "in Halpe26; SwingAI's pose layer drops it"
      }
     }
@@ -421,12 +458,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -439,12 +478,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -458,12 +499,14 @@
       "point": "right_heel (30)",
       "match": "approximate",
       "extracted": false,
+      "column": null,
       "note": "in the model; SwingAI's pose layer drops it"
      },
      "rtmpose": {
       "point": "right_heel (25)",
       "match": "approximate",
       "extracted": false,
+      "column": null,
       "note": "in Halpe26; SwingAI's pose layer drops it"
      }
     }
@@ -478,12 +521,14 @@
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "its foot_index (32) is the front of the foot, not the big toe, and is never scored as one"
      },
      "rtmpose": {
       "point": "right_big_toe (21)",
       "match": "same",
       "extracted": true,
+      "column": "right_foot_index",
       "note": "kept in the foot_index column for drawing only"
      }
     }
@@ -497,12 +542,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": "right_small_toe (23)",
       "match": "same",
       "extracted": false,
+      "column": null,
       "note": "in Halpe26; SwingAI's pose layer drops it"
      }
     }
@@ -516,12 +563,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -534,12 +583,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -552,12 +603,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -570,12 +623,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -589,12 +644,14 @@
       "point": "left_thumb (21)",
       "match": "approximate",
       "extracted": true,
+      "column": "left_thumb",
       "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "Body26/Halpe26 has no finger points"
      }
     }
@@ -609,12 +666,14 @@
       "point": "left_index (19)",
       "match": "approximate",
       "extracted": true,
+      "column": "left_index",
       "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "Body26/Halpe26 has no finger points"
      }
     }
@@ -629,12 +688,14 @@
       "point": "left_pinky (17)",
       "match": "approximate",
       "extracted": true,
+      "column": "left_pinky",
       "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "Body26/Halpe26 has no finger points"
      }
     }
@@ -648,12 +709,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -666,12 +729,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -685,12 +750,14 @@
       "point": "right_thumb (22)",
       "match": "approximate",
       "extracted": true,
+      "column": "right_thumb",
       "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "Body26/Halpe26 has no finger points"
      }
     }
@@ -705,12 +772,14 @@
       "point": "right_index (20)",
       "match": "approximate",
       "extracted": true,
+      "column": "right_index",
       "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "Body26/Halpe26 has no finger points"
      }
     }
@@ -725,12 +794,14 @@
       "point": "right_pinky (18)",
       "match": "approximate",
       "extracted": true,
+      "column": "right_pinky",
       "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "Body26/Halpe26 has no finger points"
      }
     }
@@ -744,12 +815,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -762,12 +835,14 @@
      "mediapipe": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      },
      "rtmpose": {
       "point": null,
       "match": null,
-      "extracted": false
+      "extracted": false,
+      "column": null
      }
     }
    },
@@ -781,12 +856,14 @@
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      }
     }
@@ -801,12 +878,14 @@
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      }
     }
@@ -821,12 +900,14 @@
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      }
     }
@@ -841,12 +922,14 @@
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      }
     }
@@ -861,12 +944,14 @@
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      },
      "rtmpose": {
       "point": null,
       "match": null,
       "extracted": false,
+      "column": null,
       "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
      }
     }
@@ -886,6 +971,7 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "P1",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -903,6 +989,8 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "rtmpose",
    "p_position": {
     "label": "P1–P2",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -920,6 +1008,8 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "mediapipe",
    "p_position": {
     "label": "P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -937,6 +1027,7 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "P7",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -954,6 +1045,7 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "after P10",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -971,6 +1063,7 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "P1",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -988,6 +1081,8 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "mediapipe",
    "p_position": {
     "label": "P1–P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1005,6 +1100,7 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1022,6 +1118,8 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "rtmpose",
    "p_position": {
     "label": "after P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1039,6 +1137,7 @@
    "width": 1440,
    "height": 1080,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "after P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1056,6 +1155,7 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "P1",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1073,6 +1173,8 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "mediapipe",
    "p_position": {
     "label": "P1–P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1090,6 +1192,7 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1107,6 +1210,8 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "rtmpose",
    "p_position": {
     "label": "after P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1124,6 +1229,7 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "after P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1141,6 +1247,7 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "P1",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1158,6 +1265,8 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "mediapipe",
    "p_position": {
     "label": "P4",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1175,6 +1284,8 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "rtmpose",
    "p_position": {
     "label": "P7",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1192,6 +1303,7 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "P9–P10",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
@@ -1209,6 +1321,7 @@
    "width": 480,
    "height": 360,
    "display_scale": 1.0,
+   "blind": true,
    "p_position": {
     "label": "after P10",
     "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"

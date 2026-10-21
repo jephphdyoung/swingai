@@ -140,3 +140,104 @@ def test_labeler_template_has_one_data_slot_and_exports_the_digests():
         assert s in html
     # progress is keyed by image digest, so new frames never reset it
     assert 'state.labels[f.image_sha1]' in html
+
+
+def bench(video, frames, p1, digest=lambda f: f"{f:040d}"):
+    return [{"video": video, "frame": f, "set": "benchmark", "p1_frame": p1,
+             "image_sha1": digest(f)} for f in frames]
+
+
+class TestBlindSubset:
+    def test_p1_plus_hash_chosen_frames_per_video(self):
+        frames = bench("a.mp4", [10, 20, 30, 40, 50], 10) + bench("b.mp4", [5, 6, 7, 8, 9], 5)
+        mk.assign_blind(frames)
+        for video, p1 in (("a.mp4", 10), ("b.mp4", 5)):
+            mine = [f for f in frames if f["video"] == video]
+            assert sum(f["blind"] for f in mine) == mk.BLIND_PER_VIDEO
+            assert next(f for f in mine if f["frame"] == p1)["blind"]   # torso scale is blind
+
+    def test_choice_depends_only_on_image_digests(self):
+        a = bench("a.mp4", [10, 20, 30, 40, 50], 10)
+        b = [dict(f, reason="anything", proposals="ignored") for f in a]
+        mk.assign_blind(a)
+        mk.assign_blind(b)
+        assert [f["blind"] for f in a] == [f["blind"] for f in b]
+
+    def test_once_set_it_never_changes(self):
+        frames = bench("a.mp4", [10, 20, 30, 40, 50], 10)
+        for f in frames:
+            f["blind"] = f["frame"] in (10, 50)
+        frames.append({"video": "a.mp4", "frame": 99, "set": "sequence", "p1_frame": 10,
+                       "image_sha1": "f" * 40})
+        mk.assign_blind(frames)
+        assert [f["blind"] for f in frames] == [True, False, False, False, True, False]
+
+    def test_first_choice_model_alternates_within_each_video(self):
+        frames = mk.assign_blind(bench("a.mp4", [10, 20, 30, 40, 50], 10)
+                                 + bench("b.mp4", [5, 6, 7, 8, 9], 5))
+        mk.assign_primary(frames)
+        for video in ("a.mp4", "b.mp4"):
+            assisted = [f for f in frames if f["video"] == video and not f["blind"]]
+            assert sorted(f["assist_primary"] for f in assisted) == ["mediapipe", "rtmpose"]
+        assert not any("assist_primary" in f for f in frames if f["blind"])
+
+    def test_committed_blind_subset(self):
+        with open(os.path.join(REPO, "data/joint_labels/manifest.json")) as f:
+            m = json.load(f)
+        blind = sorted((f["video"].split("/")[-1], f["frame"]) for f in m["frames"] if f["blind"])
+        assert len(blind) == 12 and m["blind_rule"] == mk.BLIND_RULE
+        for f in m["frames"]:
+            if f["frame"] == f["p1_frame"] and f["set"] == "benchmark":
+                assert f["blind"]
+            assert ("assist_primary" in f) == (not f["blind"])
+
+
+class TestProposals:
+    def seqs(self, rt_dx=0.0, mp_extra=None, rt_extra=None):
+        from test_pose_metrics import body, seq_from
+        mp = dict(body(), left_thumb=(130, 210), left_foot_index=(120, 420), **(mp_extra or {}))
+        rt = dict(body(dx=rt_dx), left_foot_index=(118, 418), **(rt_extra or {}))
+        return {"mediapipe": seq_from([mp]), "rtmpose": seq_from([rt], min_conf=0.3)}
+
+    def test_both_models_offered_with_their_distance(self):
+        p = mk.frame_proposals(0, self.seqs(rt_dx=5), scale=100.0)
+        assert p["nose"] == {"mediapipe": [100.0, 40.0], "rtmpose": [105.0, 40.0],
+                             "disagree": 0.05}
+        assert set(p) >= set(mk.lp.BENCHMARK_POINTS)
+
+    def test_disagreement_is_flagged_beyond_the_threshold(self):
+        p = mk.frame_proposals(0, self.seqs(rt_dx=25), scale=100.0)
+        assert p["left_knee"]["disagree"] == 0.25 > mk.DISAGREE_TORSO
+
+    def test_only_points_a_model_really_has(self):
+        p = mk.frame_proposals(0, self.seqs(), scale=100.0)
+        assert p["left_big_toe"] == {"rtmpose": [118.0, 418.0]}       # not MediaPipe's foot_index
+        assert p["left_thumb"] == {"mediapipe": [130.0, 210.0]}       # RTMPose has no fingers
+        for name in ("left_heel", "left_little_toe", "left_shoe_heel_contact", "floor_a",
+                     "left_forearm_marker", "clubface_center", "shaft_butt", "right_thumb"):
+            assert name not in p
+
+    def test_low_confidence_points_are_not_offered(self):
+        seqs = self.seqs()
+        from utils.landmarks import LANDMARK_INDEX
+        seqs["rtmpose"].confidence[0, LANDMARK_INDEX["nose"]] = 0.1
+        p = mk.frame_proposals(0, seqs, scale=100.0)
+        assert p["nose"] == {"mediapipe": [100.0, 40.0]}               # no distance with one
+
+    def test_blind_frames_can_never_carry_model_output(self):
+        data = mk.labeler_data([{"id": "00", "blind": True, "proposals": {}}], None, {})
+        with pytest.raises(SystemExit, match="blind frame 00 carries model output"):
+            mk.assert_blind_frames_have_no_model_output(data)
+        ok = mk.labeler_data([{"id": "00", "blind": True}, {"id": "01", "blind": False,
+                                                           "proposals": {}}], None, {})
+        mk.assert_blind_frames_have_no_model_output(ok)
+
+
+def test_labeler_keeps_blind_frames_free_of_model_output():
+    with open(os.path.join(REPO, "scripts", "joint_labeler.html")) as f:
+        html = f.read()
+    # proposals are read only through proposal(), which refuses blind frames and waits
+    # for every blind frame's Body group
+    assert html.count("f.proposals?.[name]") == 1
+    assert "if (f.blind || !assistOpen() || labs(f)[name]) return null;" in html
+    assert 'mode: f.blind ? "blind" : "assisted"' in html

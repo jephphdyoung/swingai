@@ -83,6 +83,12 @@ Gotchas:
   and sequence frames are validated, never scored there. MediaPipe `foot_index` is not the
   big toe. Earlier labels are offered for re-checking only on identical images, and carried
   points need `confirmed_by` ([docs/joint-labelling.md](docs/joint-labelling.md)).
+- **Assisted labelling:** 12 benchmark frames are `blind` in the manifest (fixed by image hash,
+  never from model output). The page holds no model output for them. Model suggestions come
+  from the pose cache, so build the labeller in the GPU image. Blind and assisted frames are
+  scored separately (`evaluate_split`) and never pooled. Model-sourced points need
+  `assist.confirmed_by` and are refused on blind frames. Don't change the blind set once
+  labelling has started.
 Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-backends-2026-10-20.md).
 
 ## Entry points
@@ -125,7 +131,7 @@ Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-bac
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 725 pass, 7 GPU/ORT-only skip
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 758 pass, 7 GPU/ORT-only skip
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```

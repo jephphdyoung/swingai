@@ -84,7 +84,7 @@ class TestValidation:
 
     @pytest.mark.parametrize("mutate, message", [
         (lambda d: d.update(verified_by=""), "no verified_by"),
-        (lambda d: d.update(schema=3), "schema is 3"),
+        (lambda d: d.update(schema=4), "schema is 4"),
         (lambda d: d.update(videos={}), "no labelled videos"),
         (lambda d: d["videos"][DTL].update(verified_by=" "), "dtl.mp4: no verified_by"),
         (lambda d: d["videos"][DTL].update(view="face_on"), "manifest says 'dtl'"),
@@ -316,6 +316,136 @@ class TestSchema2:
         assert jl.coverage(labels, manifest2)["frames_confirmed_from_earlier_export"] == 1
 
 
+def manifest3():
+    """Schema-3 manifest: DTL frames 0-1 and face-on 0-1 blind, frame 2 of each assisted."""
+    m = manifest_dict(schema2=True)
+    m["schema"] = 3
+    for f in m["frames"]:
+        f["blind"] = f.get("set", "benchmark") == "benchmark" and f["frame"] in (0, 1)
+    return jl.load_manifest_dict(m)
+
+
+def assisted_export(**frame2):
+    """Schema-3 export: blind frames 0-1 placed by hand; frame 2 accepted from models."""
+    d = labels_dict()
+    d["schema"] = 3
+    for video in (DTL, FO):
+        st = {}
+        for f in ("0", "1"):
+            st[f] = {"mode": "blind", "groups_complete": ["body"], "cannot_place": [],
+                     "origins": {j: {"origin": "placed"} for j in d["videos"][video]["frames"][f]}}
+        origins = {j: {"origin": "model_accepted", "model": "rtmpose"}
+                   for j in d["videos"][video]["frames"]["2"]}
+        origins["nose"] = {"origin": "model_corrected", "model": ["mediapipe", "rtmpose"]}
+        origins["left_ear"] = {"origin": "placed"}
+        st["2"] = {"mode": "assisted", "groups_complete": ["body"], "cannot_place": [],
+                   "origins": origins,
+                   "assist": {"confirmed_by": "Test Labeller", "confirmed_at": "t",
+                              "primary": "rtmpose", "models": {}}, **frame2}
+        d["videos"][video]["frame_status"] = st
+    return d
+
+
+class TestAssisted:
+    def test_modes_and_origins_are_kept(self):
+        labels = jl.validate(assisted_export(), manifest3())
+        v = labels[DTL]
+        assert v["modes"] == {0: "blind", 1: "blind", 2: "assisted"}
+        o = v["frame_status"][2]["origins"]
+        assert o["left_wrist"] == {"origin": "model_accepted", "model": "rtmpose"}
+        assert o["nose"]["model"] == ["mediapipe", "rtmpose"]
+        assert v["frame_status"][2]["assist"]["confirmed_by"] == "Test Labeller"
+
+    def test_earlier_schemas_had_no_model_output_so_every_frame_is_blind(self, manifest2):
+        labels = jl.validate(extended(labels_dict()), manifest2)
+        assert set(labels[DTL]["modes"].values()) == {"blind"}
+
+    @pytest.mark.parametrize("mutate, message", [
+        # model output on a blind frame
+        (lambda st: st["0"]["origins"].update(nose={"origin": "model_accepted",
+                                                    "model": "mediapipe"}),
+         "a model proposal on a blind frame"),
+        # a frame's mode must be the manifest's
+        (lambda st: st["0"].update(mode="assisted"), "the manifest makes this frame 'blind'"),
+        (lambda st: st["2"].update(mode="blind"), "the manifest makes this frame 'assisted'"),
+        (lambda st: st["2"].update(mode="maybe"), "mode must be one of"),
+        (lambda st: st.pop("1"), "frame 1: no frame_status mode"),
+        # accepting a suggestion is only valid with the frame signed off
+        (lambda st: st["2"].pop("assist"), "without the frame's assist.confirmed_by"),
+        (lambda st: st["2"]["assist"].update(confirmed_by=""), "without the frame's"),
+        # a model can only be credited with points it really produces
+        (lambda st: st["2"]["origins"].update(left_wrist={"origin": "model_accepted",
+                                                          "model": "openpose"}),
+         "'openpose' does not produce this point"),
+        (lambda st: st["2"]["origins"].update(nose={"origin": "model_accepted",
+                                                    "model": ["mediapipe", "rtmpose"]}),
+         "does not produce this point"),
+        (lambda st: st["2"]["origins"].update(nose={"origin": "guessed"}),
+         "origin must be one of"),
+        (lambda st: st["2"]["origins"].update(left_heel={"origin": "placed"}),
+         "origin given for a point that isn't placed"),
+        (lambda st: st["2"]["origins"].update(nose={"origin": "earlier_kept"}),
+         "earlier_kept but not in review.points_unchanged"),
+        (lambda st: st["2"]["origins"].update(nose={"origin": "floor_carried",
+                                                    "from_frame": 0}),
+         "floor_carried needs a floor point"),
+    ])
+    def test_problems_are_refused(self, mutate, message):
+        d = assisted_export()
+        mutate(d["videos"][DTL]["frame_status"])
+        with pytest.raises(jl.LabelError) as e:
+            jl.validate(d, manifest3())
+        assert any(message in p for p in e.value.problems), e.value.problems
+
+    def test_model_points_a_model_does_not_have_are_refused(self):
+        d = assisted_export()
+        f2 = d["videos"][DTL]["frames"]["2"]
+        f2["left_big_toe"] = {"x": 300, "y": 470, "visible": True}
+        f2["left_thumb"] = {"x": 310, "y": 250, "visible": True}
+        st = d["videos"][DTL]["frame_status"]["2"]["origins"]
+        st["left_big_toe"] = {"origin": "model_accepted", "model": "mediapipe"}   # foot_index
+        st["left_thumb"] = {"origin": "model_accepted", "model": "rtmpose"}       # no fingers
+        with pytest.raises(jl.LabelError) as e:
+            jl.validate(d, manifest3())
+        text = " | ".join(e.value.problems)
+        assert "left_big_toe: 'mediapipe' does not produce" in text
+        assert "left_thumb: 'rtmpose' does not produce" in text
+
+    def test_floor_carried_within_the_video(self):
+        d = assisted_export()
+        for f in ("0", "2"):
+            d["videos"][DTL]["frames"][f]["floor_a"] = {"x": 100, "y": 470, "visible": True}
+        d["videos"][DTL]["frame_status"]["2"]["origins"]["floor_a"] = {
+            "origin": "floor_carried", "from_frame": 0}
+        labels = jl.validate(d, manifest3())
+        assert labels[DTL]["frame_status"][2]["origins"]["floor_a"]["from_frame"] == 0
+
+    def test_independent_and_assisted_are_scored_separately(self):
+        labels = jl.validate(assisted_export(), manifest3())
+        # MediaPipe exact; RTMPose off by 7.5 px (0.075 torso) on frame 2 only.
+        mp = seq_from([body() for _ in range(3)])
+        rt = seq_from([body(), body(), body(dx=7.5)], min_conf=0.3)
+        seqs = {"mediapipe": {DTL: mp, FO: mp}, "rtmpose": {DTL: rt, FO: rt}}
+        split = jl.evaluate_split(labels, seqs)
+        ind, ast = split["independent"]["by_view"]["dtl"], split["assisted"]["by_view"]["dtl"]
+        assert ind["rtmpose"]["all"]["frames"] == 2 and ast["rtmpose"]["all"]["frames"] == 1
+        assert ind["rtmpose"]["all"]["pck@0.05"] == 1.0
+        assert ast["rtmpose"]["all"]["pck@0.05"] == 0.0
+        assert split["independent"]["comparison"]["dtl"]["rtmpose - mediapipe"]["pck@0.1"][
+            "frames"] == 2
+        # Unsplit evaluate still scores every benchmark frame, as before.
+        assert jl.evaluate(labels, seqs)["by_view"]["dtl"]["rtmpose"]["all"]["frames"] == 3
+
+    def test_coverage_counts_blind_assisted_and_model_points(self):
+        labels = jl.validate(assisted_export(), manifest3())
+        cov = jl.coverage(labels, manifest3())
+        assert cov["frames_blind_expected"] == 4 and cov["frames_blind_labelled"] == 4
+        assert cov["frames_assisted_labelled"] == 2
+        n = len(COMMON_JOINTS) - 2                      # nose corrected, left_ear placed
+        assert cov["assisted_points"] == {"model_accepted": {"rtmpose": 2 * n},
+                                          "model_corrected": {"mediapipe+rtmpose": 2}}
+
+
 class TestReviewPrior:
     """Offering an earlier export again: only on identical images, never certified."""
 
@@ -384,10 +514,14 @@ class TestCli:
         labels = jl.validate(labels_dict(), manifest)
         result = {"labels_file": "labels.json", "verified_by": "Test Labeller",
                   "coverage": jl.coverage(labels, manifest),
-                  "report": jl.evaluate(labels, sequences(rt_dx=7.5))}
+                  "report": jl.evaluate_split(labels, sequences(rt_dx=7.5))}
         md = _cli().render(result)
         assert "### Down the line" in md and "### Face-on" in md
         assert "RTMPose - MediaPipe PCK" in md and "left wrist" in md
+        # schema-1 labels came from a labeller with no model output: all independent
+        assert md.index("Independent (blind) frames") < md.index("### Down the line")
+        assert "Assisted frames: reported separately" in md
+        assert md.split("## Assisted frames")[1].count("No labelled frames.") == 1
 
     def test_frames_are_decoded_sequentially_and_digests_checked(self, tmp_path):
         from _dual_view_fixtures import write_video
