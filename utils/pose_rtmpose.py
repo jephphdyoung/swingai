@@ -82,9 +82,11 @@ HALPE26 = (
 
 # SwingAI landmark -> Halpe26 keypoint. None = the model has no such point;
 # it is reported as unobserved, never estimated.
-# foot_index: MediaPipe's point is the tip of the foot; Halpe's big toe is the
-# nearest equivalent. Hips: COCO-family hip keypoints sit on the hip joint,
-# MediaPipe's somewhat differently -- compare values within one backend.
+# foot_index: MediaPipe's point is the front of the foot. Halpe's big toe goes in
+# that column only so the skeleton can draw a foot; the two are not the same
+# point and are never scored against each other (utils/label_points.py).
+# Hips: COCO-family hip keypoints sit on the hip joint, MediaPipe's somewhat
+# differently -- compare values within one backend.
 HALPE26_FOR = {name: (name if name in HALPE26 else None) for name in LANDMARK_NAMES}
 HALPE26_FOR.update({
     "left_foot_index": "left_big_toe",

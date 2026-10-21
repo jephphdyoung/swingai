@@ -98,8 +98,16 @@ A first full pass of labels (2026-10-21) is kept as
 `data/joint_labels/labels-old-labeller-2026-10-21.json`. It was exported from a labeller
 still open from before the digest change, so the evaluator refuses it (no `image_sha1`).
 Checked by decoding: 16 of its 20 frames were labelled on the right image. DTL 730/1238 and
-face-on 736/774 were labelled on the frame before. Not yet decided: relabel those 4 and
-merge, score them at N−1, or relabel all 20.
+face-on 736/774 were labelled on the frame before. **Decided:** the rebuilt labeller offers
+the 16 for checking (hollow rings: keep or move each), and the 4 are relabelled from
+scratch. Nothing is certified without that check.
+
+The labeller now also has optional **Feet** and **Hands/Club** groups, and the manifest can
+hold **sequences** for P2–P3, P5–P8 and heel-lift work, all outside the benchmark score
+([joint labelling](joint-labelling.md)). Not done yet:
+- RTMPose heel/small toe and MediaPipe heel aren't kept by the pose layer, so foot points
+  can't be scored against models.
+- Sequence scoring.
 
 **Known issue (pre-existing, not fixed in PR #4): OpenCV seeking lands one frame early on the
 240fps captures** from about frame 700 on (the stream's average frame rate, 249.30, differs

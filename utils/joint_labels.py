@@ -18,6 +18,19 @@ Scoring is per model and separately per camera view (DTL, face-on):
 Each is also split by the labeller's visible/occluded flag. On occluded
 labels `answered` is how often the model gave a valid point anyway -- the
 case where a confident score can hide a guessed position.
+
+Schema 2 (the current labeller) adds, without changing what is scored:
+
+- feet and hands/club points (`utils/label_points.py`), validated but never
+  part of the benchmark;
+- frames outside the benchmark set (targeted sequences, e.g. P5-P8). The
+  benchmark scores only manifest frames whose set is "benchmark";
+- `frame_status` per frame: which groups the labeller finished, which points
+  they could not place, and, for points carried over from an earlier export,
+  who confirmed them on the current image. Unconfirmed carried-over points
+  are refused.
+
+Schema-1 exports stay valid: body joints only, benchmark frames only.
 """
 
 import hashlib
@@ -26,9 +39,12 @@ import math
 
 import numpy as np
 
+from utils import label_points as lp
 from utils import pose_metrics as pm
 
-SCHEMA = 1
+SCHEMA = 2
+SCHEMAS = (1, 2)
+BENCHMARK = "benchmark"
 VIEWS = ("dtl", "face_on")
 PCK_THRESHOLDS = (0.05, 0.1, 0.2)
 TORSO = ("left_shoulder", "right_shoulder", "left_hip", "right_hip")
@@ -77,8 +93,17 @@ def load_manifest(path):
 
 
 def load_manifest_dict(m):
-    return {"joints": list(m["joints"]),
-            "frames": {(f["video"], int(f["frame"])): f for f in m["frames"]}}
+    """joints: the benchmark joints; points: every labellable point name."""
+    cat = m.get("catalogue")
+    points = [p["name"] for p in cat["points"]] if cat else list(m["joints"])
+    frames = {}
+    for f in m["frames"]:
+        frames[(f["video"], int(f["frame"]))] = {"set": BENCHMARK, **f}
+    return {"joints": list(m["joints"]), "points": points, "frames": frames}
+
+
+def frame_set(manifest, video, frame):
+    return manifest["frames"][(video, frame)]["set"]
 
 
 def validate(data, manifest):
@@ -87,8 +112,9 @@ def validate(data, manifest):
     problems = []
     if not isinstance(data, dict):
         raise LabelError(["labels file is not a JSON object"])
-    if data.get("schema") != SCHEMA:
-        problems.append(f"schema is {data.get('schema')!r}, expected {SCHEMA}")
+    schema = data.get("schema")
+    if schema not in SCHEMAS:
+        problems.append(f"schema is {schema!r}, expected one of {SCHEMAS}")
     if not str(data.get("verified_by") or "").strip():
         problems.append("no verified_by: labels must name the person who placed them")
     videos = data.get("videos")
@@ -96,7 +122,8 @@ def validate(data, manifest):
         problems.append("no labelled videos")
         raise LabelError(problems)
 
-    joints_allowed = set(manifest["joints"])
+    # Schema 1 predates the feet/hands groups and sequence frames.
+    joints_allowed = set(manifest["points"] if schema == 2 else manifest["joints"])
     by_video = {}
     for (video, frame), item in manifest["frames"].items():
         by_video.setdefault(video, {})[frame] = item
@@ -126,6 +153,10 @@ def validate(data, manifest):
                 continue
             if frame not in items:
                 problems.append(f"{where} frame {frame}: not a frame of the labelling set")
+                continue
+            if schema != 2 and items[frame]["set"] != BENCHMARK:
+                problems.append(f"{where} frame {frame}: a schema-1 export can't label "
+                                "frames outside the benchmark set")
                 continue
             expected = items[frame].get("image_sha1")
             if not expected:
@@ -159,10 +190,75 @@ def validate(data, manifest):
                 clean[name] = {"x": float(x), "y": float(y), "visible": vis}
             if clean:
                 frames[frame] = clean
+        status = _frame_status(v.get("frame_status"), frames, items, joints_allowed, where,
+                               problems) if schema == 2 else {}
         out[video] = {"view": some["view"], "p1_frame": some["p1_frame"],
-                      "verified_by": str(v.get("verified_by") or "").strip(), "frames": frames}
+                      "verified_by": str(v.get("verified_by") or "").strip(), "frames": frames,
+                      "sets": {f: items[f]["set"] for f in frames}, "frame_status": status}
     if problems:
         raise LabelError(problems)
+    return out
+
+
+def _frame_status(raw, frames, items, points, where, problems):
+    """Per-frame groups finished, points that couldn't be placed, and provenance."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        problems.append(f"{where}: frame_status is not an object")
+        return {}
+    out = {}
+    for fkey, st in raw.items():
+        try:
+            frame = int(fkey)
+        except (TypeError, ValueError):
+            problems.append(f"{where}: frame_status key {fkey!r} is not an integer")
+            continue
+        at = f"{where} frame {frame}"
+        if frame not in items:
+            problems.append(f"{at}: frame_status for a frame outside the labelling set")
+            continue
+        if not isinstance(st, dict):
+            problems.append(f"{at}: frame_status entry is not an object")
+            continue
+        groups = st.get("groups_complete", [])
+        if not isinstance(groups, list) or not set(groups) <= set(lp.GROUPS):
+            problems.append(f"{at}: groups_complete must be a list of {lp.GROUPS}")
+            groups = []
+        cannot = st.get("cannot_place", [])
+        if not isinstance(cannot, list) or not set(cannot) <= points:
+            problems.append(f"{at}: cannot_place must list known points")
+            cannot = []
+        placed = set(frames.get(frame, {}))
+        if placed & set(cannot):
+            problems.append(f"{at}: {sorted(placed & set(cannot))} both placed and "
+                            "marked as impossible to place")
+        clean = {"groups_complete": list(groups), "cannot_place": list(cannot)}
+        review = st.get("review")
+        if review is not None:
+            ok = (isinstance(review, dict) and str(review.get("source") or "").strip()
+                  and str(review.get("confirmed_by") or "").strip()
+                  and str(review.get("confirmed_at") or "").strip()
+                  and isinstance(review.get("points_unchanged", []), list))
+            if not ok:
+                problems.append(f"{at}: points carried over from an earlier export were not "
+                                "confirmed on this image (review needs source, confirmed_by, "
+                                "confirmed_at)")
+            else:
+                clean["review"] = {k: review[k] for k in
+                                   ("source", "confirmed_by", "confirmed_at")}
+                clean["review"]["points_unchanged"] = list(review.get("points_unchanged", []))
+        out[frame] = clean
+    return out
+
+
+def benchmark_labels(labels):
+    """Only the benchmark frames: what the MediaPipe vs RTMPose benchmark scores."""
+    out = {}
+    for video, v in labels.items():
+        sets = v.get("sets", {})
+        keep = {f: j for f, j in v["frames"].items() if sets.get(f, BENCHMARK) == BENCHMARK}
+        out[video] = {**v, "frames": keep}
     return out
 
 
@@ -178,14 +274,23 @@ def load_labels(path, manifest_path):
 
 
 def coverage(labels, manifest):
-    """How much of the labelling set the file covers, and what can't be scored."""
+    """How much of the benchmark set the file covers, and what can't be scored."""
     expected = {}
     for (video, _), item in manifest["frames"].items():
-        expected[video] = expected.get(video, 0) + 1
+        if item["set"] == BENCHMARK:
+            expected[video] = expected.get(video, 0) + 1
+    bench = benchmark_labels(labels)
+    joints = set(manifest["joints"])
     out = {"frames_expected": sum(expected.values()),
-           "frames_labelled": sum(len(v["frames"]) for v in labels.values()),
-           "joints_labelled": sum(len(j) for v in labels.values() for j in v["frames"].values()),
+           "frames_labelled": sum(len(v["frames"]) for v in bench.values()),
+           "joints_labelled": sum(len(set(j) & joints) for v in bench.values()
+                                  for j in v["frames"].values()),
            "joints_possible": sum(expected.values()) * len(manifest["joints"]),
+           "frames_confirmed_from_earlier_export": sum(
+               1 for v in bench.values() for f in v["frames"]
+               if "review" in v.get("frame_status", {}).get(f, {})),
+           "frames_outside_benchmark": sum(len(v["frames"]) for v in labels.values())
+                                       - sum(len(v["frames"]) for v in bench.values()),
            "videos_unlabelled": sorted(set(expected) - set(labels)),
            "unscorable": {}}
     for video, v in labels.items():
@@ -278,6 +383,7 @@ def evaluate(labels, sequences, joints=pm.COMMON_JOINTS):
     Returns {"by_view": {view: {backend: group}}, "by_video": {video: {backend:
     group}}, "comparison": {view: {"<b> - <a>": bootstrap}}}.
     """
+    labels = benchmark_labels(labels)
     backends = list(sequences)
     rows = {b: [] for b in backends}
     for video, vl in labels.items():
@@ -304,3 +410,66 @@ def evaluate(labels, sequences, joints=pm.COMMON_JOINTS):
         if any(per.values()):
             report["by_video"][video] = {b: group_summary(per[b], joints) for b in backends}
     return report
+
+
+# --- carrying an earlier export over for review ------------------------------
+
+def review_prior(prior, manifest, shown, previous=None, source=""):
+    """Which frames of an earlier export may be offered again for review.
+
+    prior: the earlier export (any schema). shown: {(video, frame): SHA-1 of
+    the image the earlier labeller displayed}, from the export's own digests
+    or by re-decoding the way that labeller did. previous: optional
+    {(video, frame): SHA-1 of the sequentially decoded frame - 1}, used only
+    to explain a mismatch.
+
+    A frame is offered only when the image it was labelled on is identical
+    to the current one. Offered points are copied unchanged, as candidates:
+    the labeller must show them and a person must confirm or move each one
+    before they can be exported. Nothing here certifies a label.
+    Returns {"source", "verified_by", "exported_at", "frames": [...],
+    "refused": [{"video", "frame", "why"}]}.
+    """
+    previous = previous or {}
+    out = {"source": source, "verified_by": str(prior.get("verified_by") or "").strip(),
+           "exported_at": prior.get("exported_at"), "frames": [], "refused": []}
+    for video, v in (prior.get("videos") or {}).items():
+        for fkey, joints in (v.get("frames") or {}).items():
+            frame = int(fkey)
+            item = manifest["frames"].get((video, frame))
+
+            def refuse(why):
+                out["refused"].append({"video": video, "frame": frame, "why": why})
+
+            if item is None:
+                refuse("not in the current labelling set")
+                continue
+            digest = shown.get((video, frame))
+            if digest is None:
+                refuse("no record of which image it was labelled on")
+                continue
+            if digest != item["image_sha1"]:
+                if previous.get((video, frame)) == digest:
+                    refuse(f"labelled on the image of frame {frame - 1} (the earlier labeller's "
+                           "seek landed one frame early); relabel it")
+                else:
+                    refuse("labelled on a different image; relabel it")
+                continue
+            w, h = item["width"], item["height"]
+            points, bad = {}, []
+            for name, lab in (joints or {}).items():
+                x, y, vis = lab.get("x"), lab.get("y"), lab.get("visible")
+                ok = (name in lp.POINT and isinstance(vis, bool)
+                      and all(isinstance(c, (int, float)) and not isinstance(c, bool)
+                              and math.isfinite(c) for c in (x, y))
+                      and 0 <= x <= w and 0 <= y <= h)
+                if ok:
+                    points[name] = {"x": x, "y": y, "visible": vis}
+                else:
+                    bad.append(name)
+            if bad:
+                refuse(f"invalid points {sorted(bad)}; relabel it")
+                continue
+            out["frames"].append({"video": video, "frame": frame,
+                                  "image_sha1": item["image_sha1"], "points": points})
+    return out

@@ -54,6 +54,9 @@ The labelling set is ready:
   fastest hand-motion frame. The list is in [`data/joint_labels/manifest.json`](../../data/joint_labels/manifest.json).
 - **15 joints per frame** (both models' common set: nose, ears, shoulders, elbows, wrists,
   hips, knees, ankles), each marked visible or occluded (position estimated), or skipped.
+  These are the labeller's Body group. The Feet and Hands/Club groups and sequence frames
+  (added 2026-10-21; see [joint labelling](../joint-labelling.md)) are optional and never
+  scored here.
 
 ```bash
 xdg-open data/joint_labels/labeler.html       # label, enter your name, Export
@@ -66,7 +69,9 @@ podman --cdi-spec-dir ~/.local/share/swingai/cdi run --rm --device nvidia.com/gp
   --md docs/benchmarks/joint-accuracy-<date>.md
 ```
 
-The labeller has no pre-placed points, since they would anchor you toward one model. It
+The labeller has no model-placed points, since they would anchor you toward one model. The
+only pre-placed points are your own earlier labels, offered for checking on identical images
+([details](../joint-labelling.md#earlier-labels-2026-10-21)). It
 stores coordinates in original-video pixels. `evaluate_joint_labels.py` then:
 
 1. **Validates** `labels.json` against the manifest and refuses it, listing every problem,
@@ -78,8 +83,8 @@ stores coordinates in original-video pixels. `evaluate_joint_labels.py` then:
    240fps captures OpenCV's seek lands one frame early past ~frame 700, and the first
    labeller (2026-10-20) used seeking, so frames 03, 04, 08 and 09 showed frame *f*−1. The
    set was regenerated on 2026-10-21 with sequential decoding. The frames are the same and
-   only those four images changed. Its progress key now depends on the images, so it starts
-   clean, and exports from the old labeller are refused.
+   only those four images changed. Exports from the old labeller are refused, and progress
+   is now saved per image digest.
 3. **Scores both models, separately for DTL and face-on**: error in P1 torso lengths (from
    your P1 labels; mean and median), frame misses (no person found) and joint misses (no
    point above the model's own threshold), PCK@0.05/0.1/0.2 with a miss counted as a

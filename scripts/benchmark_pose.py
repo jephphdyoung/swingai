@@ -162,7 +162,8 @@ def main(argv=None):
     labels = {}
     if os.path.exists(args.labels):
         try:
-            labels = jl.load_labels(args.labels, args.manifest)
+            # The benchmark frames only: sequence frames are labelled for other work.
+            labels = jl.benchmark_labels(jl.load_labels(args.labels, args.manifest))
         except jl.LabelError as e:
             sys.exit("invalid labels, refusing to score against them:\n  - "
                      + "\n  - ".join(e.problems))

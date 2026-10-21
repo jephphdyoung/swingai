@@ -78,7 +78,11 @@ Gotchas:
   sequentially (`utils/joint_labels.decode_frames`). The annotator and the panel images
   still seek (STATUS.md).
 - Joint-accuracy evaluation: `scripts/evaluate_joint_labels.py`. It only runs on labels a
-  person exported from `labeler.html`.
+  person exported from `labeler.html`. It scores **only the 15 body joints on the 20
+  benchmark frames** (pinned by digest). Feet, hands/club points (`utils/label_points.py`)
+  and sequence frames are validated, never scored there. MediaPipe `foot_index` is not the
+  big toe. Earlier labels are offered for re-checking only on identical images, and carried
+  points need `confirmed_by` ([docs/joint-labelling.md](docs/joint-labelling.md)).
 Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-backends-2026-10-20.md).
 
 ## Entry points
@@ -121,7 +125,7 @@ Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-bac
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 679 pass, 7 GPU/ORT-only skip
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 725 pass, 7 GPU/ORT-only skip
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```

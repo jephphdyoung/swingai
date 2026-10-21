@@ -6,7 +6,9 @@ Run in the GPU image (RTMPose needs it; MediaPipe's cache is per environment):
         --out docs/benchmarks/joint-accuracy-<date>.json [--md ...md] [--extract]
 
 Input is `data/joint_labels/labels.json`, exported from labeler.html by the
-person who placed the joints. Without it, or if it fails validation, this
+person who placed the joints. Only the benchmark frames' 15 body joints are
+scored; feet, hands/club points and sequence frames are validated but not
+part of this benchmark. Without it, or if it fails validation, this
 stops and says why -- it never scores against anything else.
 
 Steps:
@@ -88,6 +90,13 @@ def render(result):
     out = [f"Labels: `{result['labels_file']}`, verified by {result['verified_by']}. "
            f"{cov['frames_labelled']}/{cov['frames_expected']} frames, "
            f"{cov['joints_labelled']}/{cov['joints_possible']} joints placed.\n"]
+    if cov.get("frames_confirmed_from_earlier_export"):
+        out[0] = out[0].rstrip("\n") + (
+            f" {cov['frames_confirmed_from_earlier_export']} of these frames include points "
+            "carried over from an earlier export and kept after checking on the same image.\n")
+    if cov.get("frames_outside_benchmark"):
+        out.append(f"{cov['frames_outside_benchmark']} labelled frames outside the benchmark "
+                   "set (sequences) are not scored here.\n")
     for video, why in cov["unscorable"].items():
         out.append(f"- Not scored: `{video}`: {why}")
     if cov["unscorable"]:

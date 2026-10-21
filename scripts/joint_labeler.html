@@ -6,10 +6,12 @@
 <title>Joint Labeler</title>
 <style>
   :root { --bg:#f6f6f4; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#d9d9d4;
-          --accent:#2a6fdb; --ok:#1f8a4c; --warn:#b26a00; --skip:#8a8a85; }
+          --accent:#2a6fdb; --ok:#1f8a4c; --warn:#b26a00; --skip:#8a8a85; --cand:#8e44c9;
+          --bad:#c0392b; }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#161615; --panel:#1f1f1d; --ink:#ecece8; --muted:#a0a09a; --line:#3a3a37;
-            --accent:#6ea2ff; --ok:#4cc27e; --warn:#f0a646; --skip:#77776f; }
+            --accent:#6ea2ff; --ok:#4cc27e; --warn:#f0a646; --skip:#77776f; --cand:#c38cf0;
+            --bad:#ff7b6b; }
   }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--ink);
@@ -20,29 +22,61 @@
   input[type=text] { padding:6px 8px; border:1px solid var(--line); border-radius:6px;
                      background:var(--bg); color:var(--ink); }
   button { padding:6px 12px; border:1px solid var(--line); border-radius:6px;
-           background:var(--panel); color:var(--ink); cursor:pointer; }
+           background:var(--panel); color:var(--ink); cursor:pointer; font:inherit; }
   button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
-  main { display:grid; grid-template-columns: 220px 1fr 260px; gap:12px; padding:12px 16px;
+  button:disabled { opacity:.5; cursor:default; }
+  #progress { color:var(--muted); }
+  #progress b { color:var(--ink); font-weight:600; }
+  main { display:grid; grid-template-columns: 250px 1fr 300px; gap:12px; padding:12px 16px;
          height: calc(100vh - 58px); }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px;
            overflow:auto; }
-  #frames div { padding:6px 10px; border-bottom:1px solid var(--line); cursor:pointer; }
-  #frames div.sel { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  #frames .set { padding:8px 10px 4px; font-size:12px; font-weight:600; color:var(--muted);
+                 text-transform:uppercase; letter-spacing:.04em; }
+  #frames .fr { padding:6px 10px; border-bottom:1px solid var(--line); cursor:pointer; }
+  #frames .fr.sel { background: color-mix(in srgb, var(--accent) 15%, transparent); }
   #frames small { color:var(--muted); display:block; }
-  #stage { position:relative; display:flex; flex-direction:column; min-width:0; }
+  .chips { display:flex; gap:4px; margin-top:3px; flex-wrap:wrap; }
+  .chip { font-size:11px; padding:0 5px; border-radius:4px; border:1px solid var(--line);
+          color:var(--muted); }
+  .chip.done { color:var(--ok); border-color:var(--ok); }
+  .chip.part { color:var(--warn); border-color:var(--warn); }
+  .chip.cand { color:var(--cand); border-color:var(--cand); }
+  #stage { position:relative; display:flex; flex-direction:column; min-width:0; gap:6px; }
+  #where { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+           padding:8px 10px; display:grid; gap:2px; }
+  #where .v { font-weight:600; word-break:break-all; }
+  #where .m { color:var(--muted); font-size:13px; }
+  .banner { border-radius:6px; padding:6px 10px; font-size:13px; }
+  .banner.cand { background: color-mix(in srgb, var(--cand) 14%, transparent); }
+  .banner.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); }
   #canvasWrap { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; }
   canvas#img { max-width:100%; max-height:100%; cursor:crosshair; border-radius:6px; }
-  #info { padding:6px 2px; color:var(--muted); }
-  #loupe { position:absolute; right:8px; top:8px; width:180px; height:180px;
+  #loupe { position:absolute; right:8px; bottom:8px; width:180px; height:180px;
            border:2px solid var(--accent); border-radius:6px; background:#000; }
-  #joints div { display:flex; justify-content:space-between; padding:5px 10px;
-                border-bottom:1px solid var(--line); cursor:pointer; }
-  #joints div.cur { outline:2px solid var(--accent); outline-offset:-2px; }
+  #tabs { display:flex; border-bottom:1px solid var(--line); }
+  #tabs button { flex:1; border:0; border-radius:0; border-bottom:3px solid transparent;
+                 background:transparent; padding:8px 4px; }
+  #tabs button.on { border-bottom-color:var(--accent); font-weight:600; }
+  #groupNote { padding:8px 10px; font-size:12px; color:var(--muted);
+               border-bottom:1px solid var(--line); }
+  #points div.pt { display:flex; justify-content:space-between; gap:6px; padding:5px 10px;
+                   border-bottom:1px solid var(--line); cursor:pointer; align-items:center; }
+  #points div.pt.cur { outline:2px solid var(--accent); outline-offset:-2px; }
+  .kind { font-size:10px; color:var(--muted); border:1px solid var(--line); border-radius:3px;
+          padding:0 4px; margin-left:4px; white-space:nowrap; }
   .st-vis { color:var(--ok); } .st-occ { color:var(--warn); } .st-skip { color:var(--skip); }
-  .help { padding:10px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); }
+  .st-cand { color:var(--cand); }
+  #pointHelp { padding:8px 10px; font-size:12px; border-bottom:1px solid var(--line); }
+  #pointHelp .models { color:var(--muted); margin-top:4px; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; padding:8px 10px;
+             border-bottom:1px solid var(--line); }
+  .help { padding:10px; color:var(--muted); font-size:12px; }
   kbd { border:1px solid var(--line); border-radius:3px; padding:0 4px; font-size:11px; }
-  label.toggle { display:flex; gap:6px; align-items:center; padding:8px 10px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; height:auto; } }
+  label.toggle { display:flex; gap:6px; align-items:center; padding:8px 10px;
+                 border-bottom:1px solid var(--line); }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; height:auto; }
+                               #canvasWrap { min-height:50vh; } }
 </style>
 </head>
 <body>
@@ -51,35 +85,57 @@
   <label>Labelled by <input type="text" id="who" placeholder="your name (required)"></label>
   <span id="progress"></span>
   <span style="flex:1"></span>
+  <button id="loadReview" hidden></button>
   <button id="export" class="primary">Export labels.json</button>
 </header>
 <main>
   <div class="panel" id="frames"></div>
   <div id="stage">
+    <div id="where"></div>
     <div id="canvasWrap"><canvas id="img"></canvas></div>
     <canvas id="loupe" width="180" height="180"></canvas>
-    <div id="info"></div>
   </div>
   <div class="panel">
+    <div id="tabs"></div>
+    <div id="groupNote"></div>
     <label class="toggle"><input type="checkbox" id="occ"> Next point is occluded
       (position estimated) <kbd>O</kbd></label>
-    <div id="joints"></div>
+    <div class="actions" id="reviewActions"></div>
+    <div id="pointHelp"></div>
+    <div id="points"></div>
     <div class="help">
-      Click the joint centre. Points auto-advance.<br>
-      <kbd>O</kbd> occluded toggle · <kbd>S</kbd> can't place (skip) ·
-      <kbd>Backspace</kbd> clear current · <kbd>[</kbd>/<kbd>]</kbd> joint ·
-      <kbd>←</kbd>/<kbd>→</kbd> frame<br>
-      Left/right are the golfer's own sides. Ears: the ear canal; hips: the hip joint
-      centre, not the belt line.
+      Click to place the current point; points auto-advance.<br>
+      <kbd>O</kbd> occluded · <kbd>S</kbd> can't place · <kbd>Backspace</kbd> clear ·
+      <kbd>Enter</kbd> keep earlier point · <kbd>[</kbd>/<kbd>]</kbd> point ·
+      <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> group · <kbd>←</kbd>/<kbd>→</kbd> frame<br>
+      Left/right are the golfer's own sides. Groups are independent: a frame can have Body only.
     </div>
   </div>
 </main>
 <script>
 const DATA = /*__DATA__*/null;
-// Progress is keyed by the images themselves: a regenerated set starts clean.
-const KEY = "swingai-joint-labels-" + DATA.frames.map(f => f.image_sha1.slice(0, 8)).join("");
-let state = JSON.parse(localStorage.getItem(KEY) || "null") || {who: "", labels: {}};
-let fi = 0, ji = 0;
+const GROUPS = DATA.catalogue.groups;
+const POINT = Object.fromEntries(DATA.catalogue.points.map(p => [p.name, p]));
+const KIND = {anatomical: "anatomical", contact: "manual: contact", reference: "manual: floor",
+              marker: "manual: marker", equipment: "manual: club"};
+const NOTE = {
+  body: "Benchmark group: these 15 joints are what MediaPipe and RTMPose are scored on. " +
+        "On every benchmark frame, place each one or mark it can't-place (S).",
+  feet: "Optional. Anatomical points (heel, toes) are model-comparable; shoe contact and floor " +
+        "points are manual only. 2D image positions: no pressure, no 3D foot rotation.",
+  hands_club: "Optional. Only MediaPipe Pose has (coarse) finger points; RTMPose Body26 has " +
+              "none. Markers: skip when nothing is worn. Forearm rotation can't be read from " +
+              "elbow/wrist points alone.",
+};
+// Labels are stored per image (SHA-1), so adding frames to the set never resets them,
+// and a label can never move to a different image.
+const KEY = "swingai-joint-labels-v2";
+let state = {who: "", labels: {}, cand: {}, review: {}, reviewLoaded: {}};
+try { Object.assign(state, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+const REVIEW = Object.fromEntries((DATA.review?.frames || []).map(r => [r.image_sha1, r]));
+const REFUSED = Object.fromEntries((DATA.review?.refused || []).map(r =>
+  [r.video + "#" + r.frame, r.why]));
+let fi = 0, gi = 0, ji = 0;
 const img = new Image();
 const cv = document.getElementById("img"), ctx = cv.getContext("2d");
 const lp = document.getElementById("loupe"), lctx = lp.getContext("2d");
@@ -87,48 +143,146 @@ const SEGS = [["left_shoulder","right_shoulder"],["left_hip","right_hip"],
   ["left_shoulder","left_elbow"],["left_elbow","left_wrist"],["right_shoulder","right_elbow"],
   ["right_elbow","right_wrist"],["left_shoulder","left_hip"],["right_shoulder","right_hip"],
   ["left_hip","left_knee"],["left_knee","left_ankle"],["right_hip","right_knee"],
-  ["right_knee","right_ankle"],["left_ear","right_ear"]];
+  ["right_knee","right_ankle"],["left_ear","right_ear"],
+  ["left_heel","left_big_toe"],["right_heel","right_big_toe"],
+  ["left_shoe_heel_contact","left_shoe_toe_contact"],
+  ["right_shoe_heel_contact","right_shoe_toe_contact"],["floor_a","floor_b"],
+  ["shaft_butt","shaft_hosel"],["clubhead_heel","clubhead_toe"]];
 
 function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
 function cur() { return DATA.frames[fi]; }
-function labs() { const f = cur(); return (state.labels[f.id] ||= {}); }
+function labs(f = cur()) { return (state.labels[f.image_sha1] ||= {}); }
+function cands(f = cur()) { return state.cand[f.image_sha1] || {}; }
+function rev(f = cur()) {
+  return (state.review[f.image_sha1] ||= {source: DATA.review?.source || "", unchanged: [],
+                                          moved: [], confirmed_at: null});
+}
+function groupPoints() { return GROUPS[gi].points; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function groupStatus(f, g) {
+  const l = state.labels[f.image_sha1] || {}, c = state.cand[f.image_sha1] || {};
+  const done = g.points.filter(p => l[p]).length;
+  const pending = g.points.filter(p => c[p]).length;
+  return {done, pending, total: g.points.length, complete: done === g.points.length && !pending};
+}
+
+function renderProgress() {
+  const bench = DATA.frames.filter(f => f.set === "benchmark");
+  const parts = GROUPS.map(g => {
+    const fr = g.id === "body" ? bench : DATA.frames;
+    const n = fr.filter(f => groupStatus(f, g).complete).length;
+    const started = DATA.frames.filter(f => groupStatus(f, g).done).length;
+    return g.id === "body" ? `<b>Body</b> ${n}/${bench.length} benchmark frames`
+                           : `<b>${esc(g.title)}</b> ${n} complete, ${started} started`;
+  });
+  const pend = DATA.frames.filter(f => Object.keys(cands(f)).length).length;
+  if (pend) parts.push(`<span class="st-cand">${pend} frames with earlier points to check</span>`);
+  document.getElementById("progress").innerHTML = parts.join(" · ");
+}
 
 function renderFrames() {
   const el = document.getElementById("frames"); el.innerHTML = "";
-  let done = 0;
+  let lastSet = null;
   DATA.frames.forEach((f, i) => {
-    const l = state.labels[f.id] || {};
-    const n = DATA.joints.filter(j => l[j]).length;
-    if (n === DATA.joints.length) done++;
+    const setName = f.set === "benchmark" ? "Benchmark" : "Sequence: " + f.sequence.name;
+    if (setName !== lastSet) {
+      const n = DATA.frames.filter(g => (g.set === "benchmark" ? "Benchmark"
+                                          : "Sequence: " + g.sequence?.name) === setName).length;
+      const h = document.createElement("div"); h.className = "set";
+      h.textContent = `${setName} (${n})`; el.appendChild(h); lastSet = setName;
+    }
+    const chips = GROUPS.map(g => {
+      const s = groupStatus(f, g);
+      const cls = s.complete ? "done" : s.pending ? "cand" : s.done ? "part" : "";
+      return `<span class="chip ${cls}" title="${esc(g.title)}">${esc(g.title.split(" ")[0])} ` +
+             `${s.done}/${s.total}</span>`;
+    }).join("");
+    const pp = f.p_position ? ` · ≈ ${esc(f.p_position.label)}` : "";
     const d = document.createElement("div");
-    d.className = i === fi ? "sel" : "";
-    d.innerHTML = `<b>${f.id}</b> ${f.video.split("/").pop().slice(0, 26)}
-      <small>frame ${f.frame} · ${f.view} · ${n}/${DATA.joints.length}</small>
-      <small>${f.reason}</small>`;
+    d.className = "fr" + (i === fi ? " sel" : "");
+    const base = f.video.split("/").pop();
+    const short = base.length > 32 ? "…" + base.slice(-31) : base;
+    d.innerHTML = `<b>${esc(f.id)}</b> <span title="${esc(f.video)}">${esc(short)}</span>
+      <small>frame ${f.frame} · ${esc(f.view)}${pp}</small><div class="chips">${chips}</div>`;
     d.onclick = () => { fi = i; ji = firstOpen(); load(); };
     el.appendChild(d);
   });
-  document.getElementById("progress").textContent =
-    `${done}/${DATA.frames.length} frames complete`;
 }
 
-function renderJoints() {
-  const el = document.getElementById("joints"); el.innerHTML = "";
-  const l = labs();
-  DATA.joints.forEach((j, i) => {
-    const v = l[j];
-    const st = !v ? "" : v.skip ? '<span class="st-skip">skipped</span>'
+function renderWhere() {
+  const f = cur(), pp = f.p_position;
+  const refused = REFUSED[f.video + "#" + f.frame];
+  const nc = Object.keys(cands()).length;
+  let banners = "";
+  if (nc) banners += `<div class="banner cand">${nc} points carried over from
+    <b>${esc(DATA.review.source)}</b> (labelled by ${esc(DATA.review.verified_by)}) on this
+    identical image, shown as hollow rings. They are <b>not</b> labels until you check them:
+    move any that are wrong, keep the rest (<kbd>Enter</kbd>, or Keep all below).</div>`;
+  if (refused) banners += `<div class="banner bad">The earlier label for this frame was not
+    carried over: ${esc(refused)}.</div>`;
+  document.getElementById("where").innerHTML =
+    `<div class="v">${esc(f.video)}</div>
+     <div class="m">Frame <b>${f.frame}</b> (decoded in order from 0, as the pose models read
+       it) · ${esc(f.view === "dtl" ? "down the line" : "face-on")} · ${f.width}×${f.height}
+       · image ${esc(f.image_sha1.slice(0, 10))}</div>
+     <div class="m">${pp ? `P-position ≈ <b>${esc(pp.label)}</b> — ${esc(pp.note)}`
+                         : "P-position unknown"} ·
+       ${f.set === "benchmark" ? "benchmark frame" : "sequence " + esc(f.sequence.name)} ·
+       ${esc(f.reason)}</div>${banners}`;
+}
+
+function renderTabs() {
+  const el = document.getElementById("tabs"); el.innerHTML = "";
+  GROUPS.forEach((g, i) => {
+    const b = document.createElement("button");
+    const s = groupStatus(cur(), g);
+    b.className = i === gi ? "on" : "";
+    b.textContent = `${i + 1} ${g.title} ${s.done}/${s.total}`;
+    b.onclick = () => { gi = i; ji = firstOpen(); draw(); };
+    el.appendChild(b);
+  });
+  document.getElementById("groupNote").textContent = NOTE[GROUPS[gi].id];
+}
+
+function renderPoints() {
+  const el = document.getElementById("points"); el.innerHTML = "";
+  const l = labs(), c = cands();
+  groupPoints().forEach((name, i) => {
+    const v = l[name];
+    const st = c[name] ? '<span class="st-cand">earlier: check</span>'
+      : !v ? "" : v.skip ? '<span class="st-skip">can\'t place</span>'
       : v.visible ? '<span class="st-vis">visible</span>' : '<span class="st-occ">occluded</span>';
     const d = document.createElement("div");
-    d.className = i === ji ? "cur" : "";
-    d.innerHTML = `<span>${j.replace("_", " ")}</span>${st}`;
-    d.onclick = () => { ji = i; renderJoints(); draw(); };
+    d.className = "pt" + (i === ji ? " cur" : "");
+    d.innerHTML = `<span>${esc(name.replaceAll("_", " "))}<span class="kind">` +
+                  `${KIND[POINT[name].kind]}</span></span>${st}`;
+    d.onclick = () => { ji = i; draw(); };
     el.appendChild(d);
   });
+  const p = POINT[groupPoints()[ji]];
+  const models = Object.entries(p.models).map(([m, s]) =>
+    `${m === "mediapipe" ? "MediaPipe" : "RTMPose"}: ${s.point
+      ? esc(s.point) + (s.match === "same" ? "" : " (approximate)") : "no such point"}` +
+    (s.note ? ` — ${esc(s.note)}` : "")).join("<br>");
+  document.getElementById("pointHelp").innerHTML =
+    `<b>${esc(p.name.replaceAll("_", " "))}</b>: ${esc(p.help)}<div class="models">${models}</div>`;
+  const ra = document.getElementById("reviewActions");
+  const nc = Object.keys(c).length;
+  ra.hidden = !nc;
+  ra.innerHTML = nc ? `<button id="keepOne">Keep this earlier point</button>
+                       <button id="keepAll">Keep all ${nc} after checking…</button>
+                       <button id="dropAll">Discard earlier points</button>` : "";
+  if (nc) {
+    document.getElementById("keepOne").onclick = keepCandidate;
+    document.getElementById("keepAll").onclick = keepAll;
+    document.getElementById("dropAll").onclick = dropAll;
+  }
 }
 
 function firstOpen() {
-  const l = labs(); const i = DATA.joints.findIndex(j => !l[j]); return i < 0 ? 0 : i;
+  const l = labs(), c = cands();
+  const i = groupPoints().findIndex(n => !l[n] || c[n]); return i < 0 ? 0 : i;
 }
 
 function toPx(e) {      // canvas click -> original-video pixels
@@ -140,23 +294,32 @@ function toPx(e) {      // canvas click -> original-video pixels
 
 function draw() {
   ctx.drawImage(img, 0, 0);
-  const f = cur(), l = labs(), s = f.display_scale;
-  const r = Math.max(3, cv.width / 300);
+  const f = cur(), l = labs(), c = cands(), s = f.display_scale;
+  const r = Math.max(3, cv.width / 300), active = new Set(groupPoints());
+  const at = n => (l[n] && !l[n].skip) ? l[n] : null;
   ctx.lineWidth = Math.max(1, cv.width / 700);
   for (const [a, b] of SEGS) {
-    if (l[a] && l[b] && !l[a].skip && !l[b].skip) {
+    const pa = at(a), pb = at(b);
+    if (pa && pb) {
       ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.beginPath();
-      ctx.moveTo(l[a].x * s, l[a].y * s); ctx.lineTo(l[b].x * s, l[b].y * s); ctx.stroke();
+      ctx.moveTo(pa.x * s, pa.y * s); ctx.lineTo(pb.x * s, pb.y * s); ctx.stroke();
     }
   }
-  DATA.joints.forEach((j, i) => {
-    const v = l[j]; if (!v || v.skip) return;
-    ctx.fillStyle = i === ji ? "#ff3b30" : v.visible ? "#34c759" : "#ff9f0a";
+  const curName = groupPoints()[ji];
+  for (const [n, v] of Object.entries(c)) {
+    ctx.globalAlpha = active.has(n) ? 1 : .45;
+    ctx.strokeStyle = n === curName ? "#ff3b30" : "#c38cf0";
+    ctx.lineWidth = Math.max(2, cv.width / 500);
+    ctx.beginPath(); ctx.arc(v.x * s, v.y * s, r * 1.6, 0, 7); ctx.stroke();
+  }
+  for (const [n, v] of Object.entries(l)) {
+    if (v.skip) continue;
+    ctx.globalAlpha = active.has(n) ? 1 : .45;
+    ctx.fillStyle = n === curName ? "#ff3b30" : v.visible ? "#34c759" : "#ff9f0a";
     ctx.beginPath(); ctx.arc(v.x * s, v.y * s, r, 0, 7); ctx.fill();
-  });
-  document.getElementById("info").textContent =
-    `${f.video} · frame ${f.frame} · ${f.width}×${f.height} · placing: ${DATA.joints[ji]}`;
-  renderJoints(); renderFrames();
+  }
+  ctx.globalAlpha = 1;
+  renderWhere(); renderTabs(); renderPoints(); renderFrames(); renderProgress();
 }
 
 function load() {
@@ -164,13 +327,48 @@ function load() {
   img.src = "data:image/jpeg;base64," + cur().jpg;
 }
 
+function advance() { ji = firstOpen(); save(); draw(); }
+
+function forget(name) {        // a point the person replaced or cleared is no longer "kept"
+  const r = state.review[cur().image_sha1];
+  if (r) r.unchanged = r.unchanged.filter(n => n !== name);
+}
+
 cv.addEventListener("click", e => {
-  const [x, y] = toPx(e);
-  labs()[DATA.joints[ji]] = {x: +x.toFixed(1), y: +y.toFixed(1),
-                             visible: !document.getElementById("occ").checked};
+  const [x, y] = toPx(e), name = groupPoints()[ji], c = cands();
+  labs()[name] = {x: +x.toFixed(1), y: +y.toFixed(1),
+                  visible: !document.getElementById("occ").checked};
+  forget(name);
+  if (c[name]) { delete c[name]; rev().moved.push(name); }
   document.getElementById("occ").checked = false;
-  save(); ji = Math.min(DATA.joints.length - 1, firstOpen()); draw();
+  advance();
 });
+
+function keepCandidate() {
+  const name = groupPoints()[ji], c = cands();
+  if (!c[name]) return;
+  labs()[name] = c[name]; delete c[name];
+  const r = rev(); r.unchanged.push(name); r.confirmed_at = new Date().toISOString();
+  advance();
+}
+
+function keepAll() {
+  const c = cands(), names = Object.keys(c);
+  if (!state.who.trim()) { alert("Enter your name first: kept points are recorded as " +
+                                 "confirmed by you."); return; }
+  if (!confirm(`Keep ${names.length} earlier points on this frame unchanged?\n\nOnly do this ` +
+               `after checking each hollow ring sits on the right spot in THIS image. They ` +
+               `will be exported as confirmed by ${state.who.trim()}.`)) return;
+  const r = rev();
+  for (const n of names) { labs()[n] = c[n]; r.unchanged.push(n); delete c[n]; }
+  r.confirmed_at = new Date().toISOString();
+  advance();
+}
+
+function dropAll() {
+  if (!confirm("Discard the earlier points on this frame? You'll place them yourself.")) return;
+  delete state.cand[cur().image_sha1]; advance();
+}
 
 cv.addEventListener("mousemove", e => {
   const [, , cx, cy] = toPx(e), z = 4, w = lp.width / z;
@@ -183,13 +381,18 @@ cv.addEventListener("mousemove", e => {
 
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT" && e.target.type === "text") return;
-  const k = e.key;
+  const k = e.key, name = groupPoints()[ji], n = groupPoints().length;
   if (k === "o" || k === "O") document.getElementById("occ").click();
-  else if (k === "s" || k === "S") { labs()[DATA.joints[ji]] = {skip: true}; save();
-    ji = firstOpen(); draw(); }
-  else if (k === "Backspace") { delete labs()[DATA.joints[ji]]; save(); draw(); e.preventDefault(); }
-  else if (k === "]") { ji = Math.min(DATA.joints.length - 1, ji + 1); draw(); }
+  else if (k === "s" || k === "S") {
+    labs()[name] = {skip: true}; forget(name);
+    if (cands()[name]) { delete cands()[name]; rev().moved.push(name); }
+    advance();
+  }
+  else if (k === "Enter") { keepCandidate(); e.preventDefault(); }
+  else if (k === "Backspace") { delete labs()[name]; forget(name); save(); draw(); e.preventDefault(); }
+  else if (k === "]") { ji = Math.min(n - 1, ji + 1); draw(); }
   else if (k === "[") { ji = Math.max(0, ji - 1); draw(); }
+  else if (/^[1-9]$/.test(k) && +k <= GROUPS.length) { gi = +k - 1; ji = firstOpen(); draw(); }
   else if (k === "ArrowRight") { fi = Math.min(DATA.frames.length - 1, fi + 1); ji = firstOpen(); load(); }
   else if (k === "ArrowLeft") { fi = Math.max(0, fi - 1); ji = firstOpen(); load(); }
 });
@@ -198,26 +401,63 @@ const who = document.getElementById("who");
 who.value = state.who || "";
 who.addEventListener("input", () => { state.who = who.value; save(); });
 
+const lr = document.getElementById("loadReview");
+function renderLoadReview() {
+  const todo = (DATA.review?.frames || []).filter(r => !state.reviewLoaded[r.image_sha1]);
+  lr.hidden = !todo.length;
+  lr.textContent = `Load ${todo.length} earlier frames for checking`;
+  lr.title = `From ${DATA.review?.source}: frames whose labelled image is identical to this ` +
+             `one (checked by ${DATA.review?.image_check}). Points load as unchecked candidates.`;
+}
+lr.onclick = () => {
+  for (const r of DATA.review.frames) {
+    if (state.reviewLoaded[r.image_sha1]) continue;
+    const l = state.labels[r.image_sha1] || {}, c = {};
+    // Never over a point already placed on this image.
+    for (const [n, p] of Object.entries(r.points)) if (!l[n]) c[n] = {...p};
+    if (Object.keys(c).length) state.cand[r.image_sha1] = c;
+    state.reviewLoaded[r.image_sha1] = true;
+  }
+  save(); renderLoadReview(); ji = firstOpen(); draw();
+};
+
 document.getElementById("export").onclick = () => {
   if (!state.who.trim()) { alert("Enter your name first: labels must say who verified them."); return; }
-  const out = {schema: 1, verified_by: state.who.trim(), exported_at: new Date().toISOString(),
-    semantics: "x,y in original video pixels; visible=false means occluded and the position is " +
-               "the labeller's estimate; joints that could not be placed are omitted",
+  const pending = DATA.frames.reduce((n, f) => n + Object.keys(cands(f)).length, 0);
+  if (pending && !confirm(`${pending} earlier points are still unchecked. They will NOT be ` +
+                          `exported. Export anyway?`)) return;
+  const who = state.who.trim();
+  const out = {schema: DATA.schema, verified_by: who, exported_at: new Date().toISOString(),
+    semantics: "x,y in original video pixels of the frame decoded in order from 0; " +
+               "visible=false means occluded and the position is the labeller's estimate; " +
+               "points not placed are omitted, and cannot_place lists those the labeller " +
+               "could not place; review lists points carried over from an earlier export " +
+               "that the labeller kept unchanged after checking them on this image",
     videos: {}};
   for (const f of DATA.frames) {
-    const l = state.labels[f.id]; if (!l) continue;
-    const v = (out.videos[f.video] ||= {verified_by: out.verified_by, p1_frame: f.p1_frame,
-                                        view: f.view, frames: {}, image_sha1: {}});
-    const joints = {};
-    for (const [j, p] of Object.entries(l)) if (!p.skip) joints[j] = p;
-    v.frames[f.frame] = joints;
+    const l = state.labels[f.image_sha1] || {};
+    const placed = Object.fromEntries(Object.entries(l).filter(([, p]) => !p.skip)
+      .map(([n, p]) => [n, {x: p.x, y: p.y, visible: p.visible}]));
+    const cannot = Object.keys(l).filter(n => l[n].skip);
+    if (!Object.keys(placed).length && !cannot.length) continue;
+    const v = (out.videos[f.video] ||= {verified_by: who, p1_frame: f.p1_frame, view: f.view,
+                                        frames: {}, image_sha1: {}, frame_status: {}});
+    v.frames[f.frame] = placed;
     v.image_sha1[f.frame] = f.image_sha1;
+    const st = {groups_complete: GROUPS.filter(g => groupStatus(f, g).complete).map(g => g.id),
+                cannot_place: cannot};
+    const r = state.review[f.image_sha1];
+    const kept = r ? r.unchanged.filter(n => placed[n]) : [];
+    if (kept.length) st.review = {source: r.source, confirmed_by: who,
+                                  confirmed_at: r.confirmed_at, points_unchanged: kept};
+    v.frame_status[f.frame] = st;
   }
   const blob = new Blob([JSON.stringify(out, null, 1)], {type: "application/json"});
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
   a.download = "labels.json"; a.click();
 };
 
+renderLoadReview();
 load();
 </script>
 </body>

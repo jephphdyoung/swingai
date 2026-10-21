@@ -14,6 +14,7 @@ import pytest
 
 from test_pose_metrics import body, seq_from
 from utils import joint_labels as jl
+from utils import label_points as lp
 from utils.pose_metrics import COMMON_JOINTS
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,14 +25,24 @@ def sha(video, frame):
     return hashlib.sha1(f"{video}#{frame}".encode()).hexdigest()
 
 
-def manifest_dict():
+def manifest_dict(schema2=False):
+    """Benchmark frames 0-2 of each video; schema 2 adds the catalogue and a
+    non-benchmark sequence (DTL frames 3-4)."""
     frames = []
     for video, view in ((DTL, "dtl"), (FO, "face_on")):
         for f in (0, 1, 2):
             frames.append({"id": f"{len(frames):02d}", "video": video, "view": view, "frame": f,
                            "reason": "test", "p1_frame": 0, "width": 640, "height": 480,
                            "display_scale": 1.0, "image_sha1": sha(video, f)})
-    return {"joints": list(COMMON_JOINTS), "frames": frames}
+    m = {"joints": list(COMMON_JOINTS), "frames": frames}
+    if schema2:
+        for f in (3, 4):
+            frames.append({"id": f"{len(frames):02d}", "video": DTL, "view": "dtl", "frame": f,
+                           "set": "sequence", "sequence": {"name": "p5-p8"},
+                           "reason": "sequence p5-p8", "p1_frame": 0, "width": 640,
+                           "height": 480, "display_scale": 1.0, "image_sha1": sha(DTL, f)})
+        m.update(schema=2, catalogue=lp.catalogue())
+    return m
 
 
 def labelled(dx=0.0, occluded=()):
@@ -73,7 +84,7 @@ class TestValidation:
 
     @pytest.mark.parametrize("mutate, message", [
         (lambda d: d.update(verified_by=""), "no verified_by"),
-        (lambda d: d.update(schema=2), "schema is 2"),
+        (lambda d: d.update(schema=3), "schema is 3"),
         (lambda d: d.update(videos={}), "no labelled videos"),
         (lambda d: d["videos"][DTL].update(verified_by=" "), "dtl.mp4: no verified_by"),
         (lambda d: d["videos"][DTL].update(view="face_on"), "manifest says 'dtl'"),
@@ -207,6 +218,144 @@ class TestScoring:
             jl.evaluate(labels, seqs)
 
 
+def extended(d):
+    """Schema-2 export of labels_dict(): feet/hands points on the benchmark
+    frames, a labelled sequence frame, and frame_status."""
+    d["schema"] = 2
+    v = d["videos"][DTL]
+    v["frames"]["0"].update(left_heel={"x": 300, "y": 470, "visible": True},
+                            left_shoe_heel_contact={"x": 302, "y": 476, "visible": True},
+                            floor_a={"x": 100, "y": 478, "visible": True},
+                            left_thumb={"x": 310, "y": 250, "visible": False},
+                            shaft_butt={"x": 320, "y": 240, "visible": True})
+    v["frames"]["3"] = labelled(dx=40)
+    v["image_sha1"]["3"] = sha(DTL, 3)
+    v["frame_status"] = {"0": {"groups_complete": ["body"], "cannot_place": ["right_heel"]},
+                         "3": {"groups_complete": ["body"], "cannot_place": []}}
+    return d
+
+
+@pytest.fixture
+def manifest2(tmp_path):
+    p = tmp_path / "manifest2.json"
+    p.write_text(json.dumps(manifest_dict(schema2=True)))
+    return jl.load_manifest(str(p))
+
+
+class TestSchema2:
+    def test_feet_hands_points_and_sequence_frames_are_accepted(self, manifest2):
+        labels = jl.validate(extended(labels_dict()), manifest2)
+        v = labels[DTL]
+        assert {"left_heel", "left_shoe_heel_contact", "floor_a", "left_thumb",
+                "shaft_butt"} <= set(v["frames"][0])
+        assert v["sets"] == {0: "benchmark", 1: "benchmark", 2: "benchmark", 3: "sequence"}
+        assert v["frame_status"][0] == {"groups_complete": ["body"], "cannot_place": ["right_heel"]}
+
+    def test_benchmark_results_are_unchanged_by_extra_points_and_frames(self, manifest,
+                                                                         manifest2):
+        seqs = sequences(rt_dx=7.5, mp_low_conf_joint="left_knee")
+        plain = jl.evaluate(jl.validate(labels_dict(), manifest), seqs)
+        rich = jl.evaluate(jl.validate(extended(labels_dict()), manifest2), seqs)
+        assert rich == plain
+        cov = jl.coverage(jl.validate(extended(labels_dict()), manifest2), manifest2)
+        assert cov["frames_expected"] == 6 and cov["frames_labelled"] == 6
+        assert cov["joints_labelled"] == 6 * len(COMMON_JOINTS)
+        assert cov["frames_outside_benchmark"] == 1
+
+    def test_benchmark_labels_drops_sequence_frames(self, manifest2):
+        labels = jl.validate(extended(labels_dict()), manifest2)
+        assert set(jl.benchmark_labels(labels)[DTL]["frames"]) == {0, 1, 2}
+
+    @pytest.mark.parametrize("mutate, message", [
+        # MediaPipe's foot_index is not a label point, and never stands in for a toe.
+        (lambda d: d["videos"][DTL]["frames"]["0"].update(
+            left_foot_index={"x": 1, "y": 1, "visible": True}),
+         "left_foot_index: not a labelled joint"),
+        (lambda d: d["videos"][DTL]["frame_status"]["0"].update(groups_complete=["arms"]),
+         "groups_complete must be a list"),
+        (lambda d: d["videos"][DTL]["frame_status"]["0"].update(cannot_place=["left_heel"]),
+         "both placed and marked as impossible"),
+        (lambda d: d["videos"][DTL]["frame_status"]["0"].update(cannot_place=["toe"]),
+         "cannot_place must list known points"),
+        (lambda d: d["videos"][DTL]["frame_status"].update({"9": {}}),
+         "frame_status for a frame outside the labelling set"),
+        # carried-over points that nobody confirmed are refused
+        (lambda d: d["videos"][DTL]["frame_status"]["0"].update(
+            review={"source": "old.json", "points_unchanged": ["nose"]}),
+         "were not confirmed on this image"),
+        (lambda d: d["videos"][DTL]["frame_status"]["0"].update(
+            review={"source": "old.json", "confirmed_by": " ", "confirmed_at": "t"}),
+         "were not confirmed on this image"),
+    ])
+    def test_problems_are_refused(self, manifest2, mutate, message):
+        d = extended(labels_dict())
+        mutate(d)
+        with pytest.raises(jl.LabelError) as e:
+            jl.validate(d, manifest2)
+        assert any(message in p for p in e.value.problems), e.value.problems
+
+    def test_schema_1_stays_body_and_benchmark_only(self, manifest2):
+        d = labels_dict()
+        d["videos"][DTL]["frames"]["0"]["left_heel"] = {"x": 1, "y": 1, "visible": True}
+        d["videos"][DTL]["frames"]["3"] = labelled()
+        d["videos"][DTL]["image_sha1"]["3"] = sha(DTL, 3)
+        with pytest.raises(jl.LabelError) as e:
+            jl.validate(d, manifest2)
+        text = " | ".join(e.value.problems)
+        assert "left_heel: not a labelled joint" in text
+        assert "schema-1 export can't label frames outside the benchmark" in text
+
+    def test_confirmed_review_is_kept_and_counted(self, manifest2):
+        d = extended(labels_dict())
+        d["videos"][DTL]["frame_status"]["1"] = {
+            "groups_complete": ["body"], "cannot_place": [],
+            "review": {"source": "old.json", "confirmed_by": "Test Labeller",
+                       "confirmed_at": "2026-10-21T00:00:00Z", "points_unchanged": ["nose"]}}
+        labels = jl.validate(d, manifest2)
+        assert labels[DTL]["frame_status"][1]["review"]["points_unchanged"] == ["nose"]
+        assert jl.coverage(labels, manifest2)["frames_confirmed_from_earlier_export"] == 1
+
+
+class TestReviewPrior:
+    """Offering an earlier export again: only on identical images, never certified."""
+
+    def prior(self):
+        return {"schema": 1, "verified_by": "Earlier Labeller", "exported_at": "t",
+                "videos": {DTL: {"frames": {"0": labelled(), "1": labelled(), "2": labelled()}},
+                           "videos/x/gone.mp4": {"frames": {"0": labelled()}}}}
+
+    def test_only_frames_labelled_on_the_identical_image_are_offered(self, manifest2):
+        shown = {(DTL, 0): sha(DTL, 0), (DTL, 1): sha(DTL, 0), (DTL, 2): "f" * 40}
+        previous = {(DTL, 1): sha(DTL, 0)}
+        out = jl.review_prior(self.prior(), manifest2, shown, previous, source="old.json")
+        assert [(f["video"], f["frame"]) for f in out["frames"]] == [(DTL, 0)]
+        assert out["frames"][0]["points"] == labelled()           # copied, not altered
+        assert out["frames"][0]["image_sha1"] == sha(DTL, 0)
+        why = {(r["video"], r["frame"]): r["why"] for r in out["refused"]}
+        assert "image of frame 0" in why[(DTL, 1)] and "relabel" in why[(DTL, 1)]
+        assert "different image" in why[(DTL, 2)]
+        assert "not in the current labelling set" in why[("videos/x/gone.mp4", 0)]
+        assert out["source"] == "old.json" and out["verified_by"] == "Earlier Labeller"
+        # Nothing in the result marks a point as confirmed or verified.
+        assert "confirmed" not in json.dumps(out["frames"])
+
+    def test_unknown_image_or_bad_points_are_refused(self, manifest2):
+        p = self.prior()
+        p["videos"][DTL]["frames"]["2"]["nose"]["x"] = 9999
+        shown = {(DTL, 0): sha(DTL, 0), (DTL, 2): sha(DTL, 2)}     # frame 1: no record
+        out = jl.review_prior(p, manifest2, shown)
+        why = {(r["video"], r["frame"]): r["why"] for r in out["refused"]}
+        assert "no record of which image" in why[(DTL, 1)]
+        assert "invalid points ['nose']" in why[(DTL, 2)]
+        assert [f["frame"] for f in out["frames"]] == [0]
+
+    def test_the_committed_earlier_export_is_left_unchanged(self):
+        path = os.path.join(REPO, "data/joint_labels/labels-old-labeller-2026-10-21.json")
+        with open(path, "rb") as f:
+            assert hashlib.sha1(f.read()).hexdigest() == \
+                "aa53e8a7733518c003152703f20806627f9dc929"
+
+
 def _cli():
     spec = importlib.util.spec_from_file_location(
         "evaluate_joint_labels", os.path.join(REPO, "scripts", "evaluate_joint_labels.py"))
@@ -258,12 +407,29 @@ class TestCli:
 
 
 def test_committed_manifest_is_valid():
-    m = jl.load_manifest(os.path.join(REPO, "data/joint_labels/manifest.json"))
-    assert len(m["frames"]) == 20
+    with open(os.path.join(REPO, "data/joint_labels/manifest.json")) as f:
+        raw = json.load(f)
+    assert raw["schema"] == jl.SCHEMA and raw["joints"] == list(COMMON_JOINTS)
+    assert raw["catalogue"] == json.loads(json.dumps(lp.catalogue()))
+    m = jl.load_manifest_dict(raw)
+    bench = {k: v for k, v in m["frames"].items() if v["set"] == "benchmark"}
+    assert len(bench) == 20                     # the original benchmark set, unchanged
     views = {}
-    for (video, frame), item in m["frames"].items():
+    for (video, frame), item in bench.items():
         views.setdefault(item["view"], set()).add(video)
         # every video's P1 is in the set, so its errors can be normalized
         assert (video, item["p1_frame"]) in m["frames"]
         assert len(item["image_sha1"]) == 40
     assert {v: len(s) for v, s in views.items()} == {"dtl": 2, "face_on": 2}
+
+
+def test_benchmark_frames_and_images_are_pinned():
+    """The 20 frames MediaPipe and RTMPose are compared on, and the exact
+    images (SHA-1), are those of the 2026-10-21 set. Adding points, groups or
+    sequences must never change them."""
+    with open(os.path.join(REPO, "data/joint_labels/manifest.json")) as f:
+        m = json.load(f)
+    key = sorted((f["video"], f["frame"], f["image_sha1"]) for f in m["frames"]
+                 if f.get("set", "benchmark") == "benchmark")
+    assert hashlib.sha1(json.dumps(key).encode()).hexdigest() == \
+        "6d8150a103dbb5f11698ba6e56e3b42e6121f416"
