@@ -1,195 +1,141 @@
-# SwingAI Roadmap
+# SwingAI — Product Roadmap
 
-Where SwingAI is headed: from a swing-comparison tool into a **mic-triggered capture and
-replay booth**. This doc holds the vision, the architecture direction, and the initiatives
-in priority order. Current working state is in [STATUS.md](STATUS.md); granular
-analysis-feature TODOs are in the README.
+**Revised 2026-10-22.** [Current verified implementation status](STATUS.md). The former [capture-first roadmap](https://github.com/jephphdyoung/swingai/blob/1fa9eee/docs/ROADMAP.md) is historical: capture/replay remains an important workflow, but the **product goal is 3D biomechanical comparison against a multi-swing reference model**.
 
-Revised 2026-07-30: live capture + replay moved to the top; the microphone replaces the
-Mevo+ as the shot trigger.
+## North star
 
----
+1. Collect multiple **curated** Grant Waite reference swings, ideally with synchronized down-the-line (DTL) and face-on (FO) video of **the same swing**, then reconstruct defensible 3D body/club trajectories.
+2. Build a **versioned Grant Waite model** from those swings: joint/segment positions and orientations, P1–P10, movement trajectories, relative timing, acceptable variation and uncertainty.
+3. Automatically capture or import a user's DTL+FO recordings; segment the swing, label body/club landmarks and P-positions, reconstruct 3D and compare it to the selected reference model.
+4. Prioritize observable, mechanically meaningful differences and show evidence through 3D trajectory visualizations, annotated source video and instructional feedback.
+5. Support several users, several reference golfers (e.g. Grant Waite, Tiger Woods), reference collections and, later, overhead and impact cameras without changing the underlying shot abstraction.
 
-## Vision
+**A video is an observation, not the model.** The first deliverable is auditable data from which the 3D models can be generated again, not a hard-coded average skeleton.
 
-A bay you hit in. You swing, the mic hears impact, and your swing is looping on the screen
-in front of you before you've finished your follow-through — from both angles, with the
-P-positions marked, until you hit the next one.
+## Non-negotiable data and geometry rules
 
-The loop:
+- **One shot = one real swing.** A shot contains multiple camera streams only when they observe that same motion. DTL/FO clips of *different* Grant Waite swings are **not** a stereo pair; they remain separate shots and may be grouped by a higher-level reference collection.
+- **3D quality is explicit.** Direct triangulation requires corresponding landmarks, synchronized frames and adequate camera intrinsic/extrinsic calibration; ground/target-line geometry and reliable scale are needed for world units. Uncalibrated single-view/mismatched-view fitting may yield *inferred* 3D, never certified measured 3D. Record per-joint visibility/uncertainty and reprojection error.
+- **Keep source footage immutable.** Trim windows, crop/rotation, time remapping and resolution variants are nondestructive edit instructions or regenerable derivatives. Preserve the coordinate transform and source-frame identity for annotations. Never invalidate the pinned PR #4 benchmark images or copy old labels to newly edited media without explicit mapping/verification.
+- **Respect real timing.** Do not infer original motion speed from YouTube playback fps when footage was slowed or retimed. Preserve presentation/device timestamps, camera-clock conversion and sync uncertainty. Velocity/acceleration may be unavailable even when geometric P-position features are useful.
+- **Canonical, view-independent representation.** Version the joint naming/side/handedness rules, anatomical landmarks, club landmarks, coordinate axes, P1–P10 convention (**P7 = impact**), source timestamps and pose backend identity. No independent per-frame resize by apparent golfer height. Normalize golfer-to-golfer comparisons using stable body-relative dimensions; claim real units only with adequate calibration.
+- **Reference validity before averaging.** Do not flatten different golfers/clubs/camera setups into one 'perfect swing.' Keep individual 3D swing trajectories and model ranges; split evaluation by session/source to avoid leaking near-identical frames across train/test.
+- **Build on existing contracts.** Rust's versioned `capture-manifest.json` describes a real captured shot and streams. A new library/catalog manifest should supplement, not silently redefine, this capture contract. Use portable relative media paths, stable IDs, provenance and versioned schemas.
+- **Shared references, isolated users.** Reference source assets/models are read-only and shared; users' source footage, annotations, sessions and comparison history are separated by stable IDs. Authentication/remote multi-tenancy is a later capability, not a prerequisite for a multi-golfer local library.
 
+## Architecture
+
+```text
+          Curated reference videos                     User upload / future FOX capture
+       DTL + FO (same swing if stereo)                 DTL + FO (same swing, known clocks)
+                       |                                          |
+               Immutable source catalog + shot/stream IDs + edit provenance
+                       |                                          |
+               Exact-frame decoding, timing and 2D body/club annotation
+                       |                                          |
+                  Calibration + cross-view synchronization + association
+                       |                                          |
+            Validated 3D trajectories with quality/uncertainty metadata
+                       |                                          |
+          Versioned model builder                    Per-user reconstructed swing
+       (multiple Grant Waite shots)                               |
+                       +--------------- 3D compare ----------------+
+                                       |
+                    Deviations, sequencing, coaching priorities
+                                       |
+                         Video / 3D replay and feedback
 ```
-2× Fox cameras ──▶ ring buffer (continuous, ~5s)
-                        │
-   microphone ──▶ impact transient detected
-                        │
-                        ▼
-        extract the 5s preceding the trigger
-                        │
-                        ├──▶ replay loop starts IMMEDIATELY (raw clip)
-                        │
-                        └──▶ pose + P-detection in the background
-                                     │
-                                     ▼
-                        markers painted onto the running loop
-                                     │
-                        (loops until the next shot triggers)
+
+Streams missing calibration or timing support can contribute only to the measurements they actually support, with clear labels. No fabricated 3D or motion-time measurements to make the pipeline appear complete.
+
+**Runtime boundary:** retain Python for labeling, CV research, reconstruction and model experiments. The existing Rust workspace owns deterministic capture/session/clock contracts and is the foundation for hardware capture. File/JSON contracts are the first integration point; a server/API is an explicit future design decision, not an implemented requirement. Windows is the initial hardware integration target, with portable core logic for Fedora analysis.
+
+## Near-term milestones
+
+### Completed — PR #4: GPU pose foundation
+
+- MediaPipe CPU default; optional RTMPose-m + YOLOX-m on NVIDIA GPU, separate backend caches and independent CUDA proof.
+- Offline 2D comparison, P-annotation and joint-labeling tools exist.
+- Synthetic Rust camera/capture pipeline exists; hardware audio/video capture and validated 3D do not.
+- Small historical face-on joint benchmark only; DTL accuracy unmeasured.
+- Final reported 2026-10-22 tests: CPU 766 passed/7 skipped; GPU 771 passed/2 skipped.
+
+### Proposed PR #5 — Shot catalog + reference editing foundation
+
+**Goal:** turn raw reference or user footage into consistent, inspectable, versioned *swing records* suitable for future 3D reconstruction and model development. Keep PR #5 focused; its exact scope requires discussion before giving coding instructions.
+
+Proposed library shape (not yet implemented):
+
+```text
+videos/
+  reference/<golfer-id>/<shot-id>/...         # local, mostly static shared references
+  user/<golfer-id>/<session-id>/<shot-id>/... # isolated users, recording history
+  sources/<source-id>/...                    # optional original downloaded long-form videos
+data/
+  catalog/                                   # golfer/source/shot/stream identity and metadata
+  annotations/                               # P-positions, per-source-frame 2D body/club labels
+  datasets/                                  # versioned reference collections, inclusion/quality
+workspace/
+  processed/  pose_cache/  renders/           # safely regenerable, Git-ignored
+models/
+  <reference-model-id>/<version>/             # later derived model artifacts
 ```
 
----
+Retain `videos/reference`, `videos/user` and environment variable compatibility during migration. Above paths are a **proposal**, not a directive to move the pinned benchmark videos or existing recordings.
 
-## Architecture direction
+Editor requirements:
+1. Import/catalog existing local sources and the already available standalone YouTube downloads. Preserve source URL/provenance, hash, original resolution/codec/fps, original capture timing *if known*, and whether the video is real time or slowed/retimed.
+2. Register **each actual swing** as a stable shot ID with its golfer, full-swing/other category, club, handedness, source(s), camera view(s), and independent synchronization/calibration status. Never automatically treat DTL+FO from different swings as co-captured.
+3. Accurate source-frame navigation and displayed-image identity, including high-FPS seek regression tests. Mark separate *swing-window start/stop* and P1/P10; trimming must not shift source labels silently.
+4. Nondestructive crop/ROI and rotation with explicit source-to-edited pixel/frame transforms; leave originals unchanged.
+5. Reuse manual P1–P10 annotation and PR #4 landmark labeler for correctable 2D body and observable club landmarks, including missing/occluded/cannot-place status and human review.
+6. Show per-view quality/measurement eligibility: usable static geometry, body/club visibility, temporal validity, and whether calibrated same-swing multi-view 3D can **actually** be attempted.
+7. Version metadata and exports; preserve existing PR #4 benchmark labels/manifest/reports unmodified; do not require stale deleted user videos.
+8. Test round-trips, multiple users, multiple reference golfers, multiple swings from a single source video, mismatched DTL/FO views, exact frames, missing footage, and source-file immutability.
 
-**Evolve with clean seams; do not big-bang rewrite. Defer Rust to a proven hot path.**
+**Explicit non-goals for PR #5:** finished 3D reconstruction, automatic model training, real camera integration, guaranteed detection accuracy, sophisticated YouTube downloading service, and a production multi-account web platform.
 
-Three separable pieces: **capture/ingest → core (CV/analysis) → UI client(s)**.
+### Next — Calibrated 3D proof of concept
 
-- **Keep:** the CV/analysis core (MediaPipe, OpenCV, `utils/overlay.py`, P-detection).
-  Product IP and the fastest iteration path.
-- **The FastAPI backend is now load-bearing, not directional.** A continuous capture loop,
-  an always-listening audio thread, and a ring buffer are not things Streamlit's rerun
-  model can host. The backend is the home for the capture service and a REST/WebSocket API
-  over captured swings; Streamlit stays as the dev/analysis client.
-- **Rust:** only if a benchmark proves the capture/encode loop is the bottleneck, and only
-  for that loop. Everything else stays Python.
+Start with one genuinely co-captured DTL/FO FOX pair, **not** arbitrarily paired YouTube clips. Establish camera calibration and common time, triangulate visible body landmarks, reject mismatched/occluded observations, track uncertainty and reprojection error, and compare reconstructions with controlled calibration targets and physical checks. Keep 2D originals and per-view observations. Prove credible 3D before calling the product a 3D analyzer.
 
-**Two design rules that fall out of the mic trigger:**
+Reference-data bottleneck: obtaining **synchronized, calibrated** Grant Waite multi-view footage may be harder than collecting YouTube videos. If only independent DTL and FO examples exist, develop and validate a prior-constrained inferred 3D fitting approach separately; report uncertainty and never present it as stereo-measured 3D.
 
-1. **Capture is retroactive.** The trigger fires *after* the swing. Nothing can be
-   "started on trigger" — the cameras run continuously into a ring buffer and the clip is
-   extracted backwards from the trigger timestamp.
-2. **Replay and analysis are decoupled.** The clip is in RAM at trigger time, so the loop
-   starts instantly with no analysis at all. P-markers are progressive enhancement,
-   applied to the already-running loop whenever detection finishes. Detection latency is
-   therefore not on the critical path for the feature to feel live.
+### Next — Automatic swing understanding
 
-The capture stack is Windows-native (cameras/MVS), so the booth rig likely runs SwingAI on
-Windows on one machine rather than splitting across machines.
+- Detect swing windows and P1–P10 automatically, keeping manual edits as corrections/ground truth.
+- Evaluate P timing against verified source frames: per-position error, missed detections and false positives, DTL/FO agreement. Fix legacy P6/P7 naming and questionable P4 detection.
+- Track body keypoints continuously; develop dedicated grip/shaft/clubhead localization and cross-view association. Clubface orientation around impact may need additional optics/sensors.
+- Compute 3D joint angles, displacement, velocity, acceleration and sequence only where geometry/timing support each metric.
+- Use confidence/quality gates; an unavailable measurement is better than a fabricated number.
 
----
+### Next — Grant Waite model v1 and user comparison
 
-## Initiative 1 — Mic-triggered capture + replay loop  ← **the priority**
+- Curate enough usable reference swings with distinct sessions/clubs and known or explicitly uncertain 3D provenance.
+- Generate per-shot canonical 3D trajectories, align by verified P-events and normalized time *without erasing actual measured timing*.
+- Build **versioned** distributions/allowed ranges and movement-sequence relationships; preserve individual exemplars and training manifest.
+- Compare an imported user's reconstructed 3D trajectory against the selected model in the same coordinate system, with scale, quality and occlusion handling.
+- Produce prioritized differences anchored to P-events and annotated source evidence. Do not call correlation a diagnosed swing fault without validation.
+- Support other golfer-specific models and reference collections without refitting the user's body pose each time.
 
-### Phase 0: webcam + laptop mic prototype *(buildable now, no hardware needed)*
+## Parallel track — Automated capture and replay
 
-De-risks everything except the MVS SDK and USB3 bandwidth. Build this first.
+**Already working:** Rust synthetic multi-camera `CaptureSession`, per-camera time/byte ring buffers, retroactive triggered extraction and per-shot manifest/PGM writing.
 
-- Continuous capture into an in-memory ring buffer; retroactive extraction of the N
-  seconds before a timestamp.
-- Impact detection on the audio stream: onset/transient detection on the amplitude
-  envelope, a threshold, and a **refractory period** (~2s) so ball bounce, the club
-  hitting the mat, or a dropped club don't double-trigger.
-- **Audio→frame timestamp mapping.** The mic timestamp has to resolve to a frame index in
-  the video ring buffer. This is the single riskiest unknown in the whole design — both
-  streams need a shared monotonic clock, and drift between the audio device clock and the
-  camera clock has to be measured, not assumed.
-- Replay loop in the UI: full-screen, both views, looping until the next trigger.
+**Not yet working:** FOX/MVS camera integration, live device timestamps, microphone impact trigger, cross-clock drift mapping, true real-time persistence/replay and 3D on a captured swing.
 
-Open questions Phase 0 answers: how reliable is the trigger in a noisy bay? How much
-pre-trigger buffer is actually needed to catch address? Does replay-then-enhance feel
-right, or does the marker pop-in read as broken?
+Sequence:
+1. Validate raw synchronized recording/import and camera calibration from current FOX footage.
+2. Connect real MVS/FOX cameras to Rust capture behind the existing `FrameSource` seam; measure actual fps, USB controller throughput, dropped frames, exposure and gain.
+3. Build microphone transient trigger with a refractory period, measured audio-to-camera timestamp conversion, and retroactive clip extraction.
+4. Start replay of the captured clips immediately; run pose/P-detection/3D analysis asynchronously after capture, and update the replay when results arrive.
+5. Extend from DTL+FO to optional overhead and separate high-speed impact camera; do not assume all devices share clock rates.
+6. Keep FlightScope integration and detailed launch/impact measurements as optional later capabilities.
 
-### Phase 1: Fox cameras
+## Acceptance gates for the eventual product
 
-Two USB machine-vision cameras (**U3-C-CS-16**), captured on Windows via **MVS**
-(Hikrobot Machine Vision Software). Not UVC webcams — likely needs the **MVS SDK**
-(`MvCameraControl`); a Linux build is an open question.
-
-**Check the bandwidth arithmetic before designing around it.** At 240fps, per camera,
-frame size × 240 is the sustained rate. If the sensor is ~1.6MP mono that's ~384 MB/s per
-camera and ~768 MB/s for the pair — past what a single USB3 5Gbps controller delivers in
-practice (~350–400 MB/s). Likely implications: separate host controllers, a reduced ROI,
-or the discovery that 240fps is only available at reduced ROI anyway. A 5s two-camera
-ring buffer at that frame size is ~3.8GB of RAM — sized, but not free.
-
-### Phase 2: P-positions on the replay
-
-Path B (`scripts/detect_p_positions.py` → `utils/p_positions.py`) already takes a
-DTL/face-on pair and emits P-positions — that is exactly the shape a captured swing has.
-The adaptation is small: with live capture *we* name the files and know which camera is
-which, so `swing_pairing`'s Swing Catalyst filename parsing is bypassed entirely.
-
-Two replay modes, toggleable:
-- **Continuous** (default) — swing loops start-to-finish, P1–P10 as clickable ticks on a
-  scrubber. Degrades gracefully: if detection is off, the video is still correct.
-- **Step-and-hold** — pauses at each detected P-position in turn. Much more sensitive to
-  detection accuracy, which makes it a useful informal check on the detector.
-
-### Phase 3: pro ghost on the replay
-
-Ghost the reference pro onto the looping capture, synced on P-positions. Reuses
-`utils/overlay.py`, `render_mode="overlay"`, and the shipped overlay editor. Depends on
-P-labels being trustworthy — see Initiative 2.
-
----
-
-## Initiative 2 — Detection quality *(parallel track)*
-
-No longer blocks Initiative 1: the capture/replay plumbing doesn't care whether P4 is
-30ms off. It does gate Phase 2 markers being *useful* and Phase 3 working at all. Run it
-alongside, not before.
-
-1. **Make detection measurable.** Convert hand labels in `data/annotations.json` into
-   `data/ground_truth.json` and get `scripts/eval_positions.py` running for a per-position
-   MAE baseline. The harness is written and tested; it has never had an input.
-2. **Label a real set.** Three labeled videos is not enough to tune anything. Prioritise
-   DTL. Correcting auto-detected positions is faster than labelling from scratch.
-3. **Reconcile the impact-frame naming.** Path A calls the velocity peak P6; path B calls
-   it P7. Fix before any cross-path evaluation (see CLAUDE.md).
-4. **Fix P4.** Establish whether the 814ms P4→P7 span is a real slow transition or a
-   mis-detected top. Candidate replacement for the current global-speed-minimum rule:
-   hand-path direction reversal.
-5. **Club detection for P2/P6/P8.** These fail outright today; `club_detector.py` uses
-   Canny + `HoughLinesP` and picks up body edges. A small trained shaft/clubhead detector
-   would replace it — 240fps footage has low motion blur and there are 5,132 clips to
-   build a dataset from.
-6. **Cross-view fusion.** Take each position from the view that resolves it best — arm
-   tier from face-on, shaft tier from DTL — rather than preferring face-on wholesale.
-
----
-
-## Initiative 3 — GPU pose estimation *(accelerant)*
-
-Not a blocker under progressive enhancement, but it shortens the gap between trigger and
-markers, and it's the fix for the DTL disagreement and wrist jitter near impact that
-MediaPipe BlazePose causes. A stronger top-down model (RTMPose / ViTPose / YOLO-pose) is
-markedly better on fast motion and on the self-occluding DTL orientation.
-
-Keep it behind the existing extractor interface — `p_positions.py` consumes landmarks per
-frame and needs no changes. Compare against MediaPipe on swing `2026-07-27 135006`, where
-the current failure is already characterised.
-
-Cheap wins available first, without any model swap: trim to the swing window before
-extracting pose (a 2s swing at 240fps is ~480 frames, not 1,244), and run detection on a
-decimated stream (every 4th frame = 60Hz) with local refinement at full rate around P4 and
-impact.
-
-The running `swingai` image is CPU-only (`python:3.12-slim`); GPU work needs a CUDA base.
-
----
-
-## Deferred
-
-Explicitly not on the critical path any more.
-
-- **FlightScope Mevo+ integration.** The microphone replaces it as the trigger, which was
-  the only reason it was urgent. Club/ball metrics remain desirable later — the best path
-  is still impersonating GSPro over the OpenConnect v1 protocol
-  ([spec](https://gsprogolf.com/GSProConnectV1.html)): GSPro is the TCP server on
-  `127.0.0.1:921` and FlightScope's connector is the client, so running our own server on
-  `:921` gets full BallData + ClubData per shot. Reference impls:
-  `springbok/MLM2PRO-GSPro-Connector`, `kenjdavidson/gspro-connector`.
-- **Live Views 2×2 grid.** Since the replay is full-screen and the live feed is never
-  shown, no live video transport is needed for v1. This becomes a separate feature with
-  its own MJPEG/WebRTC work, not a prerequisite.
-- **Live mirror with the pro.** Real-time mirror-flipped camera with a pro auto-fit onto
-  the user every frame. Still wanted; needs the live transport above.
-
----
-
-## Recently shipped
-- Ghost-overlay comparison mode + draggable/resizable overlay editor.
-- DTL/face-on pair P-position detection (`utils/p_positions.py`), running end-to-end on
-  real 240fps captures — quality not yet validated.
-- `videos/{reference,user,output}` layout with env-var overrides; swing pairing from
-  Swing Catalyst filenames.
+- **Input integrity:** exact decoded source frame, preserved timestamps and nondestructive edits.
+- **3D validity:** paired same-swing calibrated inputs, plausible scale/geometry, measured reprojection errors, documented missing/occluded points; uncertainty attached to inferred output.
+- **Automated annotation:** measured P-position/body/club accuracy on held-out swings and sessions, with recoverable failures.
+- **Reference reproducibility:** model version identifies every training shot and model/processing version; rebuilding does not silently change results.
+- **User experience:** imported or triggered DTL+FO swing becomes a correct 3D comparison with minimal manual intervention; untrustworthy metrics are marked unavailable rather than invented.
