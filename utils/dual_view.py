@@ -8,7 +8,7 @@ Kept free of Streamlit so the whole pipeline is testable; `dual_view_tab.py`
 is the UI over it.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 import cv2
@@ -18,11 +18,17 @@ from utils.annotations import AnnotationRecord, convention_warnings
 from utils.joint_measurements import (
     BodyReference, ComparisonRow, Measurement, body_reference, compare, joints_for, measure,
 )
-from utils.landmarks import SKELETON_SEGMENTS, VIEW_LABELS
-from utils.pose_data import DEFAULT_MIN_CONFIDENCE, PoseSequence, frame_at_timestamp
+from utils.landmarks import SKELETON_SEGMENTS, VIEW_LABELS, sided
+from utils.pose_data import PoseSequence, frame_at_timestamp
 
 ROLES = ("user", "reference")
 ROLE_LABELS = {"user": "Your swing", "reference": "Reference swing"}
+
+# From down the line the lead elbow, wrist and knee are behind the body for
+# much of the swing (MediaPipe calls them visible in only 34-67% of DTL frames).
+DTL_OFTEN_HIDDEN = ("elbow", "wrist", "knee")
+HIDDEN_SCORE_NOTE = ("uses the lead {joints}, often hidden from down the line; this model "
+                     "scores hidden joints high too, so the value is an unverified estimate")
 
 
 @dataclass
@@ -146,7 +152,7 @@ class SlotResult:
 
 
 def measure_slot(slot: Slot, position: str, partner: Optional[Slot] = None,
-                 min_confidence=DEFAULT_MIN_CONFIDENCE):
+                 min_confidence=None):
     """Resolve the frames and compute this slot's measurements."""
     pf = resolve_position(slot, position, partner)
     p1 = resolve_position(slot, "P1", partner)
@@ -190,13 +196,37 @@ class Comparison:
     rows: dict                   # view -> [ComparisonRow]
 
 
+def flag_hidden_joint_rows(rows, handedness):
+    """DTL rows that use a lead elbow/wrist/knee, with a note saying so.
+
+    For a backend whose score is not visibility (RTMPose): a solid, measured
+    point there may be a guess at a joint the camera never saw.
+    `handedness` is {role: "right" | "left"}.
+    """
+    out = []
+    for row in rows:
+        hidden = set()
+        for hand in handedness.values() if row.view == "dtl" else ():
+            lead = {sided("lead", j, hand) for j in DTL_OFTEN_HIDDEN}
+            hidden |= lead & set(joints_for(row.key, row.view, hand))
+        if not hidden:
+            out.append(row)
+            continue
+        names = sorted({h.split("_", 1)[1] for h in hidden}, key=DTL_OFTEN_HIDDEN.index)
+        note = HIDDEN_SCORE_NOTE.format(joints="/".join(names))
+        out.append(replace(row, note=f"{row.note}; {note}" if row.note else note))
+    return out
+
+
 def build_comparison(slots: dict, position: str, use_partner_view=False,
-                     min_confidence=DEFAULT_MIN_CONFIDENCE):
+                     min_confidence=None, score_is_visibility=True):
     """slots: {(role, view): Slot} for the four panels.
 
     `use_partner_view` lets *your* two views fill each other's missing
     positions through the shared capture clock. It is never applied to the
     reference, whose two views need not be the same swing.
+    `score_is_visibility=False` (RTMPose) notes the DTL rows that rest on
+    often-hidden lead joints.
     """
     results = {}
     for (role, view), slot in slots.items():
@@ -211,6 +241,10 @@ def build_comparison(slots: dict, position: str, use_partner_view=False,
         u, r = results.get(("user", view)), results.get(("reference", view))
         if u is not None and r is not None:
             rows[view] = compare(u.measurements, r.measurements)
+            if not score_is_visibility:
+                rows[view] = flag_hidden_joint_rows(
+                    rows[view], {role: s.handedness for (role, v), s in slots.items()
+                                 if v == view})
     return Comparison(position=position, slots=results, rows=rows)
 
 
@@ -234,7 +268,7 @@ HIGHLIGHT_COLOR = (60, 60, 255)
 
 
 def draw_pose(frame_bgr, pose: PoseSequence, frame_idx, highlight=(), show_skeleton=True,
-              min_confidence=DEFAULT_MIN_CONFIDENCE):
+              min_confidence=None):
     """Skeleton over a frame. Only validly observed landmarks are drawn solid;
     low-confidence ones are drawn hollow and grey, undetected frames get none.
     """
@@ -272,7 +306,7 @@ def draw_pose(frame_bgr, pose: PoseSequence, frame_idx, highlight=(), show_skele
 
 
 def render_panel(result: SlotResult, highlight_key=None, show_skeleton=True,
-                 max_width=960, min_confidence=DEFAULT_MIN_CONFIDENCE):
+                 max_width=960, min_confidence=None):
     """RGB image for one panel at the resolved frame, aspect ratio preserved."""
     slot = result.slot
     if result.position.frame is None:

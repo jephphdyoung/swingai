@@ -235,6 +235,33 @@ class TestBuildComparison:
         for rows in c.rows.values():
             assert rows and all(r.difference is None for r in rows)
 
+    def test_hidden_lead_joint_rows_flagged_only_when_score_is_not_visibility(self):
+        slots = {(r, v): slot(r, v, frames={"P1": 1, "P4": 30})
+                 for r in ("user", "reference") for v in ("dtl", "face_on")}
+        plain = dv.build_comparison(slots, "P4")
+        flagged = dv.build_comparison(slots, "P4", score_is_visibility=False)
+        assert not any("often hidden" in (r.note or "") for rows in plain.rows.values()
+                       for r in rows)
+        dtl = {r.key: r for r in flagged.rows["dtl"]}
+        for key in ("lead_elbow_flexion", "lead_knee_flexion", "lead_arm_inclination",
+                    "lead_wrist_dx", "hands_dy"):
+            assert "often hidden from down the line" in dtl[key].note, key
+            assert "unverified estimate" in dtl[key].note
+            # the existing reason is kept, not replaced
+            assert dtl[key].note.startswith("yours: pose not extracted")
+        assert "lead elbow/wrist" in dtl["lead_elbow_flexion"].note
+        for key in ("trail_elbow_flexion", "spine_inclination", "shoulder_tilt", "head_dx"):
+            assert "often hidden" not in (dtl[key].note or ""), key
+        assert not any("often hidden" in (r.note or "") for r in flagged.rows["face_on"])
+
+    def test_hidden_joints_follow_each_golfers_handedness(self):
+        rows = [dv.ComparisonRow("trail_knee_flexion", "Trail knee", "dtl", "deg", 1, 2, -1)]
+        # The trail knee is never the hidden one, whichever side it is on.
+        assert dv.flag_hidden_joint_rows(rows, {"user": "right"})[0].note is None
+        assert dv.flag_hidden_joint_rows(rows, {"reference": "left"})[0].note is None
+        lead = [dv.ComparisonRow("lead_knee_flexion", "Lead knee", "dtl", "deg", 1, 2, -1)]
+        assert "lead knee" in dv.flag_hidden_joint_rows(lead, {"user": "left"})[0].note
+
     def test_view_mismatch_warning(self):
         s = slot("user", "dtl", frames={"P1": 1})
         s.record.view_angle = "face_on"

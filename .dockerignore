@@ -1,0 +1,10 @@
+# Footage, annotations and models are bind-mounted by run.sh, never baked in.
+videos/
+data/
+models/
+venv/
+native/
+.git/
+**/__pycache__/
+*.mp4
+!pose_landmarker.task

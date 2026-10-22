@@ -17,11 +17,20 @@ from utils.dual_view import (
 from utils.joint_measurements import measurement_catalog
 from utils.landmarks import VIEW_LABELS
 from utils.paths import list_videos
-from utils.pose_data import DEFAULT_MIN_CONFIDENCE, get_pose_sequence, video_identity
+from utils.pose_data import BACKEND_LABELS, get_pose_sequence, make_backend, video_identity
+from utils.pose_rtmpose import RTMPoseUnavailable
 from utils.swing_pairing import find_pairs
 
 VIEWS = ("dtl", "face_on")
 SLOT_KEYS = [(role, view) for view in VIEWS for role in ("user", "reference")]
+
+SCORE_CAVEAT = (
+    "**{model} keypoint scores are not visibility and not accuracy.** A score is the "
+    "height of the model's heatmap peak, so a joint hidden behind the body -- the lead "
+    "arm and knee from down the line especially -- can score above the {threshold} "
+    "threshold while its position is a guess. Those points are drawn solid and measured "
+    "like seen joints. Every value below is an unverified model estimate: this model's "
+    "accuracy has not yet been measured against human-labelled joints.")
 
 
 def _guess_view(path):
@@ -64,24 +73,26 @@ def _pose_store():
     return st.session_state.setdefault("dv_poses", {})
 
 
-def _pose_key(path):
+def _pose_key(path, backend_id):
+    # The backend identity is part of the key: one backend's landmarks are
+    # never served for another.
     ident = video_identity(path)
-    return (path, ident["size"], ident["mtime_ns"])
+    return (backend_id, path, ident["size"], ident["mtime_ns"])
 
 
-def _cached_pose(path):
+def _cached_pose(path, backend, backend_id):
     """From this session, else the disk cache. Never runs inference."""
     store = _pose_store()
-    key = _pose_key(path)
+    key = _pose_key(path, backend_id)
     if key not in store:
-        seq = get_pose_sequence(path, extract_if_missing=False)
+        seq = get_pose_sequence(path, backend, extract_if_missing=False)
         if seq is None:
             return None
         store[key] = seq
     return store[key]
 
 
-def _extract(paths):
+def _extract(paths, backend, backend_id):
     store = _pose_store()
     for i, path in enumerate(paths, 1):
         label = os.path.basename(path)
@@ -91,7 +102,7 @@ def _extract(paths):
             if total and (done % 25 == 0 or done == total):
                 bar.progress(min(done / total, 1.0), text=f"[{i}/{len(paths)}] {label}: "
                                                           f"frame {done}/{total}")
-        store[_pose_key(path)] = get_pose_sequence(path, progress=progress)
+        store[_pose_key(path, backend_id)] = get_pose_sequence(path, backend, progress=progress)
         bar.progress(1.0, text=f"[{i}/{len(paths)}] {label}: done")
 
 
@@ -166,27 +177,50 @@ def render_dual_view_tab(user_dir, reference_dir):
         ref_hand = st.radio("Reference handedness", ["right", "left"], horizontal=True,
                             format_func=str.title, key="dv_ref_hand")
 
+    backend_name = st.radio(
+        "Pose model", list(BACKEND_LABELS), format_func=BACKEND_LABELS.get, horizontal=True,
+        key="dv_backend",
+        help="Each model's landmarks are cached separately; switching loads that model's "
+             "cache and runs inference only for videos it hasn't processed.")
+    backend = make_backend(backend_name)
+    try:
+        backend_id = backend.identity()
+    except RTMPoseUnavailable as e:
+        st.error(f"{BACKEND_LABELS[backend_name]} is not available here: {e}")
+        st.info("Select MediaPipe to keep working on the CPU.")
+        return
+    if not backend.score_is_visibility:
+        st.warning(SCORE_CAVEAT.format(model=BACKEND_LABELS[backend_name],
+                                       threshold=backend.min_confidence))
+
     paths = {("user", "dtl"): pair.dtl.path, ("user", "face_on"): pair.face_on.path,
              ("reference", "dtl"): ref_dtl, ("reference", "face_on"): ref_fo}
     hands = {"user": user_hand, "reference": ref_hand}
 
     # --- poses ------------------------------------------------------------
     unique_paths = list(dict.fromkeys(paths.values()))
-    missing = [p for p in unique_paths if _cached_pose(p) is None]
+    missing = [p for p in unique_paths if _cached_pose(p, backend, backend_id) is None]
     if missing:
         st.warning(
-            f"Pose not yet extracted for {len(missing)} of these videos. Extraction runs "
-            "once per video and is cached; about 15 s for a 1,244-frame 240fps capture on CPU.")
+            f"{BACKEND_LABELS[backend_name]} has not processed {len(missing)} of these videos "
+            "yet. Extraction runs once per video and model, then is cached (MediaPipe: ~15 s "
+            "per 1,244-frame 240fps capture on CPU).")
         for p in missing:
             st.caption(f"• {os.path.basename(p)}")
         if st.button("Extract poses", type="primary", key="dv_extract"):
-            _extract(missing)
+            try:
+                _extract(missing, backend, backend_id)
+            except RTMPoseUnavailable as e:
+                st.error(f"{BACKEND_LABELS[backend_name]} failed: {e}")
+                st.caption("Nothing was cached for the video that failed. Select MediaPipe "
+                           "to keep working on the CPU.")
+                return
             st.rerun()
 
     slots = {}
     for key, path in paths.items():
         role, view = key
-        pose = _cached_pose(path)
+        pose = _cached_pose(path, backend, backend_id)
         if pose is not None:
             pose = dataclasses.replace(pose, view=view, handedness=hands[role])
         slots[key] = Slot(role=role, view=view, path=path,
@@ -229,14 +263,19 @@ def render_dual_view_tab(user_dir, reference_dir):
 
     with st.expander("Advanced"):
         min_conf = st.slider(
-            "Minimum landmark confidence", 0.0, 1.0, DEFAULT_MIN_CONFIDENCE, 0.05,
-            key="dv_min_conf",
-            help="Landmarks the pose model reports below this visibility are treated as "
-                 "not observed (drawn hollow grey; their measurements are unavailable). "
-                 "From down-the-line the lead arm and knee are often occluded.")
+            f"Minimum landmark score ({BACKEND_LABELS[backend_name]})", 0.0, 1.0,
+            float(backend.min_confidence), 0.05, key=f"dv_min_conf_{backend_name}",
+            help="Landmarks below this score are treated as not observed (drawn hollow grey; "
+                 "their measurements are unavailable). Scores differ by model: MediaPipe "
+                 "reports a visibility probability (default 0.5); RTMPose an uncalibrated "
+                 "SimCC peak (default 0.3) that is neither visibility nor accuracy, and stays "
+                 "high on occluded joints. From down the line the lead arm and knee are often "
+                 "occluded. Neither score says a point is correct.")
+        st.caption(f"Pose model identity: `{backend_id}`")
 
     comparison = build_comparison(slots, position, use_partner_view=use_partner,
-                                  min_confidence=min_conf)
+                                  min_confidence=min_conf,
+                                  score_is_visibility=backend.score_is_visibility)
 
     # --- four panels ------------------------------------------------------
     for view in VIEWS:
@@ -269,7 +308,9 @@ def render_dual_view_tab(user_dir, reference_dir):
         "plane (2D), so DTL and face-on values are separate measurements and are never "
         "compared with each other. Displacements are from each video's own P1, in units "
         "of that video's P1 torso length. Elbow/knee flexion is 180° minus the 2D "
-        "included angle (0° = straight). A difference is not by itself a swing fault.")
+        "included angle (0° = straight). A difference is not by itself a swing fault. "
+        "All values are model estimates; none has been checked against human-labelled "
+        "joints.")
     for view in VIEWS:
         st.markdown(f"**{VIEW_LABELS[view]}**")
         rows = comparison.rows.get(view, [])

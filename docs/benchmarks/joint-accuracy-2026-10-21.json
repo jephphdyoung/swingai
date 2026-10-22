@@ -1,0 +1,2677 @@
+{
+ "date": "2026-10-21",
+ "labels_file": "data/joint_labels/labels.json",
+ "verified_by": "Jeff",
+ "coverage": {
+  "frames_expected": 20,
+  "frames_labelled": 20,
+  "joints_labelled": 238,
+  "joints_possible": 300,
+  "frames_confirmed_from_earlier_export": 14,
+  "frames_outside_benchmark": 0,
+  "frames_blind_expected": 12,
+  "frames_blind_labelled": 12,
+  "frames_assisted_labelled": 8,
+  "assisted_points": {
+   "model_accepted": {},
+   "model_corrected": {}
+  },
+  "videos_unlabelled": [],
+  "unscorable": {
+   "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4": "P1 (frame 395) lacks a labelled shoulder or hip, so errors can't be normalized",
+   "videos/reference/GW_DTL.mp4": "P1 (frame 104) lacks a labelled shoulder or hip, so errors can't be normalized"
+  }
+ },
+ "backends": {
+  "mediapipe": "mediapipe-0.10.35-59929e1d1ee95287-env85925914",
+  "rtmpose": "rtmpose-m-halpe26-26f3a19e6130+yolox-m-3dea65133888-cfg74cb8202c1-ort1.31.0-cuda-env85925914"
+ },
+ "report": {
+  "independent": {
+   "by_view": {
+    "face_on": {
+     "mediapipe": {
+      "all": {
+       "n": 76,
+       "missing": 0.0,
+       "mean": 0.16609896277571864,
+       "median": 0.1109688157640257,
+       "pck@0.05": 0.18421052631578946,
+       "pck@0.1": 0.4473684210526316,
+       "pck@0.2": 0.7763157894736842,
+       "frames": 6,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 76,
+       "missing": 0.0,
+       "mean": 0.16609896277571864,
+       "median": 0.1109688157640257,
+       "pck@0.05": 0.18421052631578946,
+       "pck@0.1": 0.4473684210526316,
+       "pck@0.2": 0.7763157894736842,
+       "frames": 6,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.12473631616476598,
+        "median": 0.10258908996024867,
+        "pck@0.05": 0.16666666666666666,
+        "pck@0.1": 0.5,
+        "pck@0.2": 0.8333333333333334,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.09200019729502745,
+        "median": 0.11375520136473205,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.21893086156746158,
+        "median": 0.14477521311768782,
+        "pck@0.05": 0.2,
+        "pck@0.1": 0.4,
+        "pck@0.2": 0.6,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.36266662250893766,
+        "median": 0.38499832165677755,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.2,
+        "pck@0.2": 0.4,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.27525102504880056,
+        "median": 0.25847323748231854,
+        "pck@0.05": 0.2,
+        "pck@0.1": 0.2,
+        "pck@0.2": 0.4,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.22291223266346077,
+        "median": 0.2725682703214198,
+        "pck@0.05": 0.2,
+        "pck@0.1": 0.4,
+        "pck@0.2": 0.4,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.3742944771287072,
+        "median": 0.4618054773593996,
+        "pck@0.05": 0.2,
+        "pck@0.1": 0.2,
+        "pck@0.2": 0.4,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.09100106721571642,
+        "median": 0.10220917707131266,
+        "pck@0.05": 0.25,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.18810178778595324,
+        "median": 0.16375486308603654,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.16666666666666666,
+        "pck@0.2": 0.6666666666666666,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.13863778456332312,
+        "median": 0.15851556606114475,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.0879971541953881,
+        "median": 0.08266590345874392,
+        "pck@0.05": 0.16666666666666666,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.05169405815974326,
+        "median": 0.03467609821387368,
+        "pck@0.05": 0.6,
+        "pck@0.1": 0.8,
+        "pck@0.2": 1.0,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.08347489595812245,
+        "median": 0.07010314927440797,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.1031927689909115,
+        "median": 0.08093875929886182,
+        "pck@0.05": 0.16666666666666666,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.08563983876004984,
+        "median": 0.07530671852157397,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     },
+     "rtmpose": {
+      "all": {
+       "n": 76,
+       "missing": 0.0,
+       "mean": 0.07378431955486156,
+       "median": 0.06355525591170409,
+       "pck@0.05": 0.3815789473684211,
+       "pck@0.1": 0.6973684210526315,
+       "pck@0.2": 0.9736842105263158,
+       "frames": 6,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 76,
+       "missing": 0.0,
+       "mean": 0.07378431955486156,
+       "median": 0.06355525591170409,
+       "pck@0.05": 0.3815789473684211,
+       "pck@0.1": 0.6973684210526315,
+       "pck@0.2": 0.9736842105263158,
+       "frames": 6,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.07807484292594609,
+        "median": 0.06648584695194448,
+        "pck@0.05": 0.16666666666666666,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.06119078181204878,
+        "median": 0.053097715427081256,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.07628740759343049,
+        "median": 0.08530315322591356,
+        "pck@0.05": 0.4,
+        "pck@0.1": 0.6,
+        "pck@0.2": 1.0,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.0830340733264289,
+        "median": 0.06408570267605808,
+        "pck@0.05": 0.2,
+        "pck@0.1": 0.6,
+        "pck@0.2": 1.0,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.07094302577814342,
+        "median": 0.07947355222705885,
+        "pck@0.05": 0.4,
+        "pck@0.1": 0.8,
+        "pck@0.2": 1.0,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.0850445621004548,
+        "median": 0.09435997090264012,
+        "pck@0.05": 0.2,
+        "pck@0.1": 0.6,
+        "pck@0.2": 1.0,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.09947117712346118,
+        "median": 0.10673752346288012,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.4,
+        "pck@0.2": 1.0,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.09296246091605095,
+        "median": 0.06518029243276574,
+        "pck@0.05": 0.25,
+        "pck@0.1": 0.75,
+        "pck@0.2": 0.75,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.08677161739116084,
+        "median": 0.07865951681547835,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.093739498634842,
+        "median": 0.11563179929331378,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.06209105511464994,
+        "median": 0.05993023900264817,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.8333333333333334,
+        "pck@0.2": 1.0,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 5,
+        "missing": 0.0,
+        "mean": 0.06067649745682833,
+        "median": 0.062827396727734,
+        "pck@0.05": 0.4,
+        "pck@0.1": 0.8,
+        "pck@0.2": 1.0,
+        "frames": 5,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.058715965260962615,
+        "median": 0.04658791750424462,
+        "pck@0.05": 0.6666666666666666,
+        "pck@0.1": 0.8333333333333334,
+        "pck@0.2": 1.0,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.08078552087585811,
+        "median": 0.052502539012079935,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 0.8333333333333334,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 6,
+        "missing": 0.0,
+        "mean": 0.032508312476566936,
+        "median": 0.02683722962192469,
+        "pck@0.05": 0.8333333333333334,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 6,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     }
+    }
+   },
+   "by_video": {
+    "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4": {
+     "mediapipe": {
+      "all": {
+       "n": 39,
+       "missing": 0.0,
+       "mean": 0.12227212421016051,
+       "median": 0.09932616691023573,
+       "pck@0.05": 0.20512820512820512,
+       "pck@0.1": 0.5128205128205128,
+       "pck@0.2": 0.8461538461538461,
+       "frames": 3,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 39,
+       "missing": 0.0,
+       "mean": 0.12227212421016051,
+       "median": 0.09932616691023573,
+       "pck@0.05": 0.20512820512820512,
+       "pck@0.1": 0.5128205128205128,
+       "pck@0.2": 0.8461538461538461,
+       "frames": 3,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.05263533341254991,
+        "median": 0.07055233514187742,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.12500290146439202,
+        "median": 0.12500290146439202,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.12205069001396177,
+        "median": 0.12205069001396177,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.24486286826019385,
+        "median": 0.24486286826019385,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.14721209297890506,
+        "median": 0.14721209297890506,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.2351198309671246,
+        "median": 0.2725682703214198,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 0.3333333333333333,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.2414429876716687,
+        "median": 0.2414429876716687,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.1210338880290623,
+        "median": 0.1443664096753037,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.15409794381725145,
+        "median": 0.1624848491958533,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 0.6666666666666666,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.12869889381441232,
+        "median": 0.12869889381441232,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.08520322682879984,
+        "median": 0.0922734186774002,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.05173242292819832,
+        "median": 0.03467609821387368,
+        "pck@0.05": 0.6666666666666666,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.09906430388355116,
+        "median": 0.11626384329384723,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.06452018563177032,
+        "median": 0.05377335326065375,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.053283523098089834,
+        "median": 0.04804876267121158,
+        "pck@0.05": 0.6666666666666666,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     },
+     "rtmpose": {
+      "all": {
+       "n": 39,
+       "missing": 0.0,
+       "mean": 0.05816861372143949,
+       "median": 0.04863349286462688,
+       "pck@0.05": 0.5384615384615384,
+       "pck@0.1": 0.7948717948717948,
+       "pck@0.2": 0.9743589743589743,
+       "frames": 3,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 39,
+       "missing": 0.0,
+       "mean": 0.05816861372143949,
+       "median": 0.04863349286462688,
+       "pck@0.05": 0.5384615384615384,
+       "pck@0.1": 0.7948717948717948,
+       "pck@0.2": 0.9743589743589743,
+       "frames": 3,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.04702181187712077,
+        "median": 0.05125316598730116,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.052666648211706774,
+        "median": 0.052666648211706774,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.02691144080101688,
+        "median": 0.02691144080101688,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.08878864343384221,
+        "median": 0.08878864343384221,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.029108513528852374,
+        "median": 0.029108513528852374,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.0700289004967616,
+        "median": 0.068843169480794,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07942283772734125,
+        "median": 0.07942283772734125,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.09911519076470043,
+        "median": 0.05585631349542899,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 0.6666666666666666,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.06407543622798537,
+        "median": 0.04551217076466398,
+        "pck@0.05": 0.6666666666666666,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.08279334830560611,
+        "median": 0.08279334830560611,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.07493280258155376,
+        "median": 0.09566532738702412,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.05050463734074858,
+        "median": 0.024900722454027056,
+        "pck@0.05": 0.6666666666666666,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.06467102219186846,
+        "median": 0.04895136656825996,
+        "pck@0.05": 0.6666666666666666,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.02341362882803959,
+        "median": 0.013964217408738076,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.022634260064357703,
+        "median": 0.024222138713908395,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     }
+    },
+    "videos/reference/GW_faceon.mp4": {
+     "mediapipe": {
+      "all": {
+       "n": 37,
+       "missing": 0.0,
+       "mean": 0.2122948196421178,
+       "median": 0.13993037881133225,
+       "pck@0.05": 0.16216216216216217,
+       "pck@0.1": 0.3783783783783784,
+       "pck@0.2": 0.7027027027027027,
+       "frames": 3,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 37,
+       "missing": 0.0,
+       "mean": 0.2122948196421178,
+       "median": 0.13993037881133225,
+       "pck@0.05": 0.16216216216216217,
+       "pck@0.1": 0.3783783783783784,
+       "pck@0.2": 0.7027027027027027,
+       "frames": 3,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.196837298916982,
+        "median": 0.1633924189906301,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.6666666666666666,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.025994788956298302,
+        "median": 0.025994788956298302,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.2835176426031281,
+        "median": 0.27535958370172137,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 0.3333333333333333,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.4412024586747669,
+        "median": 0.6080598602291981,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 0.3333333333333333,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.36061031309539754,
+        "median": 0.4617566915399534,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.3333333333333333,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.20460083520796496,
+        "median": 0.20460083520796496,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.46286213676673293,
+        "median": 0.6029751981686357,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.3333333333333333,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.0009026047756787771,
+        "median": 0.0009026047756787771,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.22210563175465506,
+        "median": 0.16502487697621976,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.6666666666666666,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.15851556606114475,
+        "median": 0.15851556606114475,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.09079108156197635,
+        "median": 0.07305838824008763,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.05163651100706067,
+        "median": 0.05163651100706067,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.06788548803269372,
+        "median": 0.06892072947309746,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.14186535235005265,
+        "median": 0.1817541302994119,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.11799615442200988,
+        "median": 0.12542834349321322,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     },
+     "rtmpose": {
+      "all": {
+       "n": 37,
+       "missing": 0.0,
+       "mean": 0.09024411759549565,
+       "median": 0.08530315322591356,
+       "pck@0.05": 0.21621621621621623,
+       "pck@0.1": 0.5945945945945946,
+       "pck@0.2": 0.972972972972973,
+       "frames": 3,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 37,
+       "missing": 0.0,
+       "mean": 0.09024411759549565,
+       "median": 0.08530315322591356,
+       "pck@0.05": 0.21621621621621623,
+       "pck@0.1": 0.5945945945945946,
+       "pck@0.2": 0.972972972972973,
+       "frames": 3,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.10912787397477142,
+        "median": 0.11733615782923776,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.07823904901273279,
+        "median": 0.07823904901273279,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.10920471878837289,
+        "median": 0.12001959003874078,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.07919769325482003,
+        "median": 0.0630248091473501,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.09883270061100413,
+        "median": 0.08484098461171721,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.10756805450599459,
+        "median": 0.10756805450599459,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.11283673672087448,
+        "median": 0.11669887009723029,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.07450427137010249,
+        "median": 0.07450427137010249,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.1094677985543363,
+        "median": 0.13122817810370863,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.11563179929331378,
+        "median": 0.11563179929331378,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.04924930764774615,
+        "median": 0.03271931091662533,
+        "pck@0.05": 0.6666666666666666,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07593428763094792,
+        "median": 0.07593428763094792,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.052760908330056776,
+        "median": 0.04422446844022927,
+        "pck@0.05": 0.6666666666666666,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.13815741292367661,
+        "median": 0.14703996634252076,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.3333333333333333,
+        "pck@0.2": 0.6666666666666666,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.04238236488877617,
+        "median": 0.03467849859000048,
+        "pck@0.05": 0.6666666666666666,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     }
+    }
+   },
+   "comparison": {
+    "face_on": {
+     "rtmpose - mediapipe": {
+      "pck@0.05": {
+       "threshold": 0.05,
+       "difference": 0.1973684210526316,
+       "ci95": [
+        0.024390243902439046,
+        0.3466666666666667
+       ],
+       "frames": 6
+      },
+      "pck@0.1": {
+       "threshold": 0.1,
+       "difference": 0.24999999999999994,
+       "ci95": [
+        0.1585365853658537,
+        0.3428571428571428
+       ],
+       "frames": 6
+      },
+      "pck@0.2": {
+       "threshold": 0.2,
+       "difference": 0.19736842105263164,
+       "ci95": [
+        0.059523809523809534,
+        0.3661971830985915
+       ],
+       "frames": 6
+      }
+     }
+    }
+   }
+  },
+  "assisted": {
+   "by_view": {
+    "face_on": {
+     "mediapipe": {
+      "all": {
+       "n": 55,
+       "missing": 0.0,
+       "mean": 0.13936194765655915,
+       "median": 0.10864466116879794,
+       "pck@0.05": 0.09090909090909091,
+       "pck@0.1": 0.4,
+       "pck@0.2": 0.8181818181818182,
+       "frames": 4,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 55,
+       "missing": 0.0,
+       "mean": 0.13936194765655915,
+       "median": 0.10864466116879794,
+       "pck@0.05": 0.09090909090909091,
+       "pck@0.1": 0.4,
+       "pck@0.2": 0.8181818181818182,
+       "frames": 4,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.13734962147824212,
+        "median": 0.10464570452717098,
+        "pck@0.05": 0.25,
+        "pck@0.1": 0.25,
+        "pck@0.2": 0.75,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.14916509060239766,
+        "median": 0.11422494918712842,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.25,
+        "pck@0.2": 0.75,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.13086167055093867,
+        "median": 0.13086167055093867,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.28259814773652414,
+        "median": 0.2506975199722918,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07926950243329904,
+        "median": 0.07926950243329904,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.25722495105978027,
+        "median": 0.2536990207717837,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.1810253179033349,
+        "median": 0.09241423380723252,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.6666666666666666,
+        "pck@0.2": 0.6666666666666666,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.15334901896415487,
+        "median": 0.1388782551758691,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.25,
+        "pck@0.2": 0.75,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.15097012817935918,
+        "median": 0.13498063964808132,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.75,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.10388911915709945,
+        "median": 0.09187971804711843,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.10539241968933089,
+        "median": 0.07787874972389512,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.75,
+        "pck@0.2": 0.75,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.07428981509928917,
+        "median": 0.0628133479376451,
+        "pck@0.05": 0.25,
+        "pck@0.1": 0.75,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.11457302142852406,
+        "median": 0.1181378094358732,
+        "pck@0.05": 0.25,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.08283122754180063,
+        "median": 0.08029084211487317,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.0637596444215663,
+        "median": 0.04464358808251377,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.75,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     },
+     "rtmpose": {
+      "all": {
+       "n": 55,
+       "missing": 0.0,
+       "mean": 0.06934827880594259,
+       "median": 0.055454655052134184,
+       "pck@0.05": 0.41818181818181815,
+       "pck@0.1": 0.7636363636363637,
+       "pck@0.2": 0.9818181818181818,
+       "frames": 4,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 55,
+       "missing": 0.0,
+       "mean": 0.06934827880594259,
+       "median": 0.055454655052134184,
+       "pck@0.05": 0.41818181818181815,
+       "pck@0.1": 0.7636363636363637,
+       "pck@0.2": 0.9818181818181818,
+       "frames": 4,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.06613277014426772,
+        "median": 0.059066857435682324,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.75,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.035202596639998904,
+        "median": 0.026770296221083845,
+        "pck@0.05": 0.75,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.053320465580174045,
+        "median": 0.053320465580174045,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.09477869302825591,
+        "median": 0.07397445993245691,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.04910280870496051,
+        "median": 0.04910280870496051,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.04048097271049884,
+        "median": 0.021183204501277777,
+        "pck@0.05": 0.75,
+        "pck@0.1": 0.75,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 3,
+        "missing": 0.0,
+        "mean": 0.06393958982175703,
+        "median": 0.06908903643874162,
+        "pck@0.05": 0.3333333333333333,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 3,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.06414770065557487,
+        "median": 0.06407120509695313,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.10884600608054179,
+        "median": 0.08929760591837307,
+        "pck@0.05": 0.25,
+        "pck@0.1": 0.5,
+        "pck@0.2": 0.75,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.10977749238450957,
+        "median": 0.10897996406848337,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.08101404837672001,
+        "median": 0.08370773029257703,
+        "pck@0.05": 0.25,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.058874816159618454,
+        "median": 0.05782280820432484,
+        "pck@0.05": 0.25,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.0914983847256335,
+        "median": 0.08549193175786556,
+        "pck@0.05": 0.25,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.0628069340369874,
+        "median": 0.05461583950356452,
+        "pck@0.05": 0.25,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 4,
+        "missing": 0.0,
+        "mean": 0.04081208913021863,
+        "median": 0.02088550463916316,
+        "pck@0.05": 0.75,
+        "pck@0.1": 0.75,
+        "pck@0.2": 1.0,
+        "frames": 4,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     }
+    }
+   },
+   "by_video": {
+    "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4": {
+     "mediapipe": {
+      "all": {
+       "n": 28,
+       "missing": 0.0,
+       "mean": 0.10641022034225596,
+       "median": 0.10029720524512038,
+       "pck@0.05": 0.14285714285714285,
+       "pck@0.1": 0.5,
+       "pck@0.2": 0.9285714285714286,
+       "frames": 2,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 28,
+       "missing": 0.0,
+       "mean": 0.10641022034225596,
+       "median": 0.10029720524512038,
+       "pck@0.05": 0.14285714285714285,
+       "pck@0.1": 0.5,
+       "pck@0.2": 0.9285714285714286,
+       "frames": 2,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07597845781818283,
+        "median": 0.07597845781818283,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.11422494918712842,
+        "median": 0.11422494918712842,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.13086167055093867,
+        "median": 0.13086167055093867,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.2506975199722918,
+        "median": 0.2506975199722918,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.06635608201803934,
+        "median": 0.06635608201803934,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.2173256053028791,
+        "median": 0.2173256053028791,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.05316656302770953,
+        "median": 0.05316656302770953,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.1063817339763314,
+        "median": 0.1063817339763314,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.13498063964808132,
+        "median": 0.13498063964808132,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.09187971804711843,
+        "median": 0.09187971804711843,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.06905679717715915,
+        "median": 0.06905679717715915,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.04208514995842509,
+        "median": 0.04208514995842509,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07249067527897735,
+        "median": 0.07249067527897735,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07937525726868157,
+        "median": 0.07937525726868157,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.04464358808251377,
+        "median": 0.04464358808251377,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     },
+     "rtmpose": {
+      "all": {
+       "n": 28,
+       "missing": 0.0,
+       "mean": 0.05286299594882321,
+       "median": 0.047504118994625866,
+       "pck@0.05": 0.5714285714285714,
+       "pck@0.1": 0.8928571428571429,
+       "pck@0.2": 1.0,
+       "frames": 2,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 28,
+       "missing": 0.0,
+       "mean": 0.05286299594882321,
+       "median": 0.047504118994625866,
+       "pck@0.05": 0.5714285714285714,
+       "pck@0.1": 0.8928571428571429,
+       "pck@0.2": 1.0,
+       "frames": 2,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.05279628033793267,
+        "median": 0.05279628033793267,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.04561675855569242,
+        "median": 0.04561675855569242,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.053320465580174045,
+        "median": 0.053320465580174045,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.0704116211539429,
+        "median": 0.0704116211539429,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.04815700348989327,
+        "median": 0.04815700348989327,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.020470948531346976,
+        "median": 0.020470948531346976,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.03300891514972466,
+        "median": 0.03300891514972466,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.06367250408382227,
+        "median": 0.06367250408382227,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07519185315455813,
+        "median": 0.07519185315455813,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.10727247105319546,
+        "median": 0.10727247105319546,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.03656940576676035,
+        "median": 0.03656940576676035,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.046721947627195434,
+        "median": 0.046721947627195434,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.05631848091770549,
+        "median": 0.05631848091770549,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.05025074256222669,
+        "median": 0.05025074256222669,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.02088550463916316,
+        "median": 0.02088550463916316,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     }
+    },
+    "videos/reference/GW_faceon.mp4": {
+     "mediapipe": {
+      "all": {
+       "n": 27,
+       "missing": 0.0,
+       "mean": 0.1735341093158366,
+       "median": 0.13629714404679943,
+       "pck@0.05": 0.037037037037037035,
+       "pck@0.1": 0.2962962962962963,
+       "pck@0.2": 0.7037037037037037,
+       "frames": 2,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 27,
+       "missing": 0.0,
+       "mean": 0.1735341093158366,
+       "median": 0.13629714404679943,
+       "pck@0.05": 0.037037037037037035,
+       "pck@0.1": 0.2962962962962963,
+       "pck@0.2": 0.7037037037037037,
+       "frames": 2,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.19872078513830144,
+        "median": 0.19872078513830144,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.18410523201766688,
+        "median": 0.18410523201766688,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 0,
+        "frames": 0,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.31449877550075656,
+        "median": 0.31449877550075656,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.09218292284855874,
+        "median": 0.09218292284855874,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.29712429681668145,
+        "median": 0.29712429681668145,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.2449546953411476,
+        "median": 0.2449546953411476,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.20031630395197836,
+        "median": 0.20031630395197836,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.16695961671063703,
+        "median": 0.16695961671063703,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.11589852026708046,
+        "median": 0.11589852026708046,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.1417280422015026,
+        "median": 0.1417280422015026,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.10649448024015325,
+        "median": 0.10649448024015325,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.15665536757807078,
+        "median": 0.15665536757807078,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.08628719781491967,
+        "median": 0.08628719781491967,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.08287570076061883,
+        "median": 0.08287570076061883,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     },
+     "rtmpose": {
+      "all": {
+       "n": 27,
+       "missing": 0.0,
+       "mean": 0.08644412769480715,
+       "median": 0.08810587307856983,
+       "pck@0.05": 0.25925925925925924,
+       "pck@0.1": 0.6296296296296297,
+       "pck@0.2": 0.9629629629629629,
+       "frames": 2,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "visible": {
+       "n": 27,
+       "missing": 0.0,
+       "mean": 0.08644412769480715,
+       "median": 0.08810587307856983,
+       "pck@0.05": 0.25925925925925924,
+       "pck@0.1": 0.6296296296296297,
+       "pck@0.2": 0.9629629629629629,
+       "frames": 2,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "occluded": {
+       "n": 0,
+       "frames": 0,
+       "frames_missed": 0,
+       "joints_missed": 0
+      },
+      "per_joint": {
+       "nose": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07946925995060278,
+        "median": 0.07946925995060278,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ear": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.024788434724305378,
+        "median": 0.024788434724305378,
+        "pck@0.05": 1.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ear": {
+        "n": 0,
+        "frames": 0,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_shoulder": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.11914576490256895,
+        "median": 0.11914576490256895,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_shoulder": {
+        "n": 1,
+        "missing": 0.0,
+        "mean": 0.050048613920027754,
+        "median": 0.050048613920027754,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 1,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.0604909968896507,
+        "median": 0.0604909968896507,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_elbow": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07940492715777323,
+        "median": 0.07940492715777323,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_wrist": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.06462289722732746,
+        "median": 0.06462289722732746,
+        "pck@0.05": 0.5,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_wrist": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.14250015900652543,
+        "median": 0.14250015900652543,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 0.5,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.11228251371582365,
+        "median": 0.11228251371582365,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_hip": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.12545869098667967,
+        "median": 0.12545869098667967,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.07102768469204146,
+        "median": 0.07102768469204146,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_knee": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.1266782885335615,
+        "median": 0.1266782885335615,
+        "pck@0.05": 0.0,
+        "pck@0.1": 0.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "left_ankle": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.0753631255117481,
+        "median": 0.0753631255117481,
+        "pck@0.05": 0.0,
+        "pck@0.1": 1.0,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       },
+       "right_ankle": {
+        "n": 2,
+        "missing": 0.0,
+        "mean": 0.06073867362127411,
+        "median": 0.06073867362127411,
+        "pck@0.05": 0.5,
+        "pck@0.1": 0.5,
+        "pck@0.2": 1.0,
+        "frames": 2,
+        "frames_missed": 0,
+        "joints_missed": 0
+       }
+      }
+     }
+    }
+   },
+   "comparison": {
+    "face_on": {
+     "rtmpose - mediapipe": {
+      "pck@0.05": {
+       "threshold": 0.05,
+       "difference": 0.32727272727272727,
+       "ci95": [
+        0.2222222222222222,
+        0.42857142857142855
+       ],
+       "frames": 4
+      },
+      "pck@0.1": {
+       "threshold": 0.1,
+       "difference": 0.36363636363636365,
+       "ci95": [
+        0.2727272727272727,
+        0.46153846153846156
+       ],
+       "frames": 4
+      },
+      "pck@0.2": {
+       "threshold": 0.2,
+       "difference": 0.16363636363636358,
+       "ci95": [
+        0.0,
+        0.39622641509433965
+       ],
+       "frames": 4
+      }
+     }
+    }
+   }
+  }
+ }
+}

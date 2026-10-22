@@ -54,6 +54,8 @@ class FakeBackend:
     """Stands in for MediaPipe. Counts frames it was asked to process."""
 
     name = "fake"
+    min_confidence = 0.5
+    score_is_visibility = True
 
     def __init__(self, view="face_on", n_frames=100, missing=(), identity="fake-backend-1"):
         self.view, self.n_frames, self.missing = view, n_frames, set(missing)

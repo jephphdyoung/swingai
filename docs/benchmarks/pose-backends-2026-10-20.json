@@ -1,0 +1,1856 @@
+{
+ "videos": [
+  {
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "backends": {
+    "mediapipe": {
+     "process_s": 16.62366494699927,
+     "fps": 74.83307706009522,
+     "gpu_mem_peak_mib": null,
+     "cache_load_s": 0.0036388949993124697,
+     "frames": 1244,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 0.8568060021436228,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 0.41237942122186494,
+      "right_elbow": 0.8271704180064309,
+      "left_wrist": 0.37942122186495175,
+      "right_wrist": 0.6953376205787781,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 0.5393890675241158,
+      "right_knee": 1.0,
+      "left_ankle": 0.9983922829581994,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.0,
+     "spike_p99_median": 0.0068471894132208794,
+     "spikes": {
+      "nose": [
+       0.005105830647985816,
+       0.0
+      ],
+      "left_ear": [
+       0.002717486834602275,
+       0.0
+      ],
+      "right_ear": [
+       0.0024917982553540855,
+       0.0
+      ],
+      "left_shoulder": [
+       0.0068471894132208794,
+       0.0
+      ],
+      "right_shoulder": [
+       0.006181141308776769,
+       0.0
+      ],
+      "left_elbow": [
+       0.02492414304908636,
+       0.0
+      ],
+      "right_elbow": [
+       0.01820208617119043,
+       0.0
+      ],
+      "left_wrist": [
+       0.023892710437332966,
+       0.0
+      ],
+      "right_wrist": [
+       0.04581061792023902,
+       0.0
+      ],
+      "left_hip": [
+       0.00466571731764971,
+       0.0
+      ],
+      "right_hip": [
+       0.0043926492089737595,
+       0.0
+      ],
+      "left_knee": [
+       0.010765202650012476,
+       0.0
+      ],
+      "right_knee": [
+       0.011405222872588461,
+       0.0
+      ],
+      "left_ankle": [
+       0.015463395285180707,
+       0.0
+      ],
+      "right_ankle": [
+       0.003475266028960635,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       1243
+      ],
+      "elbow": [
+       0,
+       296
+      ],
+      "wrist": [
+       0,
+       274
+      ],
+      "hip": [
+       0,
+       1243
+      ],
+      "knee": [
+       0,
+       669
+      ],
+      "ankle": [
+       0,
+       1241
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 189.64302503818993,
+     "threshold": 0.5,
+     "accuracy": null
+    },
+    "rtmpose": {
+     "process_s": 20.82557675099997,
+     "fps": 59.734240010436565,
+     "gpu_mem_peak_mib": 904,
+     "cache_load_s": 0.002168687000448699,
+     "frames": 1244,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 1.0,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 1.0,
+      "right_elbow": 1.0,
+      "left_wrist": 1.0,
+      "right_wrist": 1.0,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 5.367686527106817e-05,
+     "spike_p99_median": 0.017724970484617006,
+     "spikes": {
+      "nose": [
+       0.042747689195856205,
+       0.0
+      ],
+      "left_ear": [
+       0.03158019225178326,
+       0.0
+      ],
+      "right_ear": [
+       0.018998718263615922,
+       0.0
+      ],
+      "left_shoulder": [
+       0.017332809101412817,
+       0.0
+      ],
+      "right_shoulder": [
+       0.017724970484617006,
+       0.0
+      ],
+      "left_elbow": [
+       0.029819652907276343,
+       0.0
+      ],
+      "right_elbow": [
+       0.02892155758065324,
+       0.0
+      ],
+      "left_wrist": [
+       0.05154346998463428,
+       0.0008051529790660225
+      ],
+      "right_wrist": [
+       0.05214314288282186,
+       0.0
+      ],
+      "left_hip": [
+       0.014045819322514225,
+       0.0
+      ],
+      "right_hip": [
+       0.01574822715962371,
+       0.0
+      ],
+      "left_knee": [
+       0.014614381301781578,
+       0.0
+      ],
+      "right_knee": [
+       0.013820315479064397,
+       0.0
+      ],
+      "left_ankle": [
+       0.016446160899178427,
+       0.0
+      ],
+      "right_ankle": [
+       0.015066565525250172,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       1243
+      ],
+      "elbow": [
+       0,
+       1243
+      ],
+      "wrist": [
+       0,
+       1243
+      ],
+      "hip": [
+       0,
+       1243
+      ],
+      "knee": [
+       0,
+       1243
+      ],
+      "ankle": [
+       0,
+       1243
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 194.70549836223918,
+     "threshold": 0.3,
+     "accuracy": null
+    }
+   },
+   "agreement": {
+    "nose": 0.05943774479624082,
+    "left_ear": 0.14231756222834618,
+    "right_ear": 0.06414158628250116,
+    "left_shoulder": 0.0605969080228911,
+    "right_shoulder": 0.05716535490375467,
+    "left_elbow": 0.055265819204388916,
+    "right_elbow": 0.13067868837441565,
+    "left_wrist": 0.056571236772356176,
+    "right_wrist": 0.0631156877741598,
+    "left_hip": 0.0563205112734191,
+    "right_hip": 0.05273308389132876,
+    "left_knee": 0.07227508362775172,
+    "right_knee": 0.04733244181267949,
+    "left_ankle": 0.05690989577304509,
+    "right_ankle": 0.051227123913444195
+   }
+  },
+  {
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "backends": {
+    "mediapipe": {
+     "process_s": 15.62473319899982,
+     "fps": 79.61735948743315,
+     "gpu_mem_peak_mib": null,
+     "cache_load_s": 0.0031735450011183275,
+     "frames": 1244,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 0.965005359056806,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 0.7090032154340836,
+      "right_elbow": 1.0,
+      "left_wrist": 0.7660771704180064,
+      "right_wrist": 1.0,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.0,
+     "spike_p99_median": 0.0080501012600436,
+     "spikes": {
+      "nose": [
+       0.006855687136438664,
+       0.0
+      ],
+      "left_ear": [
+       0.003764816004760802,
+       0.0
+      ],
+      "right_ear": [
+       0.005763648706852731,
+       0.0
+      ],
+      "left_shoulder": [
+       0.023255613430969543,
+       0.0
+      ],
+      "right_shoulder": [
+       0.015638090857949604,
+       0.0
+      ],
+      "left_elbow": [
+       0.015442215911226844,
+       0.0
+      ],
+      "right_elbow": [
+       0.03032996461365779,
+       0.0
+      ],
+      "left_wrist": [
+       0.026241876969185673,
+       0.0
+      ],
+      "right_wrist": [
+       0.027547133327081242,
+       0.0
+      ],
+      "left_hip": [
+       0.006821903704577638,
+       0.0
+      ],
+      "right_hip": [
+       0.0028053897669661656,
+       0.0
+      ],
+      "left_knee": [
+       0.006894954985098865,
+       0.0
+      ],
+      "right_knee": [
+       0.0080501012600436,
+       0.0
+      ],
+      "left_ankle": [
+       0.008533782303926825,
+       0.0
+      ],
+      "right_ankle": [
+       0.0025784540641377103,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       1,
+       1243
+      ],
+      "elbow": [
+       0,
+       880
+      ],
+      "wrist": [
+       0,
+       948
+      ],
+      "hip": [
+       0,
+       1243
+      ],
+      "knee": [
+       0,
+       1243
+      ],
+      "ankle": [
+       0,
+       1243
+      ]
+     },
+     "lr_swap_events": 1,
+     "body_scale_px": 200.06995612700064,
+     "threshold": 0.5,
+     "accuracy": null
+    },
+    "rtmpose": {
+     "process_s": 20.766626257998723,
+     "fps": 59.90380837719589,
+     "gpu_mem_peak_mib": 908,
+     "cache_load_s": 0.0021230040001682937,
+     "frames": 1244,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 0.99994640943194,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 1.0,
+      "right_elbow": 1.0,
+      "left_wrist": 0.9991961414790996,
+      "right_wrist": 1.0,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 5.367686527106817e-05,
+     "spike_p99_median": 0.02149025779504237,
+     "spikes": {
+      "nose": [
+       0.023065844899911387,
+       0.0
+      ],
+      "left_ear": [
+       0.02010787157659046,
+       0.0
+      ],
+      "right_ear": [
+       0.019549578527967303,
+       0.0
+      ],
+      "left_shoulder": [
+       0.03503149956695217,
+       0.0
+      ],
+      "right_shoulder": [
+       0.02321677714878915,
+       0.0
+      ],
+      "left_elbow": [
+       0.034777223162164125,
+       0.0
+      ],
+      "right_elbow": [
+       0.03209171047743606,
+       0.0008051529790660225
+      ],
+      "left_wrist": [
+       0.03498041306932823,
+       0.0
+      ],
+      "right_wrist": [
+       0.02577253443857938,
+       0.0
+      ],
+      "left_hip": [
+       0.02149025779504237,
+       0.0
+      ],
+      "right_hip": [
+       0.019388255151676272,
+       0.0
+      ],
+      "left_knee": [
+       0.018294224901192608,
+       0.0
+      ],
+      "right_knee": [
+       0.017394119625782096,
+       0.0
+      ],
+      "left_ankle": [
+       0.013293721512226459,
+       0.0
+      ],
+      "right_ankle": [
+       0.015352046631333095,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       1243
+      ],
+      "elbow": [
+       0,
+       1243
+      ],
+      "wrist": [
+       0,
+       1241
+      ],
+      "hip": [
+       0,
+       1243
+      ],
+      "knee": [
+       0,
+       1243
+      ],
+      "ankle": [
+       0,
+       1243
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 197.54528911107553,
+     "threshold": 0.3,
+     "accuracy": null
+    }
+   },
+   "agreement": {
+    "nose": 0.03304797536558272,
+    "left_ear": 0.07076329669944458,
+    "right_ear": 0.07292897127940708,
+    "left_shoulder": 0.06654320756378238,
+    "right_shoulder": 0.07060075366329144,
+    "left_elbow": 0.044604382033578964,
+    "right_elbow": 0.053605842418644814,
+    "left_wrist": 0.05105047564680019,
+    "right_wrist": 0.05454976531118695,
+    "left_hip": 0.049258840987370385,
+    "right_hip": 0.07896964121991012,
+    "left_knee": 0.033565680563350506,
+    "right_knee": 0.040100444969554325,
+    "left_ankle": 0.04668675071222122,
+    "right_ankle": 0.038860428760702996
+   }
+  },
+  {
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "backends": {
+    "mediapipe": {
+     "process_s": 6.370311991000563,
+     "fps": 84.76821869366309,
+     "gpu_mem_peak_mib": null,
+     "cache_load_s": 0.0017218449993379181,
+     "frames": 540,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 0.9017283950617284,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 0.6666666666666666,
+      "right_elbow": 0.7981481481481482,
+      "left_wrist": 0.6222222222222222,
+      "right_wrist": 0.737037037037037,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 0.7240740740740741,
+      "right_knee": 1.0,
+      "left_ankle": 0.9777777777777777,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.00012391573729863693,
+     "spike_p99_median": 0.05009103670253563,
+     "spikes": {
+      "nose": [
+       0.01715455628888317,
+       0.0
+      ],
+      "left_ear": [
+       0.016674828048481135,
+       0.0
+      ],
+      "right_ear": [
+       0.015171234502636573,
+       0.0
+      ],
+      "left_shoulder": [
+       0.16245962506027206,
+       0.0
+      ],
+      "right_shoulder": [
+       0.1610975020088521,
+       0.0018587360594795538
+      ],
+      "left_elbow": [
+       0.14450542043248388,
+       0.0
+      ],
+      "right_elbow": [
+       0.16543679950136814,
+       0.0
+      ],
+      "left_wrist": [
+       0.05009103670253563,
+       0.0
+      ],
+      "right_wrist": [
+       0.0980156429537184,
+       0.0
+      ],
+      "left_hip": [
+       0.045909826278423355,
+       0.0
+      ],
+      "right_hip": [
+       0.054154573922570656,
+       0.0
+      ],
+      "left_knee": [
+       0.03906413759786846,
+       0.0
+      ],
+      "right_knee": [
+       0.05469160846981502,
+       0.0
+      ],
+      "left_ankle": [
+       0.037610267137062905,
+       0.0
+      ],
+      "right_ankle": [
+       0.01575688852396818,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       8,
+       539
+      ],
+      "elbow": [
+       0,
+       248
+      ],
+      "wrist": [
+       0,
+       248
+      ],
+      "hip": [
+       4,
+       539
+      ],
+      "knee": [
+       0,
+       388
+      ],
+      "ankle": [
+       0,
+       526
+      ]
+     },
+     "lr_swap_events": 12,
+     "body_scale_px": 70.72864470430846,
+     "threshold": 0.5,
+     "accuracy": null
+    },
+    "rtmpose": {
+     "process_s": 7.668388927000706,
+     "fps": 70.41896350596386,
+     "gpu_mem_peak_mib": 902,
+     "cache_load_s": 0.0012067499992554076,
+     "frames": 540,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 1.0,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 1.0,
+      "right_elbow": 1.0,
+      "left_wrist": 1.0,
+      "right_wrist": 1.0,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.0,
+     "spike_p99_median": 0.01961974541921904,
+     "spikes": {
+      "nose": [
+       0.020488601425335498,
+       0.0
+      ],
+      "left_ear": [
+       0.024820110978589452,
+       0.0
+      ],
+      "right_ear": [
+       0.020656737924841906,
+       0.0
+      ],
+      "left_shoulder": [
+       0.015023581615811361,
+       0.0
+      ],
+      "right_shoulder": [
+       0.016171790630428153,
+       0.0
+      ],
+      "left_elbow": [
+       0.031875669398096634,
+       0.0
+      ],
+      "right_elbow": [
+       0.04220089922548616,
+       0.0
+      ],
+      "left_wrist": [
+       0.04855361591924841,
+       0.0
+      ],
+      "right_wrist": [
+       0.037429914456298036,
+       0.0
+      ],
+      "left_hip": [
+       0.01961974541921904,
+       0.0
+      ],
+      "right_hip": [
+       0.016876241143431295,
+       0.0
+      ],
+      "left_knee": [
+       0.01951129418384288,
+       0.0
+      ],
+      "right_knee": [
+       0.0164776413030874,
+       0.0
+      ],
+      "left_ankle": [
+       0.01760356485811883,
+       0.0
+      ],
+      "right_ankle": [
+       0.013420263621368552,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       539
+      ],
+      "elbow": [
+       0,
+       539
+      ],
+      "wrist": [
+       0,
+       539
+      ],
+      "hip": [
+       0,
+       539
+      ],
+      "knee": [
+       0,
+       539
+      ],
+      "ankle": [
+       0,
+       539
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 69.23147740361625,
+     "threshold": 0.3,
+     "accuracy": null
+    }
+   },
+   "agreement": {
+    "nose": 0.051205284811824264,
+    "left_ear": 0.08721286160346003,
+    "right_ear": 0.11206860046055786,
+    "left_shoulder": 0.06534024188591042,
+    "right_shoulder": 0.11712948865718932,
+    "left_elbow": 0.09711689339898383,
+    "right_elbow": 0.10118593756500727,
+    "left_wrist": 0.10288424780523014,
+    "right_wrist": 0.07388917313750375,
+    "left_hip": 0.09801386920021138,
+    "right_hip": 0.09560578422414315,
+    "left_knee": 0.07901449616160054,
+    "right_knee": 0.06040481177209807,
+    "left_ankle": 0.13633039201791977,
+    "right_ankle": 0.05497160600233306
+   }
+  },
+  {
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "backends": {
+    "mediapipe": {
+     "process_s": 6.593923884000105,
+     "fps": 86.59487280183941,
+     "gpu_mem_peak_mib": null,
+     "cache_load_s": 0.0015565670000796672,
+     "frames": 571,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 0.9798015178050204,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 0.712784588441331,
+      "right_elbow": 1.0,
+      "left_wrist": 0.9842381786339754,
+      "right_wrist": 1.0,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.00047687684650170905,
+     "spike_p99_median": 0.046504529068774364,
+     "spikes": {
+      "nose": [
+       0.046504529068774364,
+       0.0
+      ],
+      "left_ear": [
+       0.04007699251324827,
+       0.0
+      ],
+      "right_ear": [
+       0.043587026297067774,
+       0.0
+      ],
+      "left_shoulder": [
+       0.06345816846687334,
+       0.0
+      ],
+      "right_shoulder": [
+       0.034843753276182284,
+       0.0
+      ],
+      "left_elbow": [
+       0.04949147041343147,
+       0.0
+      ],
+      "right_elbow": [
+       0.07714096437842347,
+       0.0
+      ],
+      "left_wrist": [
+       0.15603285033364975,
+       0.00539568345323741
+      ],
+      "right_wrist": [
+       0.08738939824866451,
+       0.0017574692442882249
+      ],
+      "left_hip": [
+       0.02227052379995743,
+       0.0
+      ],
+      "right_hip": [
+       0.02251319851038161,
+       0.0
+      ],
+      "left_knee": [
+       0.04995999248644292,
+       0.0
+      ],
+      "right_knee": [
+       0.05395259718025435,
+       0.0
+      ],
+      "left_ankle": [
+       0.01854509754988027,
+       0.0
+      ],
+      "right_ankle": [
+       0.012468841027690107,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       570
+      ],
+      "elbow": [
+       0,
+       406
+      ],
+      "wrist": [
+       0,
+       559
+      ],
+      "hip": [
+       0,
+       570
+      ],
+      "knee": [
+       0,
+       570
+      ],
+      "ankle": [
+       0,
+       570
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 57.86143651593604,
+     "threshold": 0.5,
+     "accuracy": null
+    },
+    "rtmpose": {
+     "process_s": 7.8488538280016655,
+     "fps": 72.74947559386231,
+     "gpu_mem_peak_mib": 902,
+     "cache_load_s": 0.0012174059993412811,
+     "frames": 571,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 1.0,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 1.0,
+      "right_elbow": 1.0,
+      "left_wrist": 1.0,
+      "right_wrist": 1.0,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.0,
+     "spike_p99_median": 0.03294683672309071,
+     "spikes": {
+      "nose": [
+       0.03290656864805551,
+       0.0
+      ],
+      "left_ear": [
+       0.033446742452146565,
+       0.0
+      ],
+      "right_ear": [
+       0.029909172104861173,
+       0.0
+      ],
+      "left_shoulder": [
+       0.05635311827995137,
+       0.0
+      ],
+      "right_shoulder": [
+       0.03519765123149024,
+       0.0
+      ],
+      "left_elbow": [
+       0.054920855661460724,
+       0.0
+      ],
+      "right_elbow": [
+       0.04173000028912577,
+       0.0
+      ],
+      "left_wrist": [
+       0.042764962948816806,
+       0.0
+      ],
+      "right_wrist": [
+       0.03294683672309071,
+       0.0
+      ],
+      "left_hip": [
+       0.03789811336864895,
+       0.0
+      ],
+      "right_hip": [
+       0.032486954921042754,
+       0.0
+      ],
+      "left_knee": [
+       0.026408884768558044,
+       0.0
+      ],
+      "right_knee": [
+       0.02504593188885532,
+       0.0
+      ],
+      "left_ankle": [
+       0.017406404170220834,
+       0.0
+      ],
+      "right_ankle": [
+       0.01806642075398552,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       570
+      ],
+      "elbow": [
+       0,
+       570
+      ],
+      "wrist": [
+       0,
+       570
+      ],
+      "hip": [
+       0,
+       570
+      ],
+      "knee": [
+       0,
+       570
+      ],
+      "ankle": [
+       0,
+       570
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 51.946595569175294,
+     "threshold": 0.3,
+     "accuracy": null
+    }
+   },
+   "agreement": {
+    "nose": 0.08386025039036353,
+    "left_ear": 0.11660927679467938,
+    "right_ear": 0.10774553319162794,
+    "left_shoulder": 0.19278402536190134,
+    "right_shoulder": 0.14831684508114518,
+    "left_elbow": 0.1386655662059277,
+    "right_elbow": 0.2076274134283696,
+    "left_wrist": 0.09667736080760506,
+    "right_wrist": 0.06920924404621794,
+    "left_hip": 0.05177039089784699,
+    "right_hip": 0.06134613471046605,
+    "left_knee": 0.04303455619754416,
+    "right_knee": 0.05266979969044942,
+    "left_ankle": 0.03290786879001649,
+    "right_ankle": 0.07218009061087718
+   }
+  },
+  {
+   "video": "videos/reference/GW_2009_faceon.mp4",
+   "view": "face_on",
+   "backends": {
+    "mediapipe": {
+     "process_s": 13.495206638999662,
+     "fps": 85.66004440860411,
+     "gpu_mem_peak_mib": null,
+     "cache_load_s": 0.0026455930001247907,
+     "frames": 1156,
+     "detection_rate": 0.9965397923875432,
+     "valid_rate_mean": 0.9646482122260666,
+     "valid_rate": {
+      "nose": 0.9965397923875432,
+      "left_ear": 0.9965397923875432,
+      "right_ear": 0.9965397923875432,
+      "left_shoulder": 0.9965397923875432,
+      "right_shoulder": 0.9965397923875432,
+      "left_elbow": 0.6937716262975778,
+      "right_elbow": 0.9965397923875432,
+      "left_wrist": 0.8209342560553633,
+      "right_wrist": 0.9965397923875432,
+      "left_hip": 0.9965397923875432,
+      "right_hip": 0.9965397923875432,
+      "left_knee": 0.9965397923875432,
+      "right_knee": 0.9965397923875432,
+      "left_ankle": 0.9965397923875432,
+      "right_ankle": 0.9965397923875432
+     },
+     "spike_rate_mean": 0.004771654056835435,
+     "spike_p99_median": 0.07626989777477446,
+     "spikes": {
+      "nose": [
+       0.07626989777477446,
+       0.0
+      ],
+      "left_ear": [
+       0.06726746136943335,
+       0.0
+      ],
+      "right_ear": [
+       0.045760426484856696,
+       0.0
+      ],
+      "left_shoulder": [
+       0.054724901981336574,
+       0.0008748906386701663
+      ],
+      "right_shoulder": [
+       0.04869269494361566,
+       0.0
+      ],
+      "left_elbow": [
+       0.09601890732899106,
+       0.0025380710659898475
+      ],
+      "right_elbow": [
+       0.10192150058096058,
+       0.003499562554680665
+      ],
+      "left_wrist": [
+       0.2438064114957687,
+       0.013918629550321198
+      ],
+      "right_wrist": [
+       0.35633399186299,
+       0.021872265966754154
+      ],
+      "left_hip": [
+       0.023245289486343995,
+       0.0
+      ],
+      "right_hip": [
+       0.014667651440548594,
+       0.0
+      ],
+      "left_knee": [
+       0.08022035542726674,
+       0.0026246719160104987
+      ],
+      "right_knee": [
+       0.0658604647389352,
+       0.0
+      ],
+      "left_ankle": [
+       0.2381672787658919,
+       0.01399825021872266
+      ],
+      "right_ankle": [
+       0.2182765389856386,
+       0.012248468941382326
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       1,
+       1147
+      ],
+      "elbow": [
+       0,
+       794
+      ],
+      "wrist": [
+       1,
+       941
+      ],
+      "hip": [
+       0,
+       1147
+      ],
+      "knee": [
+       0,
+       1147
+      ],
+      "ankle": [
+       2,
+       1147
+      ]
+     },
+     "lr_swap_events": 4,
+     "body_scale_px": 65.34136893601632,
+     "threshold": 0.5,
+     "accuracy": null
+    },
+    "rtmpose": {
+     "process_s": 15.586146102999919,
+     "fps": 74.16843088475224,
+     "gpu_mem_peak_mib": 904,
+     "cache_load_s": 0.0020159800005785655,
+     "frames": 1156,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 0.9998846597462515,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 1.0,
+      "right_elbow": 1.0,
+      "left_wrist": 1.0,
+      "right_wrist": 0.9982698961937716,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.000462160600808781,
+     "spike_p99_median": 0.03265895530241844,
+     "spikes": {
+      "nose": [
+       0.03265895530241844,
+       0.0
+      ],
+      "left_ear": [
+       0.026534005981196408,
+       0.0
+      ],
+      "right_ear": [
+       0.02738411489728402,
+       0.0
+      ],
+      "left_shoulder": [
+       0.06445383638854914,
+       0.0034662045060658577
+      ],
+      "right_shoulder": [
+       0.060837886201478474,
+       0.0017331022530329288
+      ],
+      "left_elbow": [
+       0.04401986317158116,
+       0.0
+      ],
+      "right_elbow": [
+       0.04509484181228947,
+       0.0
+      ],
+      "left_wrist": [
+       0.04504588915493941,
+       0.0017331022530329288
+      ],
+      "right_wrist": [
+       0.03426878633342829,
+       0.0
+      ],
+      "left_hip": [
+       0.044774214290530794,
+       0.0
+      ],
+      "right_hip": [
+       0.025970201385612145,
+       0.0
+      ],
+      "left_knee": [
+       0.019682441195280367,
+       0.0
+      ],
+      "right_knee": [
+       0.02214528592202391,
+       0.0
+      ],
+      "left_ankle": [
+       0.015975672061663424,
+       0.0
+      ],
+      "right_ankle": [
+       0.023426747986718108,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       1155
+      ],
+      "elbow": [
+       0,
+       1155
+      ],
+      "wrist": [
+       0,
+       1151
+      ],
+      "hip": [
+       0,
+       1155
+      ],
+      "knee": [
+       0,
+       1155
+      ],
+      "ankle": [
+       0,
+       1155
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 61.508887988885284,
+     "threshold": 0.3,
+     "accuracy": null
+    }
+   },
+   "agreement": {
+    "nose": 0.05340489585881834,
+    "left_ear": 0.10202763782442781,
+    "right_ear": 0.07949629965974193,
+    "left_shoulder": 0.08784449463843542,
+    "right_shoulder": 0.1275128395049545,
+    "left_elbow": 0.06604829867493489,
+    "right_elbow": 0.16308331644125074,
+    "left_wrist": 0.08930031080218521,
+    "right_wrist": 0.09502331062073785,
+    "left_hip": 0.08894587046791137,
+    "right_hip": 0.08786211919734603,
+    "left_knee": 0.12599929118760156,
+    "right_knee": 0.07819828872966911,
+    "left_ankle": 0.03527546267442308,
+    "right_ankle": 0.07014195576754266
+   }
+  },
+  {
+   "video": "videos/extra/2026-07-27 135033/Jeff Young - 2026-07-27 135006 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "backends": {
+    "mediapipe": {
+     "process_s": 15.587441297000623,
+     "fps": 79.80783865016856,
+     "gpu_mem_peak_mib": null,
+     "cache_load_s": 0.0028189300010126317,
+     "frames": 1244,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 0.8289924973204718,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 0.5072347266881029,
+      "right_elbow": 0.6438906752411575,
+      "left_wrist": 0.33762057877813506,
+      "right_wrist": 0.6165594855305466,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 0.5868167202572347,
+      "right_knee": 1.0,
+      "left_ankle": 0.7427652733118971,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.0,
+     "spike_p99_median": 0.0073852655343725855,
+     "spikes": {
+      "nose": [
+       0.0056463781564556614,
+       0.0
+      ],
+      "left_ear": [
+       0.0043480697912956145,
+       0.0
+      ],
+      "right_ear": [
+       0.0029742844876471178,
+       0.0
+      ],
+      "left_shoulder": [
+       0.008837206845433543,
+       0.0
+      ],
+      "right_shoulder": [
+       0.006087390969280093,
+       0.0
+      ],
+      "left_elbow": [
+       0.015465026900181587,
+       0.0
+      ],
+      "right_elbow": [
+       0.030572221592424596,
+       0.0
+      ],
+      "left_wrist": [
+       0.030109310116219756,
+       0.0
+      ],
+      "right_wrist": [
+       0.03875719137911347,
+       0.0
+      ],
+      "left_hip": [
+       0.0043084279472858445,
+       0.0
+      ],
+      "right_hip": [
+       0.004458314438987549,
+       0.0
+      ],
+      "left_knee": [
+       0.0075750968546587725,
+       0.0
+      ],
+      "right_knee": [
+       0.0073852655343725855,
+       0.0
+      ],
+      "left_ankle": [
+       0.01876028196213564,
+       0.0
+      ],
+      "right_ankle": [
+       0.0025743584490937627,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       1243
+      ],
+      "elbow": [
+       0,
+       240
+      ],
+      "wrist": [
+       0,
+       245
+      ],
+      "hip": [
+       0,
+       1243
+      ],
+      "knee": [
+       0,
+       728
+      ],
+      "ankle": [
+       0,
+       909
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 159.71562460150005,
+     "threshold": 0.5,
+     "accuracy": null
+    },
+    "rtmpose": {
+     "process_s": 20.72568726800091,
+     "fps": 60.02213504015636,
+     "gpu_mem_peak_mib": 902,
+     "cache_load_s": 0.0021647949997714022,
+     "frames": 1244,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 1.0,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 1.0,
+      "right_elbow": 1.0,
+      "left_wrist": 1.0,
+      "right_wrist": 1.0,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.00037573805689747715,
+     "spike_p99_median": 0.05998734538873706,
+     "spikes": {
+      "nose": [
+       0.057392815185986254,
+       0.0
+      ],
+      "left_ear": [
+       0.14394055976468353,
+       0.0
+      ],
+      "right_ear": [
+       0.0525021441789778,
+       0.0
+      ],
+      "left_shoulder": [
+       0.05181659538759433,
+       0.0
+      ],
+      "right_shoulder": [
+       0.04062260227235364,
+       0.0
+      ],
+      "left_elbow": [
+       0.0661374412581152,
+       0.0
+      ],
+      "right_elbow": [
+       0.06772387491234623,
+       0.0
+      ],
+      "left_wrist": [
+       0.10664132256594551,
+       0.004025764895330112
+      ],
+      "right_wrist": [
+       0.13398442475943634,
+       0.001610305958132045
+      ],
+      "left_hip": [
+       0.09393317915728669,
+       0.0
+      ],
+      "right_hip": [
+       0.08566542875620281,
+       0.0
+      ],
+      "left_knee": [
+       0.0387403961521357,
+       0.0
+      ],
+      "right_knee": [
+       0.044388435184458466,
+       0.0
+      ],
+      "left_ankle": [
+       0.05998734538873706,
+       0.0
+      ],
+      "right_ankle": [
+       0.023208413664045278,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       1243
+      ],
+      "elbow": [
+       0,
+       1243
+      ],
+      "wrist": [
+       0,
+       1243
+      ],
+      "hip": [
+       0,
+       1243
+      ],
+      "knee": [
+       0,
+       1243
+      ],
+      "ankle": [
+       0,
+       1243
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 153.00154158334072,
+     "threshold": 0.3,
+     "accuracy": null
+    }
+   },
+   "agreement": {
+    "nose": 0.0804327787000154,
+    "left_ear": 0.08881795653153801,
+    "right_ear": 0.03135839400756362,
+    "left_shoulder": 0.060367000405464624,
+    "right_shoulder": 0.049941652059406455,
+    "left_elbow": 0.04508453751766279,
+    "right_elbow": 0.0876394361456137,
+    "left_wrist": 0.0860445277695707,
+    "right_wrist": 0.04156759501096128,
+    "left_hip": 0.06403130369032668,
+    "right_hip": 0.050181747999060056,
+    "left_knee": 0.03731604237376386,
+    "right_knee": 0.04274466940416077,
+    "left_ankle": 0.05287849973188273,
+    "right_ankle": 0.03257874401429739
+   }
+  },
+  {
+   "video": "videos/extra/2026-07-27 135033/Jeff Young - 2026-07-27 135006 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "backends": {
+    "mediapipe": {
+     "process_s": 15.302271004000431,
+     "fps": 81.29512277457277,
+     "gpu_mem_peak_mib": null,
+     "cache_load_s": 0.0031165559994406067,
+     "frames": 1244,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 0.9576634512325831,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 0.6454983922829582,
+      "right_elbow": 1.0,
+      "left_wrist": 0.7194533762057878,
+      "right_wrist": 1.0,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.0,
+     "spike_p99_median": 0.006148039292019897,
+     "spikes": {
+      "nose": [
+       0.012730368525949104,
+       0.0
+      ],
+      "left_ear": [
+       0.00612728432337339,
+       0.0
+      ],
+      "right_ear": [
+       0.007199997447886406,
+       0.0
+      ],
+      "left_shoulder": [
+       0.006148039292019897,
+       0.0
+      ],
+      "right_shoulder": [
+       0.0066494107738183554,
+       0.0
+      ],
+      "left_elbow": [
+       0.019585104576609787,
+       0.0
+      ],
+      "right_elbow": [
+       0.018336858317244895,
+       0.0
+      ],
+      "left_wrist": [
+       0.03401222441260184,
+       0.0
+      ],
+      "right_wrist": [
+       0.018186566639627262,
+       0.0
+      ],
+      "left_hip": [
+       0.002981619568156691,
+       0.0
+      ],
+      "right_hip": [
+       0.00295722380484498,
+       0.0
+      ],
+      "left_knee": [
+       0.0026843618265111682,
+       0.0
+      ],
+      "right_knee": [
+       0.0037236925321497776,
+       0.0
+      ],
+      "left_ankle": [
+       0.0013113113364159473,
+       0.0
+      ],
+      "right_ankle": [
+       0.002770433184431501,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       1243
+      ],
+      "elbow": [
+       0,
+       801
+      ],
+      "wrist": [
+       0,
+       890
+      ],
+      "hip": [
+       0,
+       1243
+      ],
+      "knee": [
+       0,
+       1243
+      ],
+      "ankle": [
+       0,
+       1243
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 151.68118729541476,
+     "threshold": 0.5,
+     "accuracy": null
+    },
+    "rtmpose": {
+     "process_s": 20.925827414001105,
+     "fps": 59.44806747128486,
+     "gpu_mem_peak_mib": 902,
+     "cache_load_s": 0.0022811840008216677,
+     "frames": 1244,
+     "detection_rate": 1.0,
+     "valid_rate_mean": 1.0,
+     "valid_rate": {
+      "nose": 1.0,
+      "left_ear": 1.0,
+      "right_ear": 1.0,
+      "left_shoulder": 1.0,
+      "right_shoulder": 1.0,
+      "left_elbow": 1.0,
+      "right_elbow": 1.0,
+      "left_wrist": 1.0,
+      "right_wrist": 1.0,
+      "left_hip": 1.0,
+      "right_hip": 1.0,
+      "left_knee": 1.0,
+      "right_knee": 1.0,
+      "left_ankle": 1.0,
+      "right_ankle": 1.0
+     },
+     "spike_rate_mean": 0.0008588298443370907,
+     "spike_p99_median": 0.06037089687271398,
+     "spikes": {
+      "nose": [
+       0.13548150967818995,
+       0.0
+      ],
+      "left_ear": [
+       0.21519402159522902,
+       0.01288244766505636
+      ],
+      "right_ear": [
+       0.0714761623339564,
+       0.0
+      ],
+      "left_shoulder": [
+       0.03835367842036856,
+       0.0
+      ],
+      "right_shoulder": [
+       0.07861432690844972,
+       0.0
+      ],
+      "left_elbow": [
+       0.08678529272397563,
+       0.0
+      ],
+      "right_elbow": [
+       0.048243795735232686,
+       0.0
+      ],
+      "left_wrist": [
+       0.06341715313608352,
+       0.0
+      ],
+      "right_wrist": [
+       0.04335063631027517,
+       0.0
+      ],
+      "left_hip": [
+       0.06037089687271398,
+       0.0
+      ],
+      "right_hip": [
+       0.06140732713156923,
+       0.0
+      ],
+      "left_knee": [
+       0.025727934258967612,
+       0.0
+      ],
+      "right_knee": [
+       0.028102372683273955,
+       0.0
+      ],
+      "left_ankle": [
+       0.021664612424843084,
+       0.0
+      ],
+      "right_ankle": [
+       0.032533800048916865,
+       0.0
+      ]
+     },
+     "lr_swaps": {
+      "shoulder": [
+       0,
+       1243
+      ],
+      "elbow": [
+       0,
+       1243
+      ],
+      "wrist": [
+       0,
+       1243
+      ],
+      "hip": [
+       0,
+       1243
+      ],
+      "knee": [
+       0,
+       1243
+      ],
+      "ankle": [
+       0,
+       1243
+      ]
+     },
+     "lr_swap_events": 0,
+     "body_scale_px": 142.48128880000266,
+     "threshold": 0.3,
+     "accuracy": null
+    }
+   },
+   "agreement": {
+    "nose": 0.06915562675537548,
+    "left_ear": 0.08321558887757201,
+    "right_ear": 0.059842805956417916,
+    "left_shoulder": 0.15214188798132852,
+    "right_shoulder": 0.11774341550045919,
+    "left_elbow": 0.022973351242990277,
+    "right_elbow": 0.16489787660689822,
+    "left_wrist": 0.04953173171685272,
+    "right_wrist": 0.054313524775675394,
+    "left_hip": 0.047886672198755406,
+    "right_hip": 0.0665981783513407,
+    "left_knee": 0.05212697438294245,
+    "right_knee": 0.02985735376974299,
+    "left_ankle": 0.03662368105385716,
+    "right_ankle": 0.03304084803877481
+   }
+  }
+ ],
+ "backends": {
+  "mediapipe": {
+   "identity": "mediapipe-0.10.35-59929e1d1ee95287-env85925914",
+   "init_s": 0.16998749699996551
+  },
+  "rtmpose": {
+   "identity": "rtmpose-m-halpe26-26f3a19e6130+yolox-m-3dea65133888-cfg74cb8202c1-ort1.31.0-cuda-env85925914",
+   "init_s": 4.158231143999728
+  }
+ },
+ "labels_file": null
+}

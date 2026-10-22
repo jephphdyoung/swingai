@@ -118,3 +118,48 @@ def test_port_override(dirs):
 def test_replaces_a_stale_container_of_the_same_name(dirs):
     _, argv = dry_run(dirs)
     assert "--replace" in argv
+
+
+class TestGpuMode:
+    def test_cpu_default_has_no_gpu_pieces(self, dirs):
+        _, argv = dry_run(dirs)
+        assert "swingai" in argv and "swingai-gpu" not in argv
+        assert "--device" not in argv and "--cdi-spec-dir" not in argv
+        assert "/app/models" not in mounts(argv)
+
+    def test_gpu_adds_device_cdi_and_read_only_models(self, dirs, tmp_path):
+        _, argv = dry_run(dirs, SWINGAI_GPU="1", SWINGAI_MODEL_DIR=str(tmp_path / "m"),
+                          SWINGAI_CDI_DIR=str(tmp_path / "cdi"))
+        assert argv[:3] == ["podman", "--cdi-spec-dir", str(tmp_path / "cdi")]
+        assert argv[argv.index("--device") + 1] == "nvidia.com/gpu=all"
+        assert argv[-1] == "swingai-gpu"
+        host, opts = mounts(argv)["/app/models"]
+        assert host == str(tmp_path / "m") and opts == "ro"
+
+    def test_gpu_keeps_footage_read_only_and_unlabelled(self, dirs):
+        _, argv = dry_run(dirs, SWINGAI_GPU="1")
+        m = mounts(argv)
+        for target in ("/app/videos/user", "/app/videos/reference"):
+            assert m[target][1] == "ro"
+        for host, opts in m.values():
+            assert not {"z", "Z"} & set(opts.split(",")), (host, opts)
+        assert argv[argv.index("--security-opt") + 1] == "label=disable"
+
+    def test_verify_gpu_runs_the_verification_script(self, dirs):
+        _, argv = dry_run_cmd(dirs, "verify-gpu", SWINGAI_GPU="1")
+        assert argv[-3:] == ["swingai-gpu", "python", "scripts/verify_gpu.py"]
+        assert "-p" not in argv
+
+    def test_verify_gpu_without_gpu_mode_is_an_error(self, dirs):
+        res, _ = dry_run_cmd(dirs, "verify-gpu")
+        assert res.returncode != 0
+
+
+def dry_run_cmd(dirs, command, **extra):
+    env = dict(os.environ, SWINGAI_DRY_RUN="1",
+               SWINGAI_USER_DIR=str(dirs["user"]),
+               SWINGAI_REFERENCE_DIR=str(dirs["reference"]),
+               SWINGAI_OUTPUT_DIR=str(dirs["output"]))
+    env.update(extra)
+    res = subprocess.run(["bash", RUN_SH, command], env=env, capture_output=True, text=True)
+    return res, res.stdout.splitlines()

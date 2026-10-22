@@ -1,0 +1,33 @@
+# GPU image for RTMPose (ONNX Runtime CUDA EP). The CPU image (Dockerfile) is
+# unchanged and remains the default; run.sh selects this one with SWINGAI_GPU=1.
+#
+# onnxruntime-gpu 1.31 (PyPI) is built against CUDA 13 + cuDNN 9; CUDA 13
+# supports Blackwell (sm_120, RTX 50xx). 13.4 matches the host driver's CUDA
+# user-mode version (driver 615.78.08 -> CUDA 13.4). The driver itself comes
+# from the host through NVIDIA CDI.
+FROM docker.io/nvidia/cuda:13.4.3-cudnn-runtime-ubuntu24.04@sha256:3a6966a47d7dfe61350b721d5adbeca92a14eb77dffbb3769a06605c3768340e
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-pip \
+    ffmpeg libgl1 libglib2.0-0 libgles2 libegl1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+
+WORKDIR /app
+
+COPY requirements.txt requirements-gpu.txt constraints.txt ./
+RUN pip install --upgrade pip && \
+    pip install -c constraints.txt -r requirements.txt && \
+    pip install -c constraints.txt -r requirements-gpu.txt
+
+COPY . .
+
+EXPOSE 8501
+
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

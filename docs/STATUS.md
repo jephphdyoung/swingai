@@ -1,6 +1,6 @@
 # Status & Next Steps
 
-Working state as of **2026-10-20**. Read this first when picking the work back up.
+Working state as of **2026-10-22**. Read this first when picking the work back up.
 
 Design rationale lives in [p-position-detection.md](p-position-detection.md);
 the longer-range vision is in [ROADMAP.md](ROADMAP.md). This file is just where
@@ -81,7 +81,106 @@ real footage (150221 pair vs. `GW_DTL`/`GW_faceon`), but every label it uses nee
 | `GW_faceon.mp4` | 53 / 278 | yours, legacy: confirm P6/P7 too |
 
 Use **Confirm reviewed** in the Dual-View tab after checking each. The 2026-07-27 library has
-no annotations.
+no annotations. The two 150221 clips were deleted locally on 2026-10-22; their entries in
+`data/annotations.json` are kept but point at missing files.
+
+**PR #4: final state (2026-10-22).** Ready for final review. Not merged.
+
+*Done and verified 2026-10-22:*
+- RTMPose-m + YOLOX-m on the GPU. `verify-gpu` passes, with each network shown executing CUDA
+  kernels on its own.
+- Backend switching in the Dual-View tab, with MediaPipe as the default.
+- A per-backend, per-environment pose cache. On one video, MediaPipe in the CPU image, MediaPipe in
+  the GPU image and RTMPose each got their own entry, and each fresh extraction matched the existing
+  cache exactly.
+- The joint-labelling tools: blind/assisted split, Feet and Hands/Club groups, image-digest checks.
+- Tests: CPU image 766 passed and 7 skipped (GPU/ORT-only). GPU image 771 passed and 2 skipped
+  (CPU-image-only checks).
+- The app renders all three tabs on the current local data without errors.
+
+*Deferred: accuracy evaluation.*
+- Face-on is scored (below). DTL is not: no P1 torso scale.
+- No further labelling is planned in PR #4.
+
+**The 2026-06-20 150221 user captures were deleted locally on 2026-10-22** and are no longer part of
+the video library. Ten of the 20 benchmark frames and two of the seven benchmarked videos come from
+them. Kept unchanged as historical record:
+- `data/joint_labels/{labels.json, manifest.json, labels-old-labeller-2026-10-21.json}`
+- `docs/benchmarks/pose-backends-2026-10-20.*` and `docs/benchmarks/joint-accuracy-2026-10-21.*`
+
+They can't be reproduced now. The tools refuse rather than produce partial numbers:
+- `evaluate_joint_labels.py` stops with "video not found", including for the Grant Waite frames,
+  because it checks every labelled frame first.
+- `make_joint_label_set.py` stops with "no longer decodes" before writing anything.
+- `benchmark_pose.py` names each missing video, then runs on the rest.
+
+`verify-gpu` and `tests/test_gpu_rtmpose.py` used one of those clips and would have skipped silently.
+They now use the committed `videos/reference/GW_faceon.mp4`, and a missing file fails the test.
+`verify-gpu` used to quietly take the first `videos/**/*.mp4` when its video was missing. That
+fallback is gone: a missing file, or one that can't be opened or yields no frames, exits 2, and the
+absolute path it verified on is printed.
+`scripts/make_joint_label_set.py` and `benchmark_pose.py` still list the deleted clips as defaults;
+the video-library rework replaces them.
+
+**GPU pose estimation** (PR #4, 2026-10-20). RTMPose-m (Halpe26) + YOLOX-m on ONNX Runtime
+CUDA, selectable in the Dual-View tab under `SWINGAI_GPU=1 ./run.sh`. Both networks (YOLOX
+detector and RTMPose) are verified separately to execute CUDA kernels on the RTX 5070 Ti
+(`verify-gpu`: per-node profile, NVML kernel activity with a CPU control, CUDA/CPU parity).
+That's 16 ms/frame end to end, ~3× the CPU path. Benchmarked
+against MediaPipe on 7 videos ([report](benchmarks/pose-backends-2026-10-20.md)): MediaPipe
+swaps left/right labels (16 events) where RTMPose doesn't, and the two disagree by tens of
+degrees on some P4 measurements. **Accuracy against human labels is measured for face-on only**
+(below); DTL is not scored yet. MediaPipe stays the default.
+
+A first full pass of labels (2026-10-21) is kept as
+`data/joint_labels/labels-old-labeller-2026-10-21.json`. It was exported from a labeller
+still open from before the digest change, so the evaluator refuses it (no `image_sha1`).
+Checked by decoding: 16 of its 20 frames were labelled on the right image. DTL 730/1238 and
+face-on 736/774 were labelled on the frame before. **Decided:** the rebuilt labeller offers
+the 16 for checking (hollow rings: keep or move each), and the 4 are relabelled from
+scratch. Nothing is certified without that check.
+
+**Assisted labelling (2026-10-21).** 12 of the 20 benchmark frames are fixed as **blind**:
+each video's P1 plus two chosen by image hash, before any suggestion existed. They show no
+model output and are the fair comparison. The other 8 get suggestions from the cached poses
+of both models. Disagreements over 0.1 torso lengths are flagged with no first choice, and
+the first-choice model alternates. Assisted frames are scored and reported separately, never
+pooled. Accepted model points need the labeller's sign-off.
+
+**First joint-accuracy results (2026-10-21)** ([report](benchmarks/joint-accuracy-2026-10-21.md),
+labels in `data/joint_labels/labels.json`, all 20 frames, 238/300 joints):
+- **Face-on, 6 blind frames (76 joints, both golfers):** RTMPose is closer to the labels.
+  Within 0.1 torso lengths: RTMPose 69.7% vs MediaPipe 44.7%, a difference of +25.0 points
+  (95% interval +15.9 to +34.3). Mean error 0.074 vs 0.166 torso lengths. That's good evidence,
+  but from 6 frames of 2 golfers.
+- **DTL: not scored.** Errors are scaled by the P1 torso length, which needs both shoulders and both hips.
+  On both DTL P1 frames (Jeff 395, GW 104) the far-side shoulder and hip are hidden and were marked
+  can't-place. Two ways to score DTL: place them as occluded estimates, or change the scale to fall back
+  to the near-side shoulder→hip. Neither is decided. A scratch preview with the near-side fallback gave
+  RTMPose 71.9% vs MediaPipe 63.2% (+8.8, interval −7.4 to +24.6: no clear difference). It is not in the
+  report.
+- **The 8 assisted frames were labelled without suggestions.** Suggestions unlock only when every blind
+  frame's Body group is complete, which needs hidden joints marked occluded or can't-place, and most
+  blind frames have blank hidden joints. No label came from a model. The 8 frames are still reported as
+  assisted, because the export can't prove that nothing was shown.
+- Hidden joints were left blank or marked can't-place, never estimated, so the occluded-joint numbers are
+  empty: every scored joint is one the labeller could see.
+
+The labeller now also has optional **Feet** and **Hands/Club** groups, and the manifest can
+hold **sequences** for P2–P3, P5–P8 and heel-lift work, all outside the benchmark score
+([joint labelling](joint-labelling.md)). Not done yet:
+- RTMPose heel/small toe and MediaPipe heel aren't kept by the pose layer, so foot points
+  can't be scored against models.
+- Sequence scoring.
+
+**Known issue (pre-existing, not fixed in PR #4): OpenCV seeking lands one frame early on the
+240fps captures** from about frame 700 on (the stream's average frame rate, 249.30, differs
+from its nominal one). Pose extraction decodes sequentially, so wherever the UI *seeks*
+(`utils/dual_view.read_frame`, the annotator), the image shown is frame *f*−1 while the
+skeleton, measurements and saved P-position index are frame *f*. That's 4 ms, but the hands
+move far in 4 ms near impact. Measured on the 150221 pair (since deleted locally): frames 730/736/774/1238 are off by
+one; 395–652 are exact; Grant Waite's 30fps clips are exact. The joint-label set was fixed for
+this (sequential decode plus per-frame pixel digests). The annotator and panels still need it.
 
 ### Detection quality: not yet validated
 

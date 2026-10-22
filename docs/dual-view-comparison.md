@@ -94,7 +94,8 @@ saved to `data/annotations.json`; extracted poses are cached in
 | Skeleton | Show/hide the skeleton on all four panels. |
 | Highlight | Draw the landmarks of one measurement in red on every panel. |
 | Fill your missing positions from your other view | Off by default. Your two clips are co-triggered, so a position marked on one view is shown on the other at the **same timestamp** (labelled "from partner view"). Never saved, never applied to the reference. |
-| Advanced → Minimum landmark confidence | Landmarks below it count as not observed (drawn hollow grey). Default 0.5. |
+| Pose model | MediaPipe (CPU, default) or RTMPose GPU (GPU image only; see [gpu-pose.md](gpu-pose.md)). Each model's results are cached separately; switching loads that model's cache and never shows one model's landmarks under the other's name. |
+| Advanced → Minimum landmark confidence | Landmarks below it count as not observed (drawn hollow grey). Defaults to the selected model's own threshold: MediaPipe 0.5, RTMPose 0.3. |
 
 ---
 

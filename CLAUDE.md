@@ -52,6 +52,46 @@ pose layer: named landmarks (`utils/landmarks.py`), pixel coordinates, per-frame
 **no carry-forward**, cached on disk under `<output>/pose_cache/`. Path A's extractor is
 untouched. Full doc: [docs/dual-view-comparison.md](docs/dual-view-comparison.md).
 
+## Pose backends (PR #4)
+`utils/pose_data.py` holds the `PoseBackend` protocol, `make_backend("mediapipe"|"rtmpose")`
+and the cache. RTMPose (`utils/pose_rtmpose.py`: YOLOX-m + RTMPose-m Halpe26, ONNX Runtime
+CUDA) runs only in the GPU image: `SWINGAI_GPU=1 ./run.sh`. **MediaPipe stays the default**:
+accuracy vs. human labels is measured for face-on only (RTMPose ahead, 6 frames;
+`docs/benchmarks/joint-accuracy-2026-10-21.md`); DTL is unscored (P1 far-side torso can't-place).
+Gotchas:
+- Confidence is **per backend** (MediaPipe visibility 0.5, RTMPose SimCC 0.3), carried on
+  each `PoseSequence`; never compare the scores.
+- Cache identity includes model hashes, preprocessing config, ORT version, device and a
+  **runtime fingerprint**. The same MediaPipe gives different landmarks in the Debian CPU
+  image vs. the Ubuntu GPU image, so entries are per environment.
+- `onnxruntime-gpu` 1.31 needs **CUDA 13**; on CUDA 12 its provider silently fails to load
+  and ORT falls back to CPU (the backend refuses that).
+- `/etc/cdi/nvidia.yaml` goes stale on driver updates; `run.sh` uses a per-user spec in
+  `~/.local/share/swingai/cdi` via `podman --cdi-spec-dir` instead (no sudo).
+- Both images install with `-c constraints.txt` (frozen CPU-image versions).
+- YOLOX and RTMPose are **separate ORT sessions**, and each lands on a provider independently.
+  `open()` and `verify-gpu` check each network on its own. The ORT wheel has no CUPTI, so
+  kernel execution is shown with NVML `utilization.gpu` against a CPU-provider control.
+- RTMPose's score is **not visibility** (`score_is_visibility = False`): occluded joints
+  score high. The UI must never present its measurements as verified.
+- **OpenCV seeking is one frame early** on the 240fps captures past ~frame 700. Pose
+  extraction decodes sequentially, so anything that must match pose frames has to decode
+  sequentially (`utils/joint_labels.decode_frames`). The annotator and the panel images
+  still seek (STATUS.md).
+- Joint-accuracy evaluation: `scripts/evaluate_joint_labels.py`. It only runs on labels a
+  person exported from `labeler.html`. It scores **only the 15 body joints on the 20
+  benchmark frames** (pinned by digest). Feet, hands/club points (`utils/label_points.py`)
+  and sequence frames are validated, never scored there. MediaPipe `foot_index` is not the
+  big toe. Earlier labels are offered for re-checking only on identical images, and carried
+  points need `confirmed_by` ([docs/joint-labelling.md](docs/joint-labelling.md)).
+- **Assisted labelling:** 12 benchmark frames are `blind` in the manifest (fixed by image hash,
+  never from model output). The page holds no model output for them. Model suggestions come
+  from the pose cache, so build the labeller in the GPU image. Blind and assisted frames are
+  scored separately (`evaluate_split`) and never pooled. Model-sourced points need
+  `assist.confirmed_by` and are refused on blind frames. Don't change the blind set once
+  labelling has started.
+Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-backends-2026-10-20.md).
+
 ## Entry points
 - `app.py` — Streamlit UI. **Analyze** tab (pick user + reference video → custom HTML5
   player with P-position jump buttons, skeleton toggle, side-by-side / overlay switch) and
@@ -92,8 +132,9 @@ untouched. Full doc: [docs/dual-view-comparison.md](docs/dual-view-comparison.md
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # 554 tests
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 766 pass, 7 GPU/ORT-only skip (GPU image: 771 / 2)
 ./run.sh                                                             # app on :8501
+SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```
 GPU containers need `--device nvidia.com/gpu=all --security-opt=label=disable`, and
 Blackwell (sm_120) needs cu128 or newer. Details and the CDI-regeneration fix: STATUS.md.
@@ -106,5 +147,9 @@ Blackwell (sm_120) needs cu128 or newer. Details and the CDI-regeneration fix: S
   `--security-opt label=disable` and plain `:ro` mounts, as `run.sh` and the commands above
   do. `run.sh` mounts user/reference read-only and never chmods or chcons anything
   (`tests/test_run_sh.py`). `:Z` on the repo also locks out any other container using it.
+- The 2026-06-20 150221 user captures were **deleted locally (2026-10-22)**, but `data/annotations.json`,
+  `data/joint_labels/` and the benchmark reports still name them as historical record. Don't
+  regenerate or prune those: the label tools refuse without the videos. GPU tests and
+  `verify-gpu` use the committed `videos/reference/GW_faceon.mp4`.
 - `data/annotations.json.pre-videos-move` and `.host-backup` are stale restructure
   backups.

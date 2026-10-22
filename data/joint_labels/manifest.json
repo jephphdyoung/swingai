@@ -1,0 +1,1331 @@
+{
+ "schema": 3,
+ "joints": [
+  "nose",
+  "left_ear",
+  "right_ear",
+  "left_shoulder",
+  "right_shoulder",
+  "left_elbow",
+  "right_elbow",
+  "left_wrist",
+  "right_wrist",
+  "left_hip",
+  "right_hip",
+  "left_knee",
+  "right_knee",
+  "left_ankle",
+  "right_ankle"
+ ],
+ "blind_rule": "per video: the P1 frame, then the other benchmark frames in order of sha1('swingai-blind-v1' + image_sha1) until 3 are blind; chosen before any model proposal was generated, never from model output",
+ "catalogue": {
+  "groups": [
+   {
+    "id": "body",
+    "title": "Body",
+    "points": [
+     "nose",
+     "left_ear",
+     "right_ear",
+     "left_shoulder",
+     "right_shoulder",
+     "left_elbow",
+     "right_elbow",
+     "left_wrist",
+     "right_wrist",
+     "left_hip",
+     "right_hip",
+     "left_knee",
+     "right_knee",
+     "left_ankle",
+     "right_ankle"
+    ]
+   },
+   {
+    "id": "feet",
+    "title": "Feet",
+    "points": [
+     "left_heel",
+     "left_big_toe",
+     "left_little_toe",
+     "left_shoe_heel_contact",
+     "left_shoe_toe_contact",
+     "right_heel",
+     "right_big_toe",
+     "right_little_toe",
+     "right_shoe_heel_contact",
+     "right_shoe_toe_contact",
+     "floor_a",
+     "floor_b"
+    ]
+   },
+   {
+    "id": "hands_club",
+    "title": "Hands / Club",
+    "points": [
+     "left_thumb",
+     "left_index",
+     "left_pinky",
+     "left_hand_back",
+     "left_forearm_marker",
+     "right_thumb",
+     "right_index",
+     "right_pinky",
+     "right_hand_back",
+     "right_forearm_marker",
+     "shaft_butt",
+     "shaft_hosel",
+     "clubhead_heel",
+     "clubhead_toe",
+     "clubface_center"
+    ]
+   }
+  ],
+  "points": [
+   {
+    "name": "nose",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Tip of the nose.",
+    "models": {
+     "mediapipe": {
+      "point": "nose (0)",
+      "match": "same",
+      "extracted": true,
+      "column": "nose"
+     },
+     "rtmpose": {
+      "point": "nose (0)",
+      "match": "same",
+      "extracted": true,
+      "column": "nose"
+     }
+    }
+   },
+   {
+    "name": "left_ear",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "The ear canal, not the outer ear's edge.",
+    "models": {
+     "mediapipe": {
+      "point": "left_ear (7)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_ear"
+     },
+     "rtmpose": {
+      "point": "left_ear (3)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_ear"
+     }
+    }
+   },
+   {
+    "name": "right_ear",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "The ear canal, not the outer ear's edge.",
+    "models": {
+     "mediapipe": {
+      "point": "right_ear (8)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_ear"
+     },
+     "rtmpose": {
+      "point": "right_ear (4)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_ear"
+     }
+    }
+   },
+   {
+    "name": "left_shoulder",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the shoulder joint (humeral head), not the top of the shoulder.",
+    "models": {
+     "mediapipe": {
+      "point": "left_shoulder (11)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_shoulder"
+     },
+     "rtmpose": {
+      "point": "left_shoulder (5)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_shoulder"
+     }
+    }
+   },
+   {
+    "name": "right_shoulder",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the shoulder joint (humeral head), not the top of the shoulder.",
+    "models": {
+     "mediapipe": {
+      "point": "right_shoulder (12)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_shoulder"
+     },
+     "rtmpose": {
+      "point": "right_shoulder (6)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_shoulder"
+     }
+    }
+   },
+   {
+    "name": "left_elbow",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the elbow joint.",
+    "models": {
+     "mediapipe": {
+      "point": "left_elbow (13)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_elbow"
+     },
+     "rtmpose": {
+      "point": "left_elbow (7)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_elbow"
+     }
+    }
+   },
+   {
+    "name": "right_elbow",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the elbow joint.",
+    "models": {
+     "mediapipe": {
+      "point": "right_elbow (14)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_elbow"
+     },
+     "rtmpose": {
+      "point": "right_elbow (8)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_elbow"
+     }
+    }
+   },
+   {
+    "name": "left_wrist",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the wrist joint, between the forearm bones' ends.",
+    "models": {
+     "mediapipe": {
+      "point": "left_wrist (15)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_wrist"
+     },
+     "rtmpose": {
+      "point": "left_wrist (9)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_wrist"
+     }
+    }
+   },
+   {
+    "name": "right_wrist",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the wrist joint, between the forearm bones' ends.",
+    "models": {
+     "mediapipe": {
+      "point": "right_wrist (16)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_wrist"
+     },
+     "rtmpose": {
+      "point": "right_wrist (10)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_wrist"
+     }
+    }
+   },
+   {
+    "name": "left_hip",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "The hip joint centre, not the belt line.",
+    "models": {
+     "mediapipe": {
+      "point": "left_hip (23)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_hip",
+      "note": "COCO-family hips sit on the joint; MediaPipe's somewhat differently"
+     },
+     "rtmpose": {
+      "point": "left_hip (11)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_hip"
+     }
+    }
+   },
+   {
+    "name": "right_hip",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "The hip joint centre, not the belt line.",
+    "models": {
+     "mediapipe": {
+      "point": "right_hip (24)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_hip",
+      "note": "COCO-family hips sit on the joint; MediaPipe's somewhat differently"
+     },
+     "rtmpose": {
+      "point": "right_hip (12)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_hip"
+     }
+    }
+   },
+   {
+    "name": "left_knee",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the knee joint.",
+    "models": {
+     "mediapipe": {
+      "point": "left_knee (25)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_knee"
+     },
+     "rtmpose": {
+      "point": "left_knee (13)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_knee"
+     }
+    }
+   },
+   {
+    "name": "right_knee",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the knee joint.",
+    "models": {
+     "mediapipe": {
+      "point": "right_knee (26)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_knee"
+     },
+     "rtmpose": {
+      "point": "right_knee (14)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_knee"
+     }
+    }
+   },
+   {
+    "name": "left_ankle",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the ankle joint (between the ankle bones).",
+    "models": {
+     "mediapipe": {
+      "point": "left_ankle (27)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_ankle"
+     },
+     "rtmpose": {
+      "point": "left_ankle (15)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_ankle"
+     }
+    }
+   },
+   {
+    "name": "right_ankle",
+    "group": "body",
+    "kind": "anatomical",
+    "help": "Centre of the ankle joint (between the ankle bones).",
+    "models": {
+     "mediapipe": {
+      "point": "right_ankle (28)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_ankle"
+     },
+     "rtmpose": {
+      "point": "right_ankle (16)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_ankle"
+     }
+    }
+   },
+   {
+    "name": "left_heel",
+    "group": "feet",
+    "kind": "anatomical",
+    "help": "Back of the heel bone (calcaneus) through the shoe: the rearmost point of the foot, not the shoe's outer heel edge.",
+    "models": {
+     "mediapipe": {
+      "point": "left_heel (29)",
+      "match": "approximate",
+      "extracted": false,
+      "column": null,
+      "note": "in the model; SwingAI's pose layer drops it"
+     },
+     "rtmpose": {
+      "point": "left_heel (24)",
+      "match": "approximate",
+      "extracted": false,
+      "column": null,
+      "note": "in Halpe26; SwingAI's pose layer drops it"
+     }
+    }
+   },
+   {
+    "name": "left_big_toe",
+    "group": "feet",
+    "kind": "anatomical",
+    "help": "Tip of the big toe through the shoe.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "its foot_index (31) is the front of the foot, not the big toe, and is never scored as one"
+     },
+     "rtmpose": {
+      "point": "left_big_toe (20)",
+      "match": "same",
+      "extracted": true,
+      "column": "left_foot_index",
+      "note": "kept in the foot_index column for drawing only"
+     }
+    }
+   },
+   {
+    "name": "left_little_toe",
+    "group": "feet",
+    "kind": "anatomical",
+    "help": "Tip of the little toe through the shoe.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": "left_small_toe (22)",
+      "match": "same",
+      "extracted": false,
+      "column": null,
+      "note": "in Halpe26; SwingAI's pose layer drops it"
+     }
+    }
+   },
+   {
+    "name": "left_shoe_heel_contact",
+    "group": "feet",
+    "kind": "contact",
+    "help": "Bottom of the shoe heel where it touches the floor. When the heel is lifted, the bottom of the heel that would touch it.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "left_shoe_toe_contact",
+    "group": "feet",
+    "kind": "contact",
+    "help": "Bottom of the shoe's toe where it touches (or would touch) the floor.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "right_heel",
+    "group": "feet",
+    "kind": "anatomical",
+    "help": "Back of the heel bone (calcaneus) through the shoe: the rearmost point of the foot, not the shoe's outer heel edge.",
+    "models": {
+     "mediapipe": {
+      "point": "right_heel (30)",
+      "match": "approximate",
+      "extracted": false,
+      "column": null,
+      "note": "in the model; SwingAI's pose layer drops it"
+     },
+     "rtmpose": {
+      "point": "right_heel (25)",
+      "match": "approximate",
+      "extracted": false,
+      "column": null,
+      "note": "in Halpe26; SwingAI's pose layer drops it"
+     }
+    }
+   },
+   {
+    "name": "right_big_toe",
+    "group": "feet",
+    "kind": "anatomical",
+    "help": "Tip of the big toe through the shoe.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "its foot_index (32) is the front of the foot, not the big toe, and is never scored as one"
+     },
+     "rtmpose": {
+      "point": "right_big_toe (21)",
+      "match": "same",
+      "extracted": true,
+      "column": "right_foot_index",
+      "note": "kept in the foot_index column for drawing only"
+     }
+    }
+   },
+   {
+    "name": "right_little_toe",
+    "group": "feet",
+    "kind": "anatomical",
+    "help": "Tip of the little toe through the shoe.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": "right_small_toe (23)",
+      "match": "same",
+      "extracted": false,
+      "column": null,
+      "note": "in Halpe26; SwingAI's pose layer drops it"
+     }
+    }
+   },
+   {
+    "name": "right_shoe_heel_contact",
+    "group": "feet",
+    "kind": "contact",
+    "help": "Bottom of the shoe heel where it touches the floor. When the heel is lifted, the bottom of the heel that would touch it.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "right_shoe_toe_contact",
+    "group": "feet",
+    "kind": "contact",
+    "help": "Bottom of the shoe's toe where it touches (or would touch) the floor.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "floor_a",
+    "group": "feet",
+    "kind": "reference",
+    "help": "A point on the floor surface nearer the lead foot, on a visible straight floor edge or mat edge. floor_a and floor_b together give the floor line.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "floor_b",
+    "group": "feet",
+    "kind": "reference",
+    "help": "A point on the floor surface nearer the trail foot, on a visible straight floor edge or mat edge. floor_a and floor_b together give the floor line.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "left_thumb",
+    "group": "hands_club",
+    "kind": "anatomical",
+    "help": "Tip of the thumb. Skip it when the grip hides it.",
+    "models": {
+     "mediapipe": {
+      "point": "left_thumb (21)",
+      "match": "approximate",
+      "extracted": true,
+      "column": "left_thumb",
+      "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "Body26/Halpe26 has no finger points"
+     }
+    }
+   },
+   {
+    "name": "left_index",
+    "group": "hands_club",
+    "kind": "anatomical",
+    "help": "Base knuckle (MCP joint) of the index finger. Skip it when the grip hides it.",
+    "models": {
+     "mediapipe": {
+      "point": "left_index (19)",
+      "match": "approximate",
+      "extracted": true,
+      "column": "left_index",
+      "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "Body26/Halpe26 has no finger points"
+     }
+    }
+   },
+   {
+    "name": "left_pinky",
+    "group": "hands_club",
+    "kind": "anatomical",
+    "help": "Base knuckle (MCP joint) of the little finger. Skip it when the grip hides it.",
+    "models": {
+     "mediapipe": {
+      "point": "left_pinky (17)",
+      "match": "approximate",
+      "extracted": true,
+      "column": "left_pinky",
+      "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "Body26/Halpe26 has no finger points"
+     }
+    }
+   },
+   {
+    "name": "left_hand_back",
+    "group": "hands_club",
+    "kind": "marker",
+    "help": "Centre of the back of the hand or glove (e.g. the glove logo).",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "left_forearm_marker",
+    "group": "hands_club",
+    "kind": "marker",
+    "help": "A physical marker worn on the forearm (tape, sleeve logo). Skip if none.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "right_thumb",
+    "group": "hands_club",
+    "kind": "anatomical",
+    "help": "Tip of the thumb. Skip it when the grip hides it.",
+    "models": {
+     "mediapipe": {
+      "point": "right_thumb (22)",
+      "match": "approximate",
+      "extracted": true,
+      "column": "right_thumb",
+      "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "Body26/Halpe26 has no finger points"
+     }
+    }
+   },
+   {
+    "name": "right_index",
+    "group": "hands_club",
+    "kind": "anatomical",
+    "help": "Base knuckle (MCP joint) of the index finger. Skip it when the grip hides it.",
+    "models": {
+     "mediapipe": {
+      "point": "right_index (20)",
+      "match": "approximate",
+      "extracted": true,
+      "column": "right_index",
+      "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "Body26/Halpe26 has no finger points"
+     }
+    }
+   },
+   {
+    "name": "right_pinky",
+    "group": "hands_club",
+    "kind": "anatomical",
+    "help": "Base knuckle (MCP joint) of the little finger. Skip it when the grip hides it.",
+    "models": {
+     "mediapipe": {
+      "point": "right_pinky (18)",
+      "match": "approximate",
+      "extracted": true,
+      "column": "right_pinky",
+      "note": "MediaPipe Pose's coarse hand point (not the 21-point hand model); the model doesn't define it anatomically, so the match is approximate"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "Body26/Halpe26 has no finger points"
+     }
+    }
+   },
+   {
+    "name": "right_hand_back",
+    "group": "hands_club",
+    "kind": "marker",
+    "help": "Centre of the back of the hand or glove (e.g. the glove logo).",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "right_forearm_marker",
+    "group": "hands_club",
+    "kind": "marker",
+    "help": "A physical marker worn on the forearm (tape, sleeve logo). Skip if none.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null
+     }
+    }
+   },
+   {
+    "name": "shaft_butt",
+    "group": "hands_club",
+    "kind": "equipment",
+    "help": "Butt end of the grip. Skip when motion blur makes it a guess.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     }
+    }
+   },
+   {
+    "name": "shaft_hosel",
+    "group": "hands_club",
+    "kind": "equipment",
+    "help": "Where the shaft enters the hosel. Skip when motion blur makes it a guess.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     }
+    }
+   },
+   {
+    "name": "clubhead_heel",
+    "group": "hands_club",
+    "kind": "equipment",
+    "help": "Heel end of the leading edge. Skip when motion blur makes it a guess.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     }
+    }
+   },
+   {
+    "name": "clubhead_toe",
+    "group": "hands_club",
+    "kind": "equipment",
+    "help": "Toe end of the leading edge. Skip when motion blur makes it a guess.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     }
+    }
+   },
+   {
+    "name": "clubface_center",
+    "group": "hands_club",
+    "kind": "equipment",
+    "help": "Centre of the clubface. Only when the face is visible. Skip when motion blur makes it a guess.",
+    "models": {
+     "mediapipe": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     },
+     "rtmpose": {
+      "point": null,
+      "match": null,
+      "extracted": false,
+      "column": null,
+      "note": "utils/club_detector.py fits a shaft line by edge detection; that is not a keypoint, and it is unvalidated"
+     }
+    }
+   }
+  ]
+ },
+ "frames": [
+  {
+   "set": "benchmark",
+   "id": "00",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 395,
+   "reason": "P1 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "image_sha1": "2c3161fc097a908507d6ddd4fb4536011e6d5812",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "P1",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "01",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 504,
+   "reason": "backends disagree most (0.09 torso)",
+   "p1_frame": 395,
+   "image_sha1": "198dafe03768925ceedfa90f85e5459ac51f94fa",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "rtmpose",
+   "p_position": {
+    "label": "P1–P2",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "02",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 652,
+   "reason": "P4 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "image_sha1": "0d61efd32df421c9438225164cbae63f700a15d8",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "mediapipe",
+   "p_position": {
+    "label": "P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "03",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 730,
+   "reason": "P7 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "image_sha1": "048f20e9c2025b091f550425bb284b27b069fe7e",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "P7",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "04",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Down the line 61fc.mp4",
+   "view": "dtl",
+   "frame": 1238,
+   "reason": "backends disagree most (0.10 torso)",
+   "p1_frame": 395,
+   "image_sha1": "83e83e5b191a9a4cad3b9f1da3c7937e3d1ce71f",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "after P10",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "05",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 395,
+   "reason": "P1 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "image_sha1": "fdffef25cf21f9c25fa6539df1f291907b363b67",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "P1",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "06",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 601,
+   "reason": "backends disagree most (0.14 torso)",
+   "p1_frame": 395,
+   "image_sha1": "a4093bbc458d098b8b23f924ae153ea912f04c6c",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "mediapipe",
+   "p_position": {
+    "label": "P1–P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "07",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 652,
+   "reason": "P4 (annotated frame, used only to sample)",
+   "p1_frame": 395,
+   "image_sha1": "3e409ff7756283859d042764560c7bcaf6b56939",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "08",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 736,
+   "reason": "fastest hand motion (RTMPose track)",
+   "p1_frame": 395,
+   "image_sha1": "af2415e2ea949a69ca628707ca570d2a252ff933",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "rtmpose",
+   "p_position": {
+    "label": "after P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "09",
+   "video": "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4",
+   "view": "face_on",
+   "frame": 774,
+   "reason": "backends disagree most (0.17 torso)",
+   "p1_frame": 395,
+   "image_sha1": "f19b3e844788c2d17173a4582dcbf98d1687c720",
+   "width": 1440,
+   "height": 1080,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "after P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "10",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 104,
+   "reason": "P1 (annotated frame, used only to sample)",
+   "p1_frame": 104,
+   "image_sha1": "02553f1be89ea14c7b8779d4baab58d7cd959b19",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "P1",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "11",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 205,
+   "reason": "backends disagree most (0.15 torso)",
+   "p1_frame": 104,
+   "image_sha1": "5c8b4c428e957a6a331d454f1ef3ceb14f9dd68d",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "mediapipe",
+   "p_position": {
+    "label": "P1–P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "12",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 280,
+   "reason": "P4 (annotated frame, used only to sample)",
+   "p1_frame": 104,
+   "image_sha1": "0e7fe858903f8a5793f4d45e33812fe26009f0a0",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "13",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 355,
+   "reason": "fastest hand motion (RTMPose track)",
+   "p1_frame": 104,
+   "image_sha1": "465b31c3d38ce62a031ba30964dbf020458d5752",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "rtmpose",
+   "p_position": {
+    "label": "after P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "14",
+   "video": "videos/reference/GW_DTL.mp4",
+   "view": "dtl",
+   "frame": 378,
+   "reason": "backends disagree most (0.12 torso)",
+   "p1_frame": 104,
+   "image_sha1": "340474dd89e6864aaef134d82f6b0ac705015ff9",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "after P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "15",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 53,
+   "reason": "P1 (annotated frame, used only to sample)",
+   "p1_frame": 53,
+   "image_sha1": "1e208b9a4796615da4fc6e472965a8f8cf34346c",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "P1",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "16",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 278,
+   "reason": "P4 (annotated frame, used only to sample)",
+   "p1_frame": 53,
+   "image_sha1": "c25cc93a0df1c73ecabb9cc5dfc16e002ee8a432",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "mediapipe",
+   "p_position": {
+    "label": "P4",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "17",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 343,
+   "reason": "P7 (annotated frame, used only to sample)",
+   "p1_frame": 53,
+   "image_sha1": "12510900bfe0a31e274bd0c7999c694a0ad662fd",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": false,
+   "assist_primary": "rtmpose",
+   "p_position": {
+    "label": "P7",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "18",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 401,
+   "reason": "backends disagree most (0.21 torso)",
+   "p1_frame": 53,
+   "image_sha1": "7394be443d8affbf685d80a94e6fc34f79682adf",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "P9–P10",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  },
+  {
+   "set": "benchmark",
+   "id": "19",
+   "video": "videos/reference/GW_faceon.mp4",
+   "view": "face_on",
+   "frame": 472,
+   "reason": "backends disagree most (0.22 torso)",
+   "p1_frame": 53,
+   "image_sha1": "253e4ada7d35a3043fea9533d4fbd12ab690033c",
+   "width": 480,
+   "height": 360,
+   "display_scale": 1.0,
+   "blind": true,
+   "p_position": {
+    "label": "after P10",
+    "note": "approximate, from saved annotations (not confirmed by a person, or legacy P6/P7 naming)"
+   }
+  }
+ ]
+}
