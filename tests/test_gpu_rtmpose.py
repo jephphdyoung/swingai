@@ -30,7 +30,10 @@ def _gpu_backend():
 
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VIDEO = "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4"
+# Committed to the repo (the earlier local capture was deleted 2026-10-22): a missing
+# file is a failure, never a silent skip of the GPU proof.
+VIDEO = os.path.join(REPO, "videos/reference/GW_faceon.mp4")
+ADDRESS, TOP, FOLLOW = 53, 278, 401
 
 
 @pytest.fixture(scope="module")
@@ -41,8 +44,7 @@ def backend():
 
 
 def _frame(path, idx):
-    if not os.path.exists(path):
-        pytest.skip(f"{path} not present")
+    assert os.path.exists(path), f"{path} is committed to the repo; restore it"
     cap = cv2.VideoCapture(path)
     cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
     ok, bgr = cap.read()
@@ -74,7 +76,7 @@ def evidence(tmp_path_factory):
         gpu.open()
     except rt.RTMPoseUnavailable as e:
         pytest.skip(f"no GPU RTMPose here: {e}")
-    imgs = [_frame(VIDEO, i) for i in (395, 652, 730)]
+    imgs = [_frame(VIDEO, i) for i in (ADDRESS, TOP, FOLLOW)]
     for img in imgs:
         assert gpu.detect(img, 0) is not None
     profiles = {}
@@ -104,7 +106,7 @@ def test_verification_covers_both_networks(evidence):
 
 
 def test_real_frame_keypoints_lie_on_the_golfer(backend):
-    rgb = _frame(VIDEO, 395)                       # address
+    rgb = _frame(VIDEO, ADDRESS)
     obs = backend.detect(rgb, 0)
     assert obs is not None
     h, w = rgb.shape[:2]
@@ -113,14 +115,15 @@ def test_real_frame_keypoints_lie_on_the_golfer(backend):
     for name in ("nose", "left_shoulder", "right_hip", "left_ankle"):
         x, y = pts[LANDMARK_INDEX[name]]
         assert x0 - 5 <= x <= x1 + 5 and y0 - 5 <= y <= y1 + 5, name
-    # head above shoulders above hips above ankles, in image coordinates
+    # head above shoulders above hips above ankles, in image coordinates. The ear, not
+    # the nose: at address the head is bowed and the nose is level with the shoulder.
     y = lambda n: pts[LANDMARK_INDEX[n]][1]  # noqa: E731
-    assert y("nose") < y("left_shoulder") < y("left_hip") < y("left_ankle")
+    assert y("left_ear") < y("left_shoulder") < y("left_hip") < y("left_ankle")
     assert np.isnan(pts[LANDMARK_INDEX["left_thumb"]]).all()
 
 
 def test_cuda_matches_cpu(backend):
-    rgb = _frame(VIDEO, 652)
+    rgb = _frame(VIDEO, TOP)
     cpu = rt.RTMPoseBackend(device="cpu")
     cpu.open()
     a, b = backend.detect(rgb, 0), cpu.detect(rgb, 0)

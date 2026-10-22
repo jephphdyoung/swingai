@@ -132,7 +132,7 @@ Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-bac
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 759 pass, 7 GPU/ORT-only skip
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 759 pass, 7 GPU/ORT-only skip (GPU image: 764 / 2)
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```
@@ -147,5 +147,9 @@ Blackwell (sm_120) needs cu128 or newer. Details and the CDI-regeneration fix: S
   `--security-opt label=disable` and plain `:ro` mounts, as `run.sh` and the commands above
   do. `run.sh` mounts user/reference read-only and never chmods or chcons anything
   (`tests/test_run_sh.py`). `:Z` on the repo also locks out any other container using it.
+- The 2026-06-20 150221 user captures were **deleted locally (2026-10-22)**, but `data/annotations.json`,
+  `data/joint_labels/` and the benchmark reports still name them as historical record. Don't
+  regenerate or prune those: the label tools refuse without the videos. GPU tests and
+  `verify-gpu` use the committed `videos/reference/GW_faceon.mp4`.
 - `data/annotations.json.pre-videos-move` and `.host-backup` are stale restructure
   backups.

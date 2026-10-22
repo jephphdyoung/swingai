@@ -49,7 +49,8 @@ from utils.pose_rtmpose import (  # noqa: E402
     select_golfer,
 )
 
-DEFAULT_VIDEO = "videos/user/Jeff Young - 2026-06-20 150221 Fox Face on right aaf0.mp4"
+# Committed to the repo, so the proof never depends on local footage.
+DEFAULT_VIDEO = "videos/reference/GW_faceon.mp4"
 N_FRAMES = 60
 N_PARITY = 20
 CUDA, CPU = "CUDAExecutionProvider", "CPUExecutionProvider"

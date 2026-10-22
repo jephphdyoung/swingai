@@ -1,3 +1,7 @@
+# Joint accuracy vs human labels (2026-10-21)
+
+> **Historical result (note added 2026-10-22).** The 2026-06-20 150221 user captures used here were deleted locally, so this can't be reproduced as is. See [STATUS](../STATUS.md).
+
 Labels: `data/joint_labels/labels.json`, verified by Jeff. 20/20 frames, 238/300 joints placed. 14 of these frames include points carried over from an earlier export and kept after checking on the same image.
 
 12 independent (blind) frames of 12 expected, 8 assisted.

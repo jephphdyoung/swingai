@@ -1,5 +1,7 @@
 # Pose backends: MediaPipe vs RTMPose (2026-10-20)
 
+> **Historical result (note added 2026-10-22).** The 2026-06-20 150221 user captures used here were deleted locally, so this can't be reproduced as is. See [STATUS](../STATUS.md).
+
 **Bottom line:** RTMPose runs on the RTX 5070 Ti and is fully integrated, but **this report
 does not show it to be more accurate, because no human-verified joint labels exist yet.**
 The default stays MediaPipe. What the data does show:

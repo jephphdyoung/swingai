@@ -174,6 +174,13 @@ golfer detected in 60/60 sampled frames
 PASS: both networks (YOLOX detector and RTMPose) executed CUDA kernels on the GPU
 ```
 
+That capture was deleted locally on 2026-10-22, so `verify-gpu` and `tests/test_gpu_rtmpose.py`
+now default to the committed `videos/reference/GW_faceon.mp4`. Re-run 2026-10-22 on it
+(480x360, 60 frames): **PASS**. The detector had 100.0% of node time on CUDA, the pose network
+99.8%. NVML kernel activity was 76% and 83%, with idle and CPU control both 0%. End to end:
+CUDA 13.6 ms vs CPU 52.4 ms per frame (3.9x); CUDA vs CPU keypoints max 0.48 px; golfer found
+in 60/60 frames.
+
 The YOLOX detector and the RTMPose network are **separate ONNX Runtime sessions, and each is
 verified on its own**: ONNX Runtime places each session, and each node in it, on a provider
 independently, so the pose network on the GPU says nothing about the detector. Provider

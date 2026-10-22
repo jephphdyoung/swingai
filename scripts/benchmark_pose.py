@@ -160,6 +160,9 @@ def main(argv=None):
     videos = list(DEFAULT_VIDEOS)
     for i, v in enumerate(args.videos):
         videos.append((v, args.view[i] if i < len(args.view) else "unknown"))
+    for p, _ in videos:
+        if not os.path.exists(p):
+            print(f"skipping {p}: not found, so its results can't be reproduced here")
     videos = [(p, v) for p, v in videos if os.path.exists(p)]
 
     labels = {}

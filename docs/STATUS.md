@@ -1,6 +1,6 @@
 # Status & Next Steps
 
-Working state as of **2026-10-20**. Read this first when picking the work back up.
+Working state as of **2026-10-22**. Read this first when picking the work back up.
 
 Design rationale lives in [p-position-detection.md](p-position-detection.md);
 the longer-range vision is in [ROADMAP.md](ROADMAP.md). This file is just where
@@ -81,7 +81,43 @@ real footage (150221 pair vs. `GW_DTL`/`GW_faceon`), but every label it uses nee
 | `GW_faceon.mp4` | 53 / 278 | yours, legacy: confirm P6/P7 too |
 
 Use **Confirm reviewed** in the Dual-View tab after checking each. The 2026-07-27 library has
-no annotations.
+no annotations. The two 150221 clips were deleted locally on 2026-10-22; their entries in
+`data/annotations.json` are kept but point at missing files.
+
+**PR #4: final state (2026-10-22).** Ready for final review. Not merged.
+
+*Done and verified 2026-10-22:*
+- RTMPose-m + YOLOX-m on the GPU. `verify-gpu` passes, with each network shown executing CUDA
+  kernels on its own.
+- Backend switching in the Dual-View tab, with MediaPipe as the default.
+- A per-backend, per-environment pose cache. On one video, MediaPipe in the CPU image, MediaPipe in
+  the GPU image and RTMPose each got their own entry, and each fresh extraction matched the existing
+  cache exactly.
+- The joint-labelling tools: blind/assisted split, Feet and Hands/Club groups, image-digest checks.
+- Tests: CPU image 759 passed and 7 skipped (GPU/ORT-only). GPU image 764 passed and 2 skipped
+  (CPU-image-only checks).
+- The app renders all three tabs on the current local data without errors.
+
+*Deferred: accuracy evaluation.*
+- Face-on is scored (below). DTL is not: no P1 torso scale.
+- No further labelling is planned in PR #4.
+
+**The 2026-06-20 150221 user captures were deleted locally on 2026-10-22** and are no longer part of
+the video library. Ten of the 20 benchmark frames and two of the seven benchmarked videos come from
+them. Kept unchanged as historical record:
+- `data/joint_labels/{labels.json, manifest.json, labels-old-labeller-2026-10-21.json}`
+- `docs/benchmarks/pose-backends-2026-10-20.*` and `docs/benchmarks/joint-accuracy-2026-10-21.*`
+
+They can't be reproduced now. The tools refuse rather than produce partial numbers:
+- `evaluate_joint_labels.py` stops with "video not found", including for the Grant Waite frames,
+  because it checks every labelled frame first.
+- `make_joint_label_set.py` stops with "no longer decodes" before writing anything.
+- `benchmark_pose.py` names each missing video, then runs on the rest.
+
+`verify-gpu` and `tests/test_gpu_rtmpose.py` used one of those clips and would have skipped silently.
+They now use the committed `videos/reference/GW_faceon.mp4`, and a missing file fails the test.
+`scripts/make_joint_label_set.py` and `benchmark_pose.py` still list the deleted clips as defaults;
+the video-library rework replaces them.
 
 **GPU pose estimation** (PR #4, 2026-10-20). RTMPose-m (Halpe26) + YOLOX-m on ONNX Runtime
 CUDA, selectable in the Dual-View tab under `SWINGAI_GPU=1 ./run.sh`. Both networks (YOLOX
@@ -139,7 +175,7 @@ hold **sequences** for P2–P3, P5–P8 and heel-lift work, all outside the benc
 from its nominal one). Pose extraction decodes sequentially, so wherever the UI *seeks*
 (`utils/dual_view.read_frame`, the annotator), the image shown is frame *f*−1 while the
 skeleton, measurements and saved P-position index are frame *f*. That's 4 ms, but the hands
-move far in 4 ms near impact. Measured on the 150221 pair: frames 730/736/774/1238 are off by
+move far in 4 ms near impact. Measured on the 150221 pair (since deleted locally): frames 730/736/774/1238 are off by
 one; 395–652 are exact; Grant Waite's 30fps clips are exact. The joint-label set was fixed for
 this (sequential decode plus per-frame pixel digests). The annotator and panels still need it.
 
