@@ -181,6 +181,10 @@ now default to the committed `videos/reference/GW_faceon.mp4`. Re-run 2026-10-22
 CUDA 13.6 ms vs CPU 52.4 ms per frame (3.9x); CUDA vs CPU keypoints max 0.48 px; golfer found
 in 60/60 frames.
 
+The video is checked before any GPU work. If it's missing, can't be opened or yields no frames,
+`verify_gpu.py` prints `FAIL: verification video unusable: <path>: <reason>` and exits 2. It never
+substitutes another video, and it prints the absolute path of the one it used.
+
 The YOLOX detector and the RTMPose network are **separate ONNX Runtime sessions, and each is
 verified on its own**: ONNX Runtime places each session, and each node in it, on a provider
 independently, so the pose network on the GPU says nothing about the detector. Provider

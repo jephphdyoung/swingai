@@ -94,7 +94,7 @@ no annotations. The two 150221 clips were deleted locally on 2026-10-22; their e
   the GPU image and RTMPose each got their own entry, and each fresh extraction matched the existing
   cache exactly.
 - The joint-labelling tools: blind/assisted split, Feet and Hands/Club groups, image-digest checks.
-- Tests: CPU image 759 passed and 7 skipped (GPU/ORT-only). GPU image 764 passed and 2 skipped
+- Tests: CPU image 766 passed and 7 skipped (GPU/ORT-only). GPU image 771 passed and 2 skipped
   (CPU-image-only checks).
 - The app renders all three tabs on the current local data without errors.
 
@@ -116,6 +116,9 @@ They can't be reproduced now. The tools refuse rather than produce partial numbe
 
 `verify-gpu` and `tests/test_gpu_rtmpose.py` used one of those clips and would have skipped silently.
 They now use the committed `videos/reference/GW_faceon.mp4`, and a missing file fails the test.
+`verify-gpu` used to quietly take the first `videos/**/*.mp4` when its video was missing. That
+fallback is gone: a missing file, or one that can't be opened or yields no frames, exits 2, and the
+absolute path it verified on is printed.
 `scripts/make_joint_label_set.py` and `benchmark_pose.py` still list the deleted clips as defaults;
 the video-library rework replaces them.
 

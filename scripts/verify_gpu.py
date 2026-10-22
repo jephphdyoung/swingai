@@ -4,6 +4,10 @@ Run inside the GPU image (SWINGAI_GPU=1 ./run.sh verify-gpu does this):
 
     python scripts/verify_gpu.py [video] [--json report.json]
 
+The video defaults to the committed videos/reference/GW_faceon.mp4. A video
+that is missing, can't be opened or yields no frames is a failure (exit 2);
+no other video is ever substituted.
+
 The YOLOX-m person detector and the RTMPose-m keypoint network are separate
 ONNX Runtime sessions. ONNX Runtime places each session -- and each node in
 it -- on an execution provider independently, so one network on the GPU says
@@ -29,7 +33,6 @@ Exits non-zero, naming the network, if any check fails.
 """
 
 import argparse
-import glob
 import json
 import os
 import statistics
@@ -40,7 +43,8 @@ import time
 
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
 
 import cv2  # noqa: E402
 
@@ -139,17 +143,35 @@ def judge(reports):
 
 # --- measurement -------------------------------------------------------------
 
+class VideoUnusable(Exception):
+    """The verification video is missing, can't be opened, or yields no frames."""
+
+
 def frames(path, n):
+    """Up to `n` RGB frames sampled evenly across `path`; raises VideoUnusable."""
+    if not os.path.isfile(path):
+        raise VideoUnusable(f"{path}: no such file")
     cap = cv2.VideoCapture(path)
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    out = []
-    for idx in np.linspace(0, total - 1, n).astype(int):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
-        ok, bgr = cap.read()
-        if ok:
-            out.append(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-    cap.release()
+    try:
+        if not cap.isOpened():
+            raise VideoUnusable(f"{path}: OpenCV can't open it as a video")
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        out = []
+        for idx in np.linspace(0, total - 1, n).astype(int) if total > 0 else []:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
+            ok, bgr = cap.read()
+            if ok and bgr is not None:
+                out.append(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
+    finally:
+        cap.release()
+    if not out:
+        raise VideoUnusable(f"{path}: no frame could be decoded ({total} reported)")
     return out
+
+
+def video_line(path, imgs):
+    h, w = imgs[0].shape[:2]
+    return f"video: {os.path.abspath(path)} ({len(imgs)} frames sampled, {w}x{h})"
 
 
 def run(backend, imgs):
@@ -274,12 +296,17 @@ def describe(net, r):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("video", nargs="?", default=DEFAULT_VIDEO)
+    ap.add_argument("video", nargs="?", default=os.path.join(REPO, DEFAULT_VIDEO))
     ap.add_argument("--json", help="also write the evidence as JSON here")
     args = ap.parse_args(argv)
-    video = args.video
-    if not os.path.exists(video):
-        video = sorted(glob.glob("videos/**/*.mp4", recursive=True))[0]
+    video = os.path.abspath(args.video)
+    # Checked before any GPU work, and never replaced by another video.
+    try:
+        imgs = frames(video, N_FRAMES)
+    except VideoUnusable as e:
+        print(f"FAIL: verification video unusable: {e}")
+        return 2
+    print(video_line(video, imgs))
     import onnxruntime as ort
     print(f"onnxruntime {ort.__version__}; available providers {ort.get_available_providers()}")
     smi = subprocess.run(["nvidia-smi", "--query-gpu=name,driver_version,compute_cap,memory.total",
@@ -297,8 +324,6 @@ def main(argv=None):
         return 1
     print(f"CUDA sessions: {gpu.providers}; init {time.perf_counter() - t:.2f}s")
 
-    imgs = frames(video, N_FRAMES)
-    print(f"video: {video} ({len(imgs)} frames sampled, {imgs[0].shape[1]}x{imgs[0].shape[0]})")
     run(gpu, imgs[:5])                                  # warm-up
     gpu_obs, gpu_dt = run(gpu, imgs)
     mem, raw = gpu_memory_of_this_process()

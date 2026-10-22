@@ -2,9 +2,20 @@
 
 > **Historical result (note added 2026-10-22).** The 2026-06-20 150221 user captures used here were deleted locally, so this can't be reproduced as is. See [STATUS](../STATUS.md).
 
-**Bottom line:** RTMPose runs on the RTX 5070 Ti and is fully integrated, but **this report
-does not show it to be more accurate, because no human-verified joint labels exist yet.**
-The default stays MediaPipe. What the data does show:
+**Two separate evaluations. Don't mix their numbers.**
+
+| | This report (2026-10-20) | [Labelled evaluation](joint-accuracy-2026-10-21.md) (2026-10-21) |
+|---|---|---|
+| Data | every frame of 7 videos, no human labels | 20 human-labelled frames of 4 videos |
+| Measures | model behaviour: detection, coverage, L/R swaps, jitter, speed, cross-model disagreement | accuracy against human-placed joints |
+| Accuracy | **none** (the JSON has `"accuracy": null`; not re-run since) | **face-on only**, 6 blind frames. **DTL deferred**: no P1 torso scale |
+| Result | see the bottom line below | RTMPose 69.7% vs MediaPipe 44.7% of joints within 0.1 torso lengths (+25.0 points, 95% interval +15.9 to +34.3) |
+
+The default stays MediaPipe: the accuracy evidence is 6 face-on frames of 2 golfers and none for DTL.
+
+**Bottom line of this benchmark (2026-10-20, before any labels existed):** RTMPose runs on the
+RTX 5070 Ti and is fully integrated, but **this benchmark cannot show it to be more accurate,
+because it has no human-verified joint labels.** What the data does show:
 
 - **The choice of model changes the numbers you see**, sometimes by tens of degrees at P4
   (table below). The measurement engine is the same; only the landmarks differ. So model
@@ -45,7 +56,9 @@ low-resolution footage with bystanders) and your 2026-07-27 135006 pair, which S
 flags as hard for DTL tracking. Every frame of every video was processed by both models
 (7 videos, 7,243 frames each).
 
-## Ground truth
+## Ground truth (labelled after this benchmark)
+
+The labelled evaluation is a separate run, not part of this report's numbers.
 
 **Labelled 2026-10-21: results in [joint-accuracy-2026-10-21](joint-accuracy-2026-10-21.md).** On the
 6 blind face-on frames, RTMPose has 69.7% of joints within 0.1 torso lengths vs MediaPipe's 44.7%:
@@ -100,8 +113,8 @@ stores coordinates in original-video pixels. `evaluate_joint_labels.py` then:
    point above the model's own threshold), PCK@0.05/0.1/0.2 with a miss counted as a
    failure, all split into visible vs occluded labels, per joint, plus how often each model
    answered on joints you marked occluded. RTMPose − MediaPipe PCK comes with a 95%
-   bootstrap interval over labelled frames. With 10 frames per view, an interval containing
-   0 is no evidence of a difference.
+   bootstrap interval over labelled frames. Only the 6 blind frames per view are compared, so an
+   interval containing 0 is no evidence of a difference.
 
 It reads both models' poses from the pose cache (run in the GPU image, where this report's
 caches were made; `--extract` computes missing ones). The benchmark script uses the same
@@ -151,7 +164,9 @@ labelling set includes.
 
 ### Accuracy against human-verified joints
 
-**Not computed: no human-verified joint labels exist yet.** See *Ground truth* above.
+**Not computed in this benchmark:** it ran on 2026-10-20, before any labels existed, and was not
+re-run. The labelled evaluation is the separate [2026-10-21 report](joint-accuracy-2026-10-21.md).
+It covers face-on only; DTL accuracy is deferred.
 
 ### Performance
 

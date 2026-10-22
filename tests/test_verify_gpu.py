@@ -106,3 +106,68 @@ def test_describe_reports_every_piece_of_evidence():
               "ops executed on CPU", "GPU kernel activity", "CUDA run 82.0%", "per call",
               "CUDA vs CPU output"):
         assert s in text
+
+
+# --- the verification video: never substituted, failures are explicit --------
+
+def test_default_is_the_committed_reference_clip():
+    assert vg.DEFAULT_VIDEO == "videos/reference/GW_faceon.mp4"
+    assert os.path.isfile(os.path.join(REPO, vg.DEFAULT_VIDEO))
+
+
+def _write_mp4(path, n=10):
+    import cv2
+    import numpy as np
+    w = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), 30.0, (64, 48))
+    assert w.isOpened()
+    for i in range(n):
+        w.write(np.full((48, 64, 3), (i * 8) % 256, np.uint8))
+    w.release()
+    return str(path)
+
+
+def test_missing_video_fails_and_no_other_video_is_used(tmp_path, monkeypatch, capsys):
+    # The old fallback took the first videos/**/*.mp4; one is right there.
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "videos").mkdir()
+    _write_mp4(tmp_path / "videos" / "decoy.mp4")
+    assert vg.main([str(tmp_path / "missing.mp4")]) == 2
+    out = capsys.readouterr().out
+    assert f"FAIL: verification video unusable: {tmp_path / 'missing.mp4'}: no such file" in out
+    assert "decoy" not in out
+
+
+@pytest.mark.parametrize("content", [b"", b"not a video at all " * 64],
+                         ids=["empty", "garbage"])
+def test_unreadable_video_fails(tmp_path, capsys, content):
+    bad = tmp_path / "bad.mp4"
+    bad.write_bytes(content)
+    assert vg.main([str(bad)]) == 2
+    out = capsys.readouterr().out
+    assert out.startswith(f"FAIL: verification video unusable: {bad}: ")
+    assert "can't open" in out or "no frame could be decoded" in out
+
+
+def test_a_directory_is_not_a_video(tmp_path, capsys):
+    assert vg.main([str(tmp_path)]) == 2
+    assert "no such file" in capsys.readouterr().out
+
+
+def test_video_that_opens_but_decodes_nothing_fails(monkeypatch):
+    class Unreadable:
+        def __init__(self, path): pass
+        def isOpened(self): return True
+        def get(self, prop): return 120
+        def set(self, prop, value): return True
+        def read(self): return False, None
+        def release(self): pass
+    monkeypatch.setattr(vg.cv2, "VideoCapture", Unreadable)
+    with pytest.raises(vg.VideoUnusable, match="no frame could be decoded"):
+        vg.frames(__file__, 5)
+
+
+def test_a_readable_video_is_sampled_and_named_exactly(tmp_path):
+    path = _write_mp4(tmp_path / "ok.mp4", 30)
+    imgs = vg.frames(path, 5)
+    assert len(imgs) == 5 and imgs[0].shape == (48, 64, 3)
+    assert vg.video_line(path, imgs) == f"video: {path} (5 frames sampled, 64x48)"
