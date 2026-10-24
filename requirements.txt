@@ -5,4 +5,5 @@ fastdtw
 scipy
 numpy
 dtaidistance
+jsonschema
 pytest

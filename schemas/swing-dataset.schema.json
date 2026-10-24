@@ -1,0 +1,1546 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://swingai.local/schemas/swing-dataset.schema.json",
+  "title": "SwingAI swing dataset",
+  "description": "The local swing dataset: four catalog files under data/catalog/ (golfers, sources, shots, collections) and one annotation file per shot under data/annotations/. Every file carries schema_version and kind; validate a file against this schema and its kind selects the document shape. Identities are stable ids, never file paths: a source's location is only where it was last found, and its sha256 is what identifies the bytes. Cross-file rules (ids that must exist, multi-stream shots, frozen collections, frame ranges) are checked by utils/catalog.py and utils/shot_annotations.py. See docs/swing-dataset.md.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kind",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "#/$defs/schemaVersion"
+    },
+    "kind": {
+      "enum": [
+        "golfers",
+        "sources",
+        "shots",
+        "collections",
+        "shot_annotations"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Incremented on every save. A writer that loaded revision n refuses to overwrite a file now at another revision, so two editors can't silently discard each other's changes."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "golfers"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/golfersFile"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "sources"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/sourcesFile"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "shots"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/shotsFile"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "collections"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/collectionsFile"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "shot_annotations"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/shot_annotationsFile"
+      }
+    }
+  ],
+  "$defs": {
+    "schemaVersion": {
+      "const": "1.0",
+      "description": "Exact-match version, as in the capture contracts (ADR 0001)."
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A shot or camera identifier. Must be usable verbatim as a directory name on every host SwingAI runs on, so the rules are Windows' — the booth is a Windows machine and a shot folder is meant to be copied between hosts, so the stricter platform sets the rule. Rejected: / \\ : * ? \" < > | and control characters; \".\" and \"..\"; a trailing period or space, which Windows silently strips, so \"shot.\" and \"shot\" would name one directory; and the reserved DOS device names CON, PRN, AUX, NUL, COM1-COM9 and LPT1-LPT9 in any case, with or without an extension, because \"nul.capture\" still names the null device. These mirror the rules swingai-core's ShotId and CameraId enforce; the two sides of the seam must not disagree about what an id may be.",
+      "allOf": [
+        {
+          "pattern": "^[^/\\\\:*?\"<>|\\u0000-\\u001f\\u007f-\\u009f]+$"
+        },
+        {
+          "not": {
+            "pattern": "[. ]$"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|(?:[Cc][Oo][Mm]|[Ll][Pp][Tt])[1-9])(?:\\.|$)"
+          }
+        }
+      ],
+      "examples": [
+        "2026-07-31T14-22-05.412Z",
+        "fox-dtl"
+      ]
+    },
+    "cameraView": {
+      "enum": [
+        "face_on",
+        "down_the_line",
+        "overhead",
+        "impact",
+        "unknown"
+      ],
+      "description": "Note this differs from the Python side's \"dtl\" (utils/swing_pairing.py, data/annotations.json). The bridge maps; this contract does not accept the abbreviation."
+    },
+    "rfc3339DateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?([Zz]|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "An RFC 3339 date-time, e.g. \"2026-07-31T14:22:05.412Z\" or \"2026-07-31T16:22:05.412+02:00\". An offset is required. The pattern is present as well as \"format\" because most JSON Schema validators treat \"format\" as an annotation unless a format checker is installed. The pattern is structural only — it cannot reject an impossible calendar date such as 2026-02-30, which the Rust implementation does.",
+      "examples": [
+        "2026-07-31T14:22:05.412Z",
+        "2026-07-31T16:22:05.412+02:00"
+      ]
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Forward-slash path relative to the directory containing this manifest, e.g. \"streams/down_the_line.mkv\". Host-independent: backslashes are rejected outright on every platform, which also rules out C:\\..., UNC \\\\server\\share, extended-length \\\\?\\C:\\..., and rooted \\... spellings. Must not be absolute, must not name a drive, and must not escape the directory with \"..\".",
+      "pattern": "^[^\\\\]*$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^/"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "(^|/)\\.\\.(/|$)"
+          }
+        ]
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha1": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "utils.joint_labels.frame_digest of the decoded source frame: proves which image a label was placed on."
+    },
+    "partialDate": {
+      "type": "string",
+      "pattern": "^[0-9]{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?)?$",
+      "description": "A recording date to the precision actually known: \"2010\", \"2010-10\" or \"2010-10-27\"."
+    },
+    "handedness": {
+      "enum": [
+        "right",
+        "left",
+        "unknown"
+      ]
+    },
+    "frame": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Source frame index: the n-th frame a sequential decode of the source produces (utils/frame_access.py), never an edited-clip index."
+    },
+    "review": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "unreviewed",
+            "reviewed",
+            "rejected"
+          ]
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/rfc3339DateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ]
+    },
+    "location": {
+      "description": "Where the file was last found. reference/user paths are relative to SWINGAI_REFERENCE_DIR / SWINGAI_USER_DIR, which run.sh mounts at the same place in the container; absolute paths are for videos registered from elsewhere and may not resolve inside the container.",
+      "type": "object",
+      "required": [
+        "root",
+        "path"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "enum": [
+            "reference",
+            "user",
+            "absolute"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "if": {
+        "properties": {
+          "root": {
+            "enum": [
+              "reference",
+              "user"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "path": {
+            "$ref": "#/$defs/relativePath"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^(/|[A-Za-z]:[\\\\/])"
+          }
+        }
+      }
+    },
+    "golfersFile": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "kind": {
+          "const": "golfers"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "golfers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/golfer"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "revision",
+        "golfers"
+      ]
+    },
+    "golfer": {
+      "type": "object",
+      "properties": {
+        "golfer_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "enum": [
+            "reference",
+            "user"
+          ],
+          "description": "Reference golfers' data is shared and curated into collections; each user's recordings are their own history."
+        },
+        "handedness": {
+          "$ref": "#/$defs/handedness"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "golfer_id",
+        "display_name",
+        "role",
+        "handedness",
+        "notes"
+      ]
+    },
+    "sourcesFile": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "kind": {
+          "const": "sources"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "revision",
+        "sources"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "golfer_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "location": {
+          "$ref": "#/$defs/location"
+        },
+        "also_found_at": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/location"
+          },
+          "description": "Byte-identical copies seen at registration. Informational; never used as separate sources."
+        },
+        "registered_at": {
+          "$ref": "#/$defs/rfc3339DateTime"
+        },
+        "legacy_annotation_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The data/annotations.json key holding this video's pre-catalog P-positions, if any. A pointer only: those labels are never converted."
+        },
+        "provenance": {
+          "type": "object",
+          "properties": {
+            "source_type": {
+              "enum": [
+                "youtube",
+                "swing_catalyst",
+                "fox_capture",
+                "local_file",
+                "other",
+                "unknown"
+              ]
+            },
+            "url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "original_filename": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "notes": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "source_type",
+            "url",
+            "title",
+            "original_filename",
+            "notes"
+          ]
+        },
+        "recording": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/partialDate"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "date_basis": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Where the date came from, e.g. \"filename\" or \"capture metadata\"."
+            },
+            "camera_view": {
+              "$ref": "#/$defs/cameraView",
+              "description": "The view if the whole file is one camera; unknown for compilations. Each shot stream states its own view."
+            },
+            "notes": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "date",
+            "date_basis",
+            "camera_view",
+            "notes"
+          ]
+        },
+        "video": {
+          "type": "object",
+          "properties": {
+            "frame_count": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Frames a sequential decode produces."
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "codec": {
+              "type": "string"
+            },
+            "nominal_fps": {
+              "type": "number",
+              "minimum": 0,
+              "description": "The container's declared playback rate."
+            },
+            "average_fps": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Playback frames per second of presentation time."
+            },
+            "variable_frame_rate": {
+              "type": "boolean"
+            },
+            "duration_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "start_offset_ms": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reported_frame_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "decoder": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "frame_count",
+            "width",
+            "height",
+            "codec",
+            "nominal_fps",
+            "average_fps",
+            "variable_frame_rate",
+            "duration_ms",
+            "start_offset_ms",
+            "reported_frame_count",
+            "decoder"
+          ]
+        },
+        "timing": {
+          "type": "object",
+          "properties": {
+            "motion_time": {
+              "enum": [
+                "real_time",
+                "slowed",
+                "retimed",
+                "unknown"
+              ],
+              "description": "Whether playback time is the swing's real time. Playback fps of a YouTube upload says nothing about this."
+            },
+            "capture_fps": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Original camera frame rate when known; null otherwise."
+            },
+            "basis": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Why the timing is believed, e.g. \"Swing Catalyst capture at 240fps\"."
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "motion_time",
+            "capture_fps",
+            "basis"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "golfer_id",
+        "sha256",
+        "size_bytes",
+        "location",
+        "also_found_at",
+        "registered_at",
+        "legacy_annotation_key",
+        "provenance",
+        "recording",
+        "video",
+        "timing"
+      ]
+    },
+    "shotsFile": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "kind": {
+          "const": "shots"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shot"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "revision",
+        "shots"
+      ]
+    },
+    "shot": {
+      "type": "object",
+      "properties": {
+        "shot_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "golfer_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "created_at": {
+          "$ref": "#/$defs/rfc3339DateTime"
+        },
+        "swing_type": {
+          "enum": [
+            "full",
+            "three_quarter",
+            "half"
+          ]
+        },
+        "club": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "enum": [
+                "driver",
+                "fairway_wood",
+                "hybrid",
+                "iron",
+                "wedge",
+                "unknown"
+              ]
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "e.g. \"6-iron\"."
+            },
+            "length_in": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Physical club length in inches when known. Never inferred from the image: apparent shaft length depends on camera geometry."
+            },
+            "length_basis": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "category",
+            "name",
+            "length_in",
+            "length_basis"
+          ]
+        },
+        "handedness": {
+          "$ref": "#/$defs/handedness"
+        },
+        "recording_date": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/partialDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "setup_notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "streams": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/stream"
+          },
+          "description": "One per camera view of this one swing. More than one only when they record the same swing (multi_view.same_swing)."
+        },
+        "multi_view": {
+          "type": "object",
+          "properties": {
+            "same_swing": {
+              "$ref": "#/$defs/sameSwing"
+            },
+            "synchronization": {
+              "$ref": "#/$defs/synchronization"
+            },
+            "calibration": {
+              "$ref": "#/$defs/calibration"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "same_swing",
+            "synchronization",
+            "calibration"
+          ]
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        },
+        "capture": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "manifest_path": {
+                  "type": "string"
+                },
+                "shot_id": {
+                  "$ref": "#/$defs/identifier"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "manifest_path",
+                "shot_id"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The Rust capture-manifest.json this shot came from, when it was captured by swingai-capture; its shot_id is reused."
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "shot_id",
+        "golfer_id",
+        "created_at",
+        "swing_type",
+        "club",
+        "handedness",
+        "recording_date",
+        "setup_notes",
+        "streams",
+        "multi_view",
+        "review",
+        "capture",
+        "notes"
+      ]
+    },
+    "stream": {
+      "type": "object",
+      "properties": {
+        "stream_id": {
+          "$ref": "#/$defs/identifier",
+          "description": "Unique within the shot; the capture contract's camera id when there is one."
+        },
+        "source_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "camera_view": {
+          "$ref": "#/$defs/cameraView"
+        },
+        "window": {
+          "type": "object",
+          "properties": {
+            "start_frame": {
+              "$ref": "#/$defs/frame"
+            },
+            "end_frame": {
+              "$ref": "#/$defs/frame"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "start_frame",
+            "end_frame"
+          ],
+          "description": "The swing's span in source frames, inclusive. Edit metadata only: separate from P1/P10 and never applied to the source file."
+        },
+        "crop": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "x",
+                "y",
+                "width",
+                "height"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Region of interest in source pixels. Labels stay in source pixels; utils/shot_edits.py converts."
+        },
+        "quality": {
+          "type": "object",
+          "properties": {
+            "body_visibility": {
+              "enum": [
+                "unassessed",
+                "good",
+                "partial",
+                "poor"
+              ]
+            },
+            "club_visibility": {
+              "enum": [
+                "unassessed",
+                "good",
+                "partial",
+                "poor"
+              ]
+            },
+            "resolution_usable": {
+              "enum": [
+                "unassessed",
+                "yes",
+                "no"
+              ]
+            },
+            "notes": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "body_visibility",
+            "club_visibility",
+            "resolution_usable",
+            "notes"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "stream_id",
+        "source_id",
+        "camera_view",
+        "window",
+        "crop",
+        "quality"
+      ]
+    },
+    "collectionsFile": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "kind": {
+          "const": "collections"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "collections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/collection"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "revision",
+        "collections"
+      ]
+    },
+    "collection": {
+      "type": "object",
+      "properties": {
+        "collection_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "golfer_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "swing_types": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "full",
+              "three_quarter",
+              "half"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "frozen"
+          ],
+          "description": "A frozen collection is the fixed input of a model version and can't change; make a new collection id instead."
+        },
+        "frozen_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/rfc3339DateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frozen_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shot_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "collection_id",
+        "golfer_id",
+        "title",
+        "description",
+        "swing_types",
+        "status",
+        "frozen_at",
+        "frozen_by",
+        "shot_ids"
+      ]
+    },
+    "shot_annotationsFile": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "kind": {
+          "const": "shot_annotations"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shot_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "p_convention": {
+          "const": "p7-impact",
+          "description": "P6 = shaft parallel in the downswing, P7 = impact."
+        },
+        "streams": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/streamAnnotations"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "revision",
+        "shot_id",
+        "p_convention",
+        "streams"
+      ]
+    },
+    "origin": {
+      "enum": [
+        "manual",
+        "model_proposed",
+        "corrected"
+      ],
+      "description": "manual: placed by a person; model_proposed: a model's output not yet moved; corrected: a model proposal a person moved."
+    },
+    "streamAnnotations": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "positions": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "P1",
+              "P2",
+              "P3",
+              "P4",
+              "P5",
+              "P6",
+              "P7",
+              "P8",
+              "P9",
+              "P10"
+            ]
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/positionLabel"
+          }
+        },
+        "frames": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/frameLabels"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "source_sha256",
+        "positions",
+        "frames"
+      ]
+    },
+    "positionLabel": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "$ref": "#/$defs/frame"
+        },
+        "timestamp_ms": {
+          "type": "number"
+        },
+        "image_sha1": {
+          "$ref": "#/$defs/sha1"
+        },
+        "origin": {
+          "$ref": "#/$defs/origin"
+        },
+        "set_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "set_at": {
+          "$ref": "#/$defs/rfc3339DateTime"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "frame",
+        "timestamp_ms",
+        "image_sha1",
+        "origin",
+        "set_at"
+      ]
+    },
+    "frameLabels": {
+      "type": "object",
+      "properties": {
+        "timestamp_ms": {
+          "type": "number"
+        },
+        "image_sha1": {
+          "$ref": "#/$defs/sha1"
+        },
+        "points": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/point"
+          }
+        },
+        "unavailable": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "occluded",
+              "out_of_frame",
+              "motion_blur",
+              "not_present",
+              "cannot_determine"
+            ]
+          },
+          "description": "Points a person looked for and could not place. Unavailable is a recorded answer, not a gap to fill in."
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "timestamp_ms",
+        "image_sha1",
+        "points",
+        "unavailable",
+        "review"
+      ]
+    },
+    "point": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "visible": {
+          "type": "boolean",
+          "description": "false: placed where the person judges the hidden point to be."
+        },
+        "origin": {
+          "$ref": "#/$defs/origin"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The model's own score for a model_proposed point; not visibility or accuracy."
+        },
+        "set_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "set_at": {
+          "$ref": "#/$defs/rfc3339DateTime"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "visible",
+        "origin",
+        "set_at"
+      ]
+    },
+    "sameSwing": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "not_applicable",
+            "asserted",
+            "verified"
+          ]
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/rfc3339DateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "description": "Whether the shot's streams record one and the same swing. not_applicable for a single stream; a shot with several streams must be asserted (a person or the capture setup says so, with a method) or verified."
+    },
+    "synchronization": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "not_applicable",
+            "unknown",
+            "estimated",
+            "verified"
+          ]
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/rfc3339DateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "offset_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uncertainty_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "description": "Time alignment between the streams. Unknown until measured: matching filenames or co-triggering is not synchronization."
+    },
+    "calibration": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "not_applicable",
+            "unknown",
+            "estimated",
+            "verified"
+          ]
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/rfc3339DateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "description": "Camera intrinsics/extrinsics for the streams. Unknown until a calibration exists."
+    }
+  }
+}

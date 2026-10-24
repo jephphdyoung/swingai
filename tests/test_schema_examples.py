@@ -22,6 +22,9 @@ SCHEMAS = Path(__file__).resolve().parent.parent / "schemas"
 CONTRACTS = [
     ("capture-manifest", "capture-manifest.schema.json", "capture-manifest.example.json"),
     ("analysis-result", "analysis-result.schema.json", "analysis-result.example.json"),
+] + [
+    (f"swing-dataset-{k}", "swing-dataset.schema.json", f"swing-dataset/{k}.example.json")
+    for k in ("golfers", "sources", "shots", "collections", "shot-annotations")
 ]
 
 

@@ -1,0 +1,115 @@
+{
+  "schema_version": "1.0",
+  "kind": "shot_annotations",
+  "revision": 5,
+  "shot_id": "shot-gw-dtl-01",
+  "p_convention": "p7-impact",
+  "streams": {
+    "down_the_line": {
+      "source_id": "src-gw-dtl",
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "positions": {
+        "P1": {
+          "frame": 40,
+          "timestamp_ms": 1334.668,
+          "image_sha1": "1111111111111111111111111111111111111111",
+          "origin": "manual",
+          "set_by": "jeff",
+          "set_at": "2026-10-24T18:10:00Z"
+        },
+        "P4": {
+          "frame": 212,
+          "timestamp_ms": 7073.74,
+          "image_sha1": "2222222222222222222222222222222222222222",
+          "origin": "manual",
+          "set_by": "jeff",
+          "set_at": "2026-10-24T18:10:00Z"
+        },
+        "P7": {
+          "frame": 281,
+          "timestamp_ms": 9376.043,
+          "image_sha1": "3333333333333333333333333333333333333333",
+          "origin": "manual",
+          "set_by": "jeff",
+          "set_at": "2026-10-24T18:10:00Z"
+        },
+        "P10": {
+          "frame": 400,
+          "timestamp_ms": 13346.68,
+          "image_sha1": "4444444444444444444444444444444444444444",
+          "origin": "manual",
+          "set_by": "jeff",
+          "set_at": "2026-10-24T18:10:00Z"
+        }
+      },
+      "frames": {
+        "40": {
+          "timestamp_ms": 1334.668,
+          "image_sha1": "1111111111111111111111111111111111111111",
+          "points": {
+            "ball_center": {
+              "x": 251.5,
+              "y": 331.0,
+              "visible": true,
+              "origin": "manual",
+              "model": null,
+              "confidence": null,
+              "set_by": "jeff",
+              "set_at": "2026-10-24T18:20:00Z"
+            },
+            "shaft_butt": {
+              "x": 201.0,
+              "y": 214.5,
+              "visible": true,
+              "origin": "manual",
+              "model": null,
+              "confidence": null,
+              "set_by": "jeff",
+              "set_at": "2026-10-24T18:20:00Z"
+            },
+            "shaft_hosel": {
+              "x": 246.0,
+              "y": 322.0,
+              "visible": true,
+              "origin": "manual",
+              "model": null,
+              "confidence": null,
+              "set_by": "jeff",
+              "set_at": "2026-10-24T18:20:00Z"
+            },
+            "left_knee": {
+              "x": 170.0,
+              "y": 270.0,
+              "visible": false,
+              "origin": "corrected",
+              "model": "rtmpose-m",
+              "confidence": null,
+              "set_by": "jeff",
+              "set_at": "2026-10-24T18:20:00Z"
+            },
+            "right_knee": {
+              "x": 158.0,
+              "y": 268.0,
+              "visible": true,
+              "origin": "model_proposed",
+              "model": "rtmpose-m",
+              "confidence": 0.82,
+              "set_by": "jeff",
+              "set_at": "2026-10-24T18:20:00Z"
+            }
+          },
+          "unavailable": {
+            "left_heel": "occluded",
+            "clubhead_toe": "cannot_determine"
+          },
+          "review": {
+            "status": "reviewed",
+            "by": "jeff",
+            "at": "2026-10-24T18:25:00Z",
+            "notes": null
+          }
+        }
+      }
+    }
+  }
+}
