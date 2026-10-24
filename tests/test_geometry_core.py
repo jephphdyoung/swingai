@@ -258,3 +258,22 @@ def test_detect_board_finds_corners_in_a_rendered_image():
     assert corners is not None and corners.shape == (cols * rows, 2)
     assert cal.detect_board(np.full((200, 200), 255, np.uint8), cols, rows) is None
 
+
+
+def test_canonical_corner_order_needs_an_orientable_board():
+    def render(cols, rows, flip):
+        sq = 40
+        img = np.full((rows * sq + 3 * sq, cols * sq + 3 * sq), 255, np.uint8)
+        for r in range(rows + 1):
+            for c in range(cols + 1):
+                if (r + c) % 2 == 0:
+                    y, x = int(1.5 * sq) + r * sq, int(1.5 * sq) + c * sq
+                    img[y:y + sq, x:x + sq] = 0
+        return img[::-1, ::-1].copy() if flip else img
+    a = cal.detect_board(render(7, 4, False), 7, 4, canonical=True)
+    b = cal.detect_board(render(7, 4, True), 7, 4, canonical=True)
+    h, w = render(7, 4, False).shape
+    # The same physical corner comes first whichever way up the board is seen.
+    assert np.allclose(b[0], [w - 1, h - 1] - a[0], atol=1.0)
+    with pytest.raises(cal.CalibrationError, match="looks the same rotated"):
+        cal.detect_board(render(7, 5, False), 7, 5, canonical=True)

@@ -6,10 +6,13 @@ Workflow (see docs/geometry-3d.md for the FOX procedure):
 1. **Intrinsics per camera** from checkerboard images (`cv2.calibrateCamera`):
    focal lengths, principal point and distortion, with RMS reprojection error.
 2. **Extrinsics** from frame pairs in which *both* cameras see the same board
-   at the same moment. `cv2.stereoCalibrate` (intrinsics fixed) gives camera B
+   at the same moment. The board must be orientable (inner-corner counts
+   summing to an odd number, e.g. 9x6) so both cameras number its corners
+   from the same end (`detect_board(..., canonical=True)`). `cv2.stereoCalibrate` (intrinsics fixed) gives camera B
    relative to camera A over all pairs; a chosen reference pair fixes the
-   **rig frame** = that board's frame (x along the board's columns, y along
-   its rows, z out of the board).
+   **rig frame** = that board's frame, its z axis turned (if needed) to point
+   toward the cameras. The board's in-plane axes depend on which corner the
+   detector starts from, so they carry no meaning.
 3. Optional scene evidence, which calibration alone never implies: if an
    operator confirms the reference board was **lying on the ground**, the
    ground plane is the board plane; if they confirm a board edge was laid
@@ -38,8 +41,29 @@ def board_object_points(cols, rows, square_m):
     return g
 
 
-def detect_board(image_bgr, cols, rows):
-    """Sub-pixel inner corners (N,2) or None."""
+def board_is_orientable(cols, rows):
+    """A board whose 180° rotation swaps square colours (cols + rows odd, e.g.
+    9x6 inner corners). Only such a board tells which corner is "first", which
+    two cameras must agree on for extrinsic calibration."""
+    return (cols + rows) % 2 == 1
+
+
+def _quad_brightness(gray, c):
+    import cv2
+    centre = c.mean(axis=0)
+    r = max(1, int(0.15 * np.linalg.norm(c[0] - c[3])))
+    x, y = int(round(centre[0])), int(round(centre[1]))
+    patch = gray[max(0, y - r):y + r + 1, max(0, x - r):x + r + 1]
+    return float(cv2.mean(patch)[0]) if patch.size else 0.0
+
+
+def detect_board(image_bgr, cols, rows, canonical=False):
+    """Sub-pixel inner corners (N,2) or None.
+
+    canonical=True (orientable boards only) puts the corners in one order for
+    every view: the square between the first four corners is the dark one.
+    The detector alone may start from either end of the board.
+    """
     import cv2
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY) if image_bgr.ndim == 3 else image_bgr
     flags = cv2.CALIB_CB_ADAPTIVE_THRESH | cv2.CALIB_CB_NORMALIZE_IMAGE
@@ -47,8 +71,18 @@ def detect_board(image_bgr, cols, rows):
     if not ok:
         return None
     crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_MAX_ITER, 50, 1e-4)
-    corners = cv2.cornerSubPix(gray, corners, (5, 5), (-1, -1), crit)
-    return corners.reshape(-1, 2)
+    corners = cv2.cornerSubPix(gray, corners, (5, 5), (-1, -1), crit).reshape(-1, 2)
+    if canonical:
+        if not board_is_orientable(cols, rows):
+            raise CalibrationError(f"a {cols}x{rows} board looks the same rotated 180°, so "
+                                   "two cameras can't agree which corner is first; use one "
+                                   "whose inner-corner counts sum to an odd number (e.g. 9x6)")
+        g = corners.reshape(rows, cols, 2)
+        first = _quad_brightness(gray, np.array([g[0, 0], g[0, 1], g[1, 0], g[1, 1]]))
+        last = _quad_brightness(gray, np.array([g[-1, -1], g[-1, -2], g[-2, -1], g[-2, -2]]))
+        if first > last:
+            corners = corners[::-1].copy()
+    return corners
 
 
 def calibrate_intrinsics(camera_id, image_size, image_points, object_points):
@@ -104,12 +138,23 @@ def calibrate_extrinsics(cam_a, cam_b, object_points, pairs, reference_pair=0):
     Ra, ta, rms_a = solve_pose(cam_a, obj, np.asarray(pairs[reference_pair][0], float))
     A = make_transform(Ra, ta)                 # rig -> camera A
     B = make_transform(R_ab, T_ab.ravel()) @ A  # rig -> camera B
+    # A checkerboard's detected corner order can start from either end, so the
+    # board normal may point away from the cameras. Turn the rig frame 180°
+    # about its x axis if so (still right-handed): rig +z then always points
+    # toward the cameras -- up, when the board lies on the ground. The in-plane
+    # direction stays arbitrary; the world frame never relies on it.
+    centers = [-(M[:3, :3].T @ M[:3, 3]) for M in (A, B)]
+    flipped = bool(np.mean([c[2] for c in centers]) < 0)
+    if flipped:
+        F = np.diag([1.0, -1.0, -1.0, 1.0])
+        A, B = A @ F, B @ F
     cam_a = cam_a.with_pose(A[:3, :3], A[:3, 3])
     cam_b = cam_b.with_pose(B[:3, :3], B[:3, 3])
     _, _, rms_b = solve_pose(cam_b, obj, np.asarray(pairs[reference_pair][1], float))
     return cam_a, cam_b, {"stereo_rms_px": float(rms), "n_pairs": len(pairs),
                           "reference_pair": reference_pair,
-                          "reference_pose_rms_px": [rms_a, rms_b]}
+                          "reference_pose_rms_px": [rms_a, rms_b],
+                          "board_normal_flipped": flipped}
 
 
 def calibration_document(calibration_id, version, cameras, status, method, by, at,
@@ -127,8 +172,8 @@ def calibration_document(calibration_id, version, cameras, status, method, by, a
             "calibration_id": calibration_id, "version": int(version),
             "created_at": created_at or now_iso(), "units": "m",
             "status": {"status": status, "method": method, "by": by, "at": at, "notes": None},
-            "rig_frame": "board frame of the reference board pose (x along board columns, "
-                         "y along rows, z out of the board)",
+            "rig_frame": "board frame of the reference board pose, z toward the cameras; "
+                         "in-plane axes arbitrary (detector corner order)",
             "cameras": cams,
             "extrinsic": extrinsic,
             "ground": ground, "target_direction": target_direction, "notes": notes}

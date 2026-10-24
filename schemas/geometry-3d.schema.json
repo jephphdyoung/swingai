@@ -531,6 +531,16 @@
                       "type": "null"
                     }
                   ]
+                },
+                "board_normal_flipped": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
