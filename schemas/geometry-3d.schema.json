@@ -1,0 +1,1505 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://swingai.local/schemas/geometry-3d.schema.json",
+  "title": "SwingAI 3D geometry",
+  "description": "Camera calibrations, 3D reconstructions of one shot, and measurements derived from them. Selected by kind. World coordinates: right-handed metres, +X toward the target, +Y left of the target line, +Z up, origin at the ground projection of the ball centre at address. See docs/geometry-3d.md.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kind"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "#/$defs/schemaVersion"
+    },
+    "kind": {
+      "enum": [
+        "camera_calibration",
+        "reconstruction_3d",
+        "measurements_3d"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "camera_calibration"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/camera_calibration"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "reconstruction_3d"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/reconstruction_3d"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "measurements_3d"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/measurements_3d"
+      }
+    }
+  ],
+  "$defs": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A shot or camera identifier. Must be usable verbatim as a directory name on every host SwingAI runs on, so the rules are Windows' — the booth is a Windows machine and a shot folder is meant to be copied between hosts, so the stricter platform sets the rule. Rejected: / \\ : * ? \" < > | and control characters; \".\" and \"..\"; a trailing period or space, which Windows silently strips, so \"shot.\" and \"shot\" would name one directory; and the reserved DOS device names CON, PRN, AUX, NUL, COM1-COM9 and LPT1-LPT9 in any case, with or without an extension, because \"nul.capture\" still names the null device. These mirror the rules swingai-core's ShotId and CameraId enforce; the two sides of the seam must not disagree about what an id may be.",
+      "allOf": [
+        {
+          "pattern": "^[^/\\\\:*?\"<>|\\u0000-\\u001f\\u007f-\\u009f]+$"
+        },
+        {
+          "not": {
+            "pattern": "[. ]$"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|(?:[Cc][Oo][Mm]|[Ll][Pp][Tt])[1-9])(?:\\.|$)"
+          }
+        }
+      ],
+      "examples": [
+        "2026-07-31T14-22-05.412Z",
+        "fox-dtl"
+      ]
+    },
+    "rfc3339DateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?([Zz]|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "An RFC 3339 date-time, e.g. \"2026-07-31T14:22:05.412Z\" or \"2026-07-31T16:22:05.412+02:00\". An offset is required. The pattern is present as well as \"format\" because most JSON Schema validators treat \"format\" as an annotation unless a format checker is installed. The pattern is structural only — it cannot reject an impossible calendar date such as 2026-02-30, which the Rust implementation does.",
+      "examples": [
+        "2026-07-31T14:22:05.412Z",
+        "2026-07-31T16:22:05.412+02:00"
+      ]
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Forward-slash path relative to the directory containing this manifest, e.g. \"streams/down_the_line.mkv\". Host-independent: backslashes are rejected outright on every platform, which also rules out C:\\..., UNC \\\\server\\share, extended-length \\\\?\\C:\\..., and rooted \\... spellings. Must not be absolute, must not name a drive, and must not escape the directory with \"..\".",
+      "pattern": "^[^\\\\]*$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^/"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "(^|/)\\.\\.(/|$)"
+          }
+        ]
+      }
+    },
+    "cameraView": {
+      "enum": [
+        "face_on",
+        "down_the_line",
+        "overhead",
+        "impact",
+        "unknown"
+      ],
+      "description": "Note this differs from the Python side's \"dtl\" (utils/swing_pairing.py, data/annotations.json). The bridge maps; this contract does not accept the abbreviation."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "matrix4": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "items": {
+          "type": "number"
+        }
+      },
+      "description": "Row-major 4x4 rigid transform (rotation with det +1, last row 0 0 0 1). X_to = M @ X_from."
+    },
+    "vector3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "number"
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "measured",
+            "inferred",
+            "unavailable"
+          ]
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "value",
+        "unit",
+        "uncertainty",
+        "method",
+        "reasons"
+      ],
+      "description": "measured: from observed points meeting every quality gate; inferred: depends on a point a person placed as hidden; unavailable: value is null and reasons say why. Never a guessed number."
+    },
+    "pointMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "measured",
+            "inferred",
+            "unavailable"
+          ]
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "number"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "time_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frame": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "value",
+        "unit",
+        "uncertainty",
+        "method",
+        "reasons"
+      ]
+    },
+    "camera_calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "kind": {
+          "const": "camera_calibration"
+        },
+        "calibration_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "created_at": {
+          "$ref": "#/$defs/rfc3339DateTime"
+        },
+        "units": {
+          "const": "m"
+        },
+        "status": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "estimated",
+                "verified"
+              ]
+            },
+            "method": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "by": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "at": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/rfc3339DateTime"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "notes": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "description": "verified needs method and by (e.g. checked against a known distance)."
+        },
+        "rig_frame": {
+          "type": "string"
+        },
+        "cameras": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "camera_id": {
+                "$ref": "#/$defs/identifier"
+              },
+              "image_size": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ]
+              },
+              "model": {
+                "const": "opencv_brown_conrady_5",
+                "description": "OpenCV pinhole model with distortion k1, k2, p1, p2, k3, exactly as cv2.calibrateCamera reports them."
+              },
+              "intrinsics": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "fx": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "fy": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "cx": {
+                    "type": "number"
+                  },
+                  "cy": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "fx",
+                  "fy",
+                  "cx",
+                  "cy"
+                ]
+              },
+              "distortion": {
+                "type": "array",
+                "minItems": 5,
+                "maxItems": 5,
+                "items": {
+                  "type": "number"
+                }
+              },
+              "camera_to_rig": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 4,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "description": "Row-major 4x4 rigid transform (rotation with det +1, last row 0 0 0 1). X_to = M @ X_from."
+              },
+              "intrinsic_rms_px": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "camera_id",
+              "image_size",
+              "model",
+              "intrinsics",
+              "distortion",
+              "camera_to_rig",
+              "intrinsic_rms_px"
+            ],
+            "description": "camera_id is the shot stream's id (the capture contract's camera id), which is how a reconstruction finds each stream's camera."
+          }
+        },
+        "extrinsic": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "method": {
+                  "type": "string"
+                },
+                "stereo_rms_px": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "n_pairs": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reference_pair": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reference_pose_rms_px": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "method",
+                "stereo_rms_px",
+                "n_pairs",
+                "reference_pair",
+                "reference_pose_rms_px"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ground": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "normal": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 3,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "d": {
+                  "type": "number"
+                },
+                "method": {
+                  "type": "string"
+                },
+                "rms_m": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "n_points": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 3
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "normal",
+                "d",
+                "method",
+                "rms_m",
+                "n_points"
+              ],
+              "description": "Ground plane n . X + d = 0 in rig coordinates. Present only with explicit evidence (ground points, or a board an operator confirmed was lying on the ground); calibration alone never implies it."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_direction": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "direction_rig": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 3,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "method": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "direction_rig",
+                "method"
+              ],
+              "description": "Direction toward the target in rig coordinates, from explicit evidence (e.g. an operator-confirmed board edge along the target line). Shots may instead supply it from labelled target-line marker points."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "calibration_id",
+        "version",
+        "created_at",
+        "units",
+        "status",
+        "rig_frame",
+        "cameras",
+        "extrinsic",
+        "ground",
+        "target_direction",
+        "notes"
+      ]
+    },
+    "reconstruction_3d": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "kind": {
+          "const": "reconstruction_3d"
+        },
+        "reconstruction_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "shot_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "created_at": {
+          "$ref": "#/$defs/rfc3339DateTime"
+        },
+        "algorithm": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "parameters": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "name",
+            "version",
+            "parameters"
+          ]
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shot_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "annotations": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "revision": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "required": [
+                "revision",
+                "sha256"
+              ]
+            },
+            "sources": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "stream_id": {
+                    "$ref": "#/$defs/identifier"
+                  },
+                  "source_id": {
+                    "$ref": "#/$defs/identifier"
+                  },
+                  "sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "camera_view": {
+                    "$ref": "#/$defs/cameraView"
+                  },
+                  "timestamp_status": {
+                    "enum": [
+                      "verified",
+                      "unverified",
+                      "inconsistent",
+                      "estimated"
+                    ]
+                  }
+                },
+                "required": [
+                  "stream_id",
+                  "source_id",
+                  "sha256",
+                  "camera_view",
+                  "timestamp_status"
+                ]
+              }
+            },
+            "calibration": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "calibration_id": {
+                  "$ref": "#/$defs/identifier"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "status": {
+                  "enum": [
+                    "estimated",
+                    "verified"
+                  ]
+                }
+              },
+              "required": [
+                "calibration_id",
+                "version",
+                "sha256",
+                "status"
+              ]
+            }
+          },
+          "required": [
+            "shot_sha256",
+            "annotations",
+            "sources",
+            "calibration"
+          ]
+        },
+        "association": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reference_stream": {
+              "$ref": "#/$defs/identifier"
+            },
+            "same_swing": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "method": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "method"
+              ]
+            },
+            "synchronization": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "method": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "offset_ms": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "uncertainty_ms": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "convention": {
+                  "const": "t_reference = t_stream + offset_ms for every non-reference stream"
+                }
+              },
+              "required": [
+                "status",
+                "method",
+                "offset_ms",
+                "uncertainty_ms",
+                "convention"
+              ]
+            },
+            "catalog_calibration": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "method": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "method"
+              ]
+            }
+          },
+          "required": [
+            "reference_stream",
+            "same_swing",
+            "synchronization",
+            "catalog_calibration"
+          ]
+        },
+        "world_frame": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "defined",
+                "undefined"
+              ]
+            },
+            "convention": {
+              "type": "string"
+            },
+            "units": {
+              "const": "m"
+            },
+            "rig_to_world": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 4,
+                  "items": {
+                    "type": "array",
+                    "minItems": 4,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "description": "Row-major 4x4 rigid transform (rotation with det +1, last row 0 0 0 1). X_to = M @ X_from."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "anyOf": [
+                {
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "status",
+            "convention",
+            "units",
+            "rig_to_world",
+            "evidence",
+            "reasons"
+          ],
+          "description": "Coordinates in the arrays are world coordinates when defined, else rig coordinates."
+        },
+        "cameras": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "camera_id": {
+                "$ref": "#/$defs/identifier"
+              },
+              "camera_to_rig": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 4,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "description": "Row-major 4x4 rigid transform (rotation with det +1, last row 0 0 0 1). X_to = M @ X_from."
+              },
+              "camera_to_world": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "minItems": 4,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "array",
+                      "minItems": 4,
+                      "maxItems": 4,
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "description": "Row-major 4x4 rigid transform (rotation with det +1, last row 0 0 0 1). X_to = M @ X_from."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "camera_id",
+              "camera_to_rig",
+              "camera_to_world"
+            ]
+          }
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Point names (the shot-label catalogue's), the order of the arrays' point axis."
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "kind": {
+                "enum": [
+                  "static_address",
+                  "dynamic"
+                ]
+              },
+              "time_ms": {
+                "type": "number"
+              },
+              "status": {
+                "enum": [
+                  "measured",
+                  "unverified"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "pair_gap_ms": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "views": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "stream_id": {
+                      "$ref": "#/$defs/identifier"
+                    },
+                    "source_id": {
+                      "$ref": "#/$defs/identifier"
+                    },
+                    "source_frame": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "timestamp_ms": {
+                      "type": "number"
+                    },
+                    "timestamp_basis": {
+                      "enum": [
+                        "container",
+                        "estimated"
+                      ]
+                    },
+                    "image_sha1": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  },
+                  "required": [
+                    "stream_id",
+                    "source_id",
+                    "source_frame",
+                    "timestamp_ms",
+                    "timestamp_basis",
+                    "image_sha1"
+                  ],
+                  "description": "One camera's own frame: source-frame id, its timestamp on that source's clock, and the decoded image's digest."
+                }
+              }
+            },
+            "required": [
+              "index",
+              "kind",
+              "time_ms",
+              "status",
+              "reasons",
+              "pair_gap_ms",
+              "views"
+            ],
+            "description": "time_ms is on the reference stream's clock (its frame-0-relative timestamps); another stream's time maps as t_ref = t_stream + synchronization.offset_ms. static_address pairs each stream's own P1 frame (the golfer is still), so synchronization doesn't bear on it; dynamic frames are paired by synchronized time."
+          }
+        },
+        "arrays": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "coordinates": {
+              "enum": [
+                "world",
+                "rig"
+              ]
+            },
+            "layout": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "dtype": {
+                    "type": "string"
+                  },
+                  "shape": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "sha256": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                },
+                "required": [
+                  "dtype",
+                  "shape",
+                  "sha256"
+                ]
+              },
+              "description": "time_ms (F), xyz (F,P,3) metres, cov (F,P,3,3) m^2, state (F,P) int8 0=missing 1=observed 2=inferred, n_views (F,P), reprojection_px (F,P,V), parallax_deg (F,P). sha256 of each array's C-order bytes, so the content is checkable whatever the zip container's metadata."
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "coordinates",
+            "layout"
+          ]
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "frame": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "point": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "frame",
+              "point",
+              "reason"
+            ]
+          }
+        },
+        "summary": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "reconstruction_id",
+        "shot_id",
+        "created_at",
+        "algorithm",
+        "inputs",
+        "association",
+        "world_frame",
+        "cameras",
+        "points",
+        "frames",
+        "arrays",
+        "missing",
+        "summary"
+      ]
+    },
+    "measurements_3d": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "kind": {
+          "const": "measurements_3d"
+        },
+        "reconstruction_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "shot_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "created_at": {
+          "$ref": "#/$defs/rfc3339DateTime"
+        },
+        "algorithm": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "parameters": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "name",
+            "version",
+            "parameters"
+          ]
+        },
+        "handedness": {
+          "enum": [
+            "right",
+            "left"
+          ]
+        },
+        "alignment_p1": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "enum": [
+                  "measured",
+                  "inferred",
+                  "unavailable"
+                ]
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unit": {
+                "type": "string"
+              },
+              "uncertainty": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "method": {
+                "type": "string"
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "status",
+              "value",
+              "unit",
+              "uncertainty",
+              "method",
+              "reasons"
+            ],
+            "description": "measured: from observed points meeting every quality gate; inferred: depends on a point a person placed as hidden; unavailable: value is null and reasons say why. Never a guessed number."
+          }
+        },
+        "club": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "impact_time_ms": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "values": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "measured",
+                      "inferred",
+                      "unavailable"
+                    ]
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "uncertainty": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "reasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit",
+                  "uncertainty",
+                  "method",
+                  "reasons"
+                ],
+                "description": "measured: from observed points meeting every quality gate; inferred: depends on a point a person placed as hidden; unavailable: value is null and reasons say why. Never a guessed number."
+              }
+            },
+            "points": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "measured",
+                      "inferred",
+                      "unavailable"
+                    ]
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "items": {
+                          "type": "number"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "uncertainty": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "reasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "time_ms": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "frame": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit",
+                  "uncertainty",
+                  "method",
+                  "reasons"
+                ]
+              }
+            }
+          },
+          "required": [
+            "impact_time_ms",
+            "values",
+            "points"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "reconstruction_id",
+        "shot_id",
+        "manifest_sha256",
+        "created_at",
+        "algorithm",
+        "handedness",
+        "alignment_p1",
+        "club"
+      ]
+    }
+  }
+}
