@@ -196,10 +196,12 @@ class Capture:
     fo_shift_frames: the face-on camera started this many frames earlier.
     fo_phase_ms: extra sub-frame delay of face-on exposures (0 = genlocked).
     The true offset (t_ref = t_fo + offset_ms) is phase - shift * 1000/fps.
+    same_swing_status: "verified", or "asserted" (as add_stream leaves it).
     """
 
     def __init__(self, tmp_path, *, noise_px=0.3, fo_shift_frames=9, fo_phase_ms=0.0,
-                 sync_status="verified", sync_offset_ms="true", sync_uncertainty_ms=0.2,
+                 same_swing_status="verified", sync_status="verified", sync_offset_ms="true",
+                 sync_uncertainty_ms=0.2,
                  calibration_status="verified", ts_status="verified", handedness="right",
                  world_to_rig=None, arc=None, seed=0, n_frames=100, impact_frame=70,
                  p1_frames=(5, 7), club_frames=range(40, 100), body=None):
@@ -231,11 +233,11 @@ class Capture:
         cm.add_stream(cat, shot["shot_id"], source_id="src-fo", camera_view="face_on",
                       start_frame=0, end_frame=n_frames - 1, stream_id="face_on",
                       same_swing_method="synthetic co-triggered capture", asserted_by="test")
+        if same_swing_status == "verified":
+            cm.set_multi_view(cat, shot["shot_id"], "same_swing", "verified",
+                              "synthetic: one simulated swing", "test")
         if sync_status != "unknown":
             offset = self.true_offset_ms if sync_offset_ms == "true" else sync_offset_ms
-            if sync_status == "verified":
-                cm.set_multi_view(cat, shot["shot_id"], "same_swing", "verified",
-                                  "synthetic: one simulated swing", "test")
             cm.set_multi_view(cat, shot["shot_id"], "synchronization", sync_status,
                               "synthetic clocks", "test", offset_ms=offset,
                               uncertainty_ms=sync_uncertainty_ms)

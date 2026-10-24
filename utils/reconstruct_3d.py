@@ -15,7 +15,8 @@ streams whose same-swing association is documented (asserted with a method,
 or verified). Independent recordings -- e.g. Grant Waite DTL and face-on
 clips of different swings, which the catalog keeps as separate single-stream
 shots -- are refused (`StereoInputError`): they can feed a later statistical
-3D fit, never a stereo measurement.
+3D fit, never a stereo measurement. An asserted association is enough to
+reconstruct experimentally; nothing is measured until it is verified.
 
 **Frame association.** Each camera keeps its own source-frame ids and
 timestamps. Times are put on the reference stream's clock (the shot's first
@@ -35,9 +36,11 @@ stream): t_ref = t_stream + synchronization.offset_ms.
 (a label placed as hidden, or an unreviewed model proposal) or missing (one
 view only, or rejected by `triangulation.check_point`, with the reason). Per
 frame: "measured" only when the calibration is verified (document and
-catalog), and for dynamic frames also the synchronization is verified with a
-small enough uncertainty and every view's timestamp is a verified container
-time; otherwise "unverified" with the reasons.
+catalog) and the same-swing association is verified with its provenance
+(method, by, at) -- views of different swings make even a still address pose
+meaningless in 3D; for dynamic frames also the synchronization is verified
+with a small enough uncertainty and every view's timestamp is a verified
+container time; otherwise "unverified" with the reasons.
 
 **World frame.** Points are triangulated in the calibration's rig frame, then
 moved to the shot's world frame (`utils/world_frame.py`) when the ground,
@@ -231,6 +234,13 @@ def _frame_status(fr, streams, shot, calibration_doc, req):
     if shot["multi_view"]["calibration"]["status"] != "verified":
         reasons.append(f"the shot's calibration status is "
                        f"{shot['multi_view']['calibration']['status']}")
+    same = shot["multi_view"]["same_swing"]
+    if same["status"] != "verified":
+        reasons.append(f"same swing is {same['status']}, not verified")
+    else:
+        gaps = [k for k in ("method", "by", "at") if not str(same.get(k) or "").strip()]
+        if gaps:
+            reasons.append(f"same swing is verified without provenance ({', '.join(gaps)})")
     if fr["kind"] == "dynamic":
         sync = shot["multi_view"]["synchronization"]
         if sync["status"] != "verified":
@@ -306,7 +316,8 @@ def reconstruct(shot, streams, calibration, annotations, requirements=None):
             state[i, j] = STATE_INFERRED if inferred else STATE_OBSERVED
     association = {
         "reference_stream": streams[0].stream_id,
-        "same_swing": {k: shot["multi_view"]["same_swing"].get(k) for k in ("status", "method")},
+        "same_swing": {k: shot["multi_view"]["same_swing"].get(k)
+                       for k in ("status", "method", "by", "at")},
         "synchronization": {"status": shot["multi_view"]["synchronization"]["status"],
                             "method": shot["multi_view"]["synchronization"].get("method"),
                             "offset_ms": shot["multi_view"]["synchronization"].get("offset_ms"),

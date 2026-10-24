@@ -112,6 +112,48 @@ def test_unknown_synchronization_pairs_only_the_static_address(tmp_path):
     assert "synchronization unknown" in rec.association["notes"][0]
 
 
+def test_asserted_same_swing_reconstructs_but_measures_nothing(tmp_path):
+    # Experimental reconstruction stays possible: the points are triangulated...
+    cap = Capture(tmp_path, same_swing_status="asserted", sync_status="estimated")
+    assert cap.cat.shot(cap.shot_id)["multi_view"]["same_swing"]["status"] == "asserted"
+    rec = _run(cap)
+    s = rec.frame_with("static_address")
+    for name, X in cap.body.items():
+        got, state = _point(rec, s, name)
+        assert state == r3.STATE_OBSERVED and np.linalg.norm(got - X) < 0.004, name
+    assert any(f["kind"] == "dynamic" for f in rec.frames)
+    # ...but no frame, static or moving, is measured until the association is verified.
+    assert all(f["status"] == "unverified" for f in rec.frames)
+    assert all("same swing is asserted, not verified" in f["reasons"] for f in rec.frames)
+    assert rec.association["same_swing"]["status"] == "asserted"
+    # With everything else verified (sync too: forced past the catalog's own rule
+    # that verified sync needs a verified same swing), the assertion still blocks.
+    mv = cap.cat.shots[cap.shot_id]["multi_view"]
+    mv["synchronization"] = {**mv["synchronization"], "status": "verified"}
+    rec = _run(cap)
+    assert all(f["status"] == "unverified" for f in rec.frames)
+    assert all(f["reasons"] == ["same swing is asserted, not verified"] for f in rec.frames)
+
+
+def test_verified_same_swing_needs_its_provenance(tmp_path):
+    cap = Capture(tmp_path)
+    same = cap.cat.shot(cap.shot_id)["multi_view"]["same_swing"]
+    assert same["status"] == "verified" and same["by"] and same["at"] and same["method"]
+    rec = _run(cap)
+    assert all(f["status"] == "measured" for f in rec.frames)
+    assert {k: rec.association["same_swing"][k] for k in ("by", "at")} == \
+        {"by": same["by"], "at": same["at"]}
+    cap.cat.shots[cap.shot_id]["multi_view"]["same_swing"] = {**same, "method": None}
+    with pytest.raises(r3.StereoInputError, match="without a documented method"):
+        _run(cap)
+    for gap in ("by", "at"):
+        cap.cat.shots[cap.shot_id]["multi_view"]["same_swing"] = {**same, gap: None}
+        rec = _run(cap)
+        assert all(f["status"] == "unverified" for f in rec.frames), gap
+        assert all(f"same swing is verified without provenance ({gap})" in f["reasons"]
+                   for f in rec.frames), gap
+
+
 def test_estimated_or_loose_synchronization_leaves_moving_frames_unverified(tmp_path):
     rec = _run(Capture(tmp_path, sync_status="estimated"))
     dyn = [f for f in rec.frames if f["kind"] == "dynamic"]

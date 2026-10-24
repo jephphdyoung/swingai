@@ -827,11 +827,33 @@
                       "type": "null"
                     }
                   ]
+                },
+                "by": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "at": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/rfc3339DateTime"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
                 "status",
-                "method"
+                "method",
+                "by",
+                "at"
               ]
             },
             "synchronization": {
