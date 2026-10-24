@@ -18,7 +18,12 @@ Identity is by stable id, never by path:
   can group. A shot with several streams needs an explicit same-swing
   assertion; synchronization and calibration stay "unknown" until measured;
 - a **collection** is a curated list of a reference golfer's shot ids, e.g.
-  `grant-waite-full-swing-v1`. A frozen collection never changes.
+  `grant-waite-full-swing-v1`. Freezing writes a **snapshot** -- a write-once
+  copy of every member shot's definition (streams, windows, crops, metadata),
+  its sources (checksums, video facts, timing) and its full label document --
+  named and referenced by its content hash. The frozen collection *is* that
+  snapshot: the working shots stay editable, and `frozen_drift` reports how
+  they have moved on, but nothing changes what the collection represents.
 
 A stream's swing window (start/end) and crop are edit metadata in source
 frames and pixels; `utils/shot_edits.py` converts. Labels live per shot in
@@ -159,6 +164,7 @@ class Catalog:
     collections: dict = field(default_factory=dict)
     revisions: dict = field(default_factory=dict)     # kind -> revision loaded (None: no file)
     _loaded: dict = field(default_factory=dict, repr=False)
+    _pending_snapshots: dict = field(default_factory=dict, repr=False)  # path -> document
 
     def records(self, kind):
         return getattr(self, kind)
@@ -250,6 +256,17 @@ def save_catalog(cat: Catalog):
             raise ConflictError(
                 f"{kind}.json was saved elsewhere (revision {on_disk}, loaded "
                 f"{cat.revisions.get(kind)}); reload and redo the change")
+    # Snapshots before the collections that point at them. Content-addressed
+    # names make them write-once: an existing file must already be identical.
+    for rel, doc in list(cat._pending_snapshots.items()):
+        path = os.path.join(cat.root, *rel.split("/"))
+        if os.path.exists(path):
+            with open(path) as f:
+                if canonical_sha256(json.load(f)) != canonical_sha256(doc):
+                    raise CatalogError(f"{rel} exists with different content")
+        else:
+            atomic_write_json(path, doc)
+        del cat._pending_snapshots[rel]
     # Referenced records first, so a reader never sees a dangling id.
     for kind, doc, current in changed:
         atomic_write_json(cat.path(kind), doc)
@@ -306,10 +323,12 @@ def check_catalog(cat: Catalog):
         elif golfer["role"] != "reference":
             problems.append(f"{where}: {c['golfer_id']} is a user, and collections hold "
                             "reference swings; a user's shots stay in their own history")
-        if c["status"] == "frozen" and not (c.get("frozen_at") and c.get("frozen_by")):
-            problems.append(f"{where}: frozen without frozen_at / frozen_by")
-        if c["status"] == "draft" and (c.get("frozen_at") or c.get("frozen_by")):
-            problems.append(f"{where}: a draft can't carry frozen_at / frozen_by")
+        if c["status"] == "frozen" and not (c.get("frozen_at") and c.get("frozen_by")
+                                            and c.get("snapshot")):
+            problems.append(f"{where}: frozen without frozen_at / frozen_by / snapshot")
+        if c["status"] == "draft" and (c.get("frozen_at") or c.get("frozen_by")
+                                       or c.get("snapshot")):
+            problems.append(f"{where}: a draft can't carry frozen_at / frozen_by / snapshot")
         for shot_id in c["shot_ids"]:
             shot = cat.shots.get(shot_id)
             if shot is None:
@@ -318,7 +337,10 @@ def check_catalog(cat: Catalog):
             if shot["golfer_id"] != c["golfer_id"]:
                 problems.append(f"{where}: shot {shot_id} is {shot['golfer_id']}'s, not "
                                 f"{c['golfer_id']}'s")
-            if c["swing_types"] and shot["swing_type"] not in c["swing_types"]:
+            # A frozen collection was checked when it was frozen; its snapshot,
+            # not the (editable) working shot, is what it holds.
+            if (c["status"] == "draft" and c["swing_types"]
+                    and shot["swing_type"] not in c["swing_types"]):
                 problems.append(f"{where}: shot {shot_id} is a {shot['swing_type']} swing; "
                                 f"the collection holds {c['swing_types']}")
     return problems
@@ -693,12 +715,6 @@ def update_shot(cat, shot_id, **fields):
     bad = set(fields) - SHOT_EDITABLE
     if bad:
         raise CatalogError(f"shot fields {sorted(bad)} can't be edited here")
-    if "swing_type" in fields:
-        for c in cat.collections.values():
-            if shot_id in c["shot_ids"] and c["status"] == "frozen":
-                raise CatalogError(f"shot {shot_id} is in frozen collection "
-                                   f"{c['collection_id']}; its swing type is fixed")
-
     def change(shot):
         for k, v in fields.items():
             shot[k] = {**shot[k], **v} if k == "club" else v
@@ -762,7 +778,7 @@ def create_collection(cat, collection_id, golfer_id, title, description=None,
         raise CatalogError(f"collection id {collection_id!r} is taken or invalid")
     rec = {"collection_id": collection_id, "golfer_id": golfer_id, "title": title,
            "description": description, "swing_types": list(swing_types), "status": "draft",
-           "frozen_at": None, "frozen_by": None, "shot_ids": []}
+           "frozen_at": None, "frozen_by": None, "snapshot": None, "shot_ids": []}
     cat.collections[collection_id] = rec
     problems = [p for p in check_catalog(cat) if f"collection {collection_id}" in p]
     if problems:
@@ -799,14 +815,139 @@ def remove_from_collection(cat, collection_id, shot_id):
     return c
 
 
-def freeze_collection(cat, collection_id, by):
+def canonical_sha256(doc):
+    """SHA-256 of a JSON document's canonical form (sorted keys, no spaces)."""
+    import hashlib
+    text = json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def freeze_collection(cat, collection_id, by, annotations_dir=None):
+    """Freeze a draft: snapshot every member's complete inputs.
+
+    Refused when a member's source bytes can't be found and checked, or its
+    labels don't validate against the catalog -- a frozen input has to be
+    reproducible. The snapshot is written by the next `save_catalog`.
+    """
+    from utils import shot_annotations as sa
     c = _draft(cat, collection_id)
     if not str(by or "").strip():
         raise CatalogError("freezing needs the name of who froze it")
     if not c["shot_ids"]:
         raise CatalogError(f"collection {collection_id} has no shots to freeze")
-    c.update(status="frozen", frozen_at=now_iso(), frozen_by=by)
+    problems, shots = [], []
+    for shot_id in c["shot_ids"]:
+        shot = cat.shot(shot_id)
+        source_ids = list(dict.fromkeys(st["source_id"] for st in shot["streams"]))
+        for sid in source_ids:
+            status = resolve_source(cat, sid)
+            if not status.usable:
+                problems.append(f"shot {shot_id}: source {sid} is {status.state} "
+                                f"({status.detail})")
+        doc = None
+        if os.path.exists(sa.annotations_path(shot_id, annotations_dir)):
+            doc = sa.load(shot_id, annotations_dir)
+            doc = {k: v for k, v in doc.items() if not k.startswith("_")}
+            problems += sa.check(doc, cat)
+        shots.append({"shot": copy.deepcopy(shot),
+                      "sources": [copy.deepcopy(cat.source(s)) for s in source_ids],
+                      "annotations": doc,
+                      "annotations_sha256": None if doc is None else canonical_sha256(doc)})
+    if problems:
+        raise CatalogError([f"can't freeze {collection_id}: {p}" for p in problems])
+    frozen_at = now_iso()
+    snapshot = {"schema_version": SCHEMA_VERSION, "kind": "collection_snapshot", "revision": 0,
+                "collection_id": collection_id, "golfer_id": c["golfer_id"],
+                "title": c["title"], "swing_types": list(c["swing_types"]),
+                "frozen_at": frozen_at, "frozen_by": by, "shots": shots}
+    problems = schema_problems(snapshot, "snapshot: ")
+    if problems:
+        raise CatalogError(problems)
+    sha = canonical_sha256(snapshot)
+    rel = f"snapshots/{collection_id}-{sha[:12]}.json"
+    cat._pending_snapshots[rel] = snapshot
+    c.update(status="frozen", frozen_at=frozen_at, frozen_by=by,
+             snapshot={"path": rel, "sha256": sha, "shot_count": len(shots)})
     return c
+
+
+def load_snapshot(cat, collection_id):
+    """The frozen collection's inputs, after proving they are the ones frozen.
+
+    Raises CatalogError when the collection isn't frozen, or its snapshot is
+    missing, invalid, or not byte-for-byte (canonically) what was recorded.
+    """
+    c = cat.collection(collection_id)
+    ref = c.get("snapshot")
+    if c["status"] != "frozen" or not ref:
+        raise CatalogError(f"collection {collection_id} is not frozen")
+    if ref["path"] in cat._pending_snapshots:
+        return copy.deepcopy(cat._pending_snapshots[ref["path"]])
+    path = os.path.join(cat.root, *ref["path"].split("/"))
+    try:
+        with open(path) as f:
+            doc = json.load(f)
+    except (OSError, ValueError) as e:
+        raise CatalogError(f"{collection_id}: snapshot {ref['path']} unreadable ({e})") from None
+    if canonical_sha256(doc) != ref["sha256"]:
+        raise CatalogError(f"{collection_id}: snapshot {ref['path']} does not match its "
+                           "recorded sha256; the frozen inputs have been altered")
+    problems = schema_problems(doc, f"{ref['path']}: ")
+    if problems:
+        raise CatalogError(problems)
+    if [s["shot"]["shot_id"] for s in doc["shots"]] != c["shot_ids"]:
+        raise CatalogError(f"{collection_id}: snapshot shots differ from the collection's")
+    return doc
+
+
+def frozen_drift(cat, collection_id, annotations_dir=None):
+    """{shot_id: [what changed]} between a frozen snapshot and the working
+    shots. Informational: the collection keeps its snapshot regardless."""
+    from utils import shot_annotations as sa
+    doc = load_snapshot(cat, collection_id)
+    out = {}
+    for entry in doc["shots"]:
+        shot_id = entry["shot"]["shot_id"]
+        changes = []
+        current = cat.shots.get(shot_id)
+        if current is None:
+            changes.append("the working shot no longer exists")
+        else:
+            frozen = entry["shot"]
+            for st_old in frozen["streams"]:
+                st_new = next((s for s in current["streams"]
+                               if s["stream_id"] == st_old["stream_id"]), None)
+                if st_new is None:
+                    changes.append(f"stream {st_old['stream_id']} removed")
+                    continue
+                for key in ("window", "crop", "camera_view", "source_id", "quality"):
+                    if st_new.get(key) != st_old.get(key):
+                        changes.append(f"{st_old['stream_id']} {key} changed")
+            if len(current["streams"]) != len(frozen["streams"]):
+                changes.append("streams added or removed")
+            for key in ("swing_type", "club", "handedness", "recording_date", "multi_view",
+                        "review", "setup_notes"):
+                if current.get(key) != frozen.get(key):
+                    changes.append(f"{key} changed")
+        path = sa.annotations_path(shot_id, annotations_dir)
+        now = None
+        if os.path.exists(path):
+            now = sa.load(shot_id, annotations_dir)
+            now = canonical_sha256({k: v for k, v in now.items() if not k.startswith("_")})
+        if now != entry["annotations_sha256"]:
+            changes.append("labels changed")
+        for src in entry["sources"]:
+            live = cat.sources.get(src["source_id"])
+            if live is None or live["sha256"] != src["sha256"]:
+                changes.append(f"source {src['source_id']} record changed")
+        if changes:
+            out[shot_id] = changes
+    return out
+
+
+def frozen_collections_with(cat, shot_id):
+    return [c for c in cat.collections.values()
+            if c["status"] == "frozen" and shot_id in c["shot_ids"]]
 
 
 # --- eligibility -------------------------------------------------------------
@@ -846,13 +987,21 @@ def eligibility(cat, shot_id):
     for st in streams:
         src = cat.sources[st["source_id"]]
         t = src["timing"]
-        if t["motion_time"] == "real_time":
+        ts = src["video"]["timestamps"]
+        if ts["status"] != "verified":
+            reasons.append(f"{st['stream_id']}: frame timestamps are {ts['status']} "
+                           f"({ts['detail']}), not verified presentation times")
+        if t["motion_time"] == "real_time" and t.get("basis"):
             continue
         if t["motion_time"] == "slowed" and t.get("capture_fps") and t.get("basis"):
             continue
+        if t["motion_time"] == "real_time":
+            reasons.append(f"{st['stream_id']}: real time is claimed without a basis")
+            continue
         reasons.append(f"{st['stream_id']}: motion time is {t['motion_time']}"
-                       + (" without a known capture rate" if t["motion_time"] == "slowed"
-                          else "") + "; playback fps is not real swing time")
+                       + (" without a known capture rate and basis"
+                          if t["motion_time"] == "slowed" else "")
+                       + "; playback fps is not real swing time")
     if len(streams) > 1 and mv["synchronization"]["status"] in ("unknown", "not_applicable"):
         reasons.append("cross-view timing needs synchronization")
     out["motion_timing"] = _gate(reasons)

@@ -240,3 +240,19 @@ def test_setup_readiness_reports_what_p1_labels_support(dataset):
     assert "real units" in rows["ball_position"]["calibrated"]
     spec = sm.club_specification(shot)
     assert spec["length_known"] is False and spec["length_in"] is None
+
+
+def test_labels_record_whether_their_time_is_estimated(dataset):
+    import dataclasses
+    cat, shot, src, index, sid = _setup(dataset)
+    est = dataclasses.replace(index, estimated_frames=(7,), timestamp_status="estimated")
+    doc = sa.load(shot["shot_id"])
+    sa.set_position(doc, shot, src, est, sid, "P1", 7)
+    sa.set_position(doc, shot, src, est, sid, "P4", 8)
+    sa.set_point(doc, shot, src, est, sid, 7, "nose", 5, 5)
+    sa.save(doc, cat)
+    doc = sa.load(shot["shot_id"])
+    pos = doc["streams"][sid]["positions"]
+    assert pos["P1"]["timestamp_basis"] == "estimated"
+    assert pos["P4"]["timestamp_basis"] == "container"
+    assert doc["streams"][sid]["frames"]["7"]["timestamp_basis"] == "estimated"

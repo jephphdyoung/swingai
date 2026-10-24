@@ -212,6 +212,13 @@ def _source_details(cat, src, status, index):
         f"{' (container says ' + str(v['reported_frame_count']) + ')' if v['reported_frame_count'] != v['frame_count'] else ''}"
         f" · {fps}{' · **variable frame rate**' if v['variable_frame_rate'] else ''} · "
         f"sha256 `{src['sha256'][:12]}…`")
+    ts = v["timestamps"]
+    ts_text = {"verified": "frame times verified (decoder and ffprobe agree)",
+               "unverified": "frame times **unverified**",
+               "inconsistent": "frame times **inconsistent**",
+               "estimated": "some frame times **estimated**"}[ts["status"]]
+    st.caption(f"Timestamps: {ts_text}" + (f" — {ts['detail']}" if ts["detail"] else "")
+               + ". Only verified times are usable as timing data.")
     timing = {"real_time": "playback is real time", "slowed": "slowed playback",
               "retimed": "retimed / edited timing", "unknown": "motion timing unknown"}
     st.caption(f"Timing: {timing[t['motion_time']]}"
@@ -633,6 +640,17 @@ def _collections_tab(cat, shot):
         return
     sid = shot["shot_id"]
     mine = [c for c in cat.collections.values() if c["golfer_id"] == golfer["golfer_id"]]
+    for c in cm.frozen_collections_with(cat, sid):
+        try:
+            changes = cm.frozen_drift(cat, c["collection_id"]).get(sid)
+        except cm.CatalogError as e:
+            st.error(f"Frozen collection {c['collection_id']}: {e}")
+            continue
+        if changes:
+            st.info(f"Changed since {c['collection_id']} was frozen ({', '.join(changes)}). "
+                    f"{c['collection_id']} keeps its frozen copy (snapshot "
+                    f"`{c['snapshot']['sha256'][:12]}…`); edits here affect only the working "
+                    "shot and future collections.")
     for c in mine:
         c1, c2, c3 = st.columns([5, 2, 2])
         member = sid in c["shot_ids"]
@@ -645,14 +663,16 @@ def _collections_tab(cat, shot):
                                              cm.save_catalog(cat)),
                          f"{'Removed from' if member else 'Added to'} {c['collection_id']}")
             if c3.button("Freeze", key=f"re_freeze_{c['collection_id']}",
-                         help="A frozen collection is a fixed model input and never changes; "
-                              "later edits go in a new collection id."):
+                         help="Freezing snapshots every member's shot definition, sources and "
+                              "labels as they are now. The collection then never changes; the "
+                              "shots stay editable for later collections."):
                 if not _need_operator("freeze a collection"):
                     _attempt(lambda c=c: (cm.freeze_collection(cat, c["collection_id"],
                                                                _operator()),
                                           cm.save_catalog(cat)), f"Froze {c['collection_id']}")
         else:
-            c2.caption(f"frozen by {c['frozen_by']}")
+            c2.caption(f"frozen by {c['frozen_by']} · snapshot "
+                       f"`{c['snapshot']['sha256'][:12]}…`")
     with st.form("re_new_collection", clear_on_submit=True):
         c1, c2 = st.columns(2)
         cid = c1.text_input("New collection id", placeholder=f"{golfer['golfer_id']}-full-swing-v2")

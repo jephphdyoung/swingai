@@ -13,6 +13,7 @@ does **not** reconstruct 3D, train a model, or detect anything new.
 | Shot | `shot_id` | `data/catalog/shots.json` | **One real swing.** One stream per camera view *of that swing* |
 | Stream | `stream_id` within the shot | inside the shot | Source, camera view, swing window, crop, quality |
 | Collection | `collection_id` (e.g. `grant-waite-full-swing-v1`) | `data/catalog/collections.json` | A reference golfer's curated shot ids; `draft` or `frozen` |
+| Collection snapshot | its SHA-256 | `data/catalog/snapshots/<collection_id>-<sha12>.json` | Write-once copy of a frozen collection's complete inputs |
 | Shot labels | the shot id | `data/annotations/<shot_id>.json` | P1–P10 and body/club/ball points per stream |
 
 All documents are validated against `schemas/swing-dataset.schema.json` (the
@@ -39,13 +40,28 @@ Camera views use the contract's spelling (`down_the_line`), not the Python `dtl`
 - **Unknown stays unknown.** Synchronization and calibration start `unknown`;
   `estimated`/`verified` need a method and a person; synchronization can't be
   `verified` while the same swing is only `asserted`.
-- **Timing is explicit.** `video.nominal_fps` / `average_fps` are *playback* facts.
-  `timing.motion_time` (`real_time`, `slowed`, `retimed`, `unknown`) and
-  `capture_fps` say whether playback time is the swing's real time. YouTube
-  material defaults to `unknown` and is never eligible for velocity/timing work.
-- **Collections hold one reference golfer's shots**, can restrict swing types, and
-  once frozen never change (a save that alters a frozen collection is refused).
-  User shots are never put in collections.
+- **Timing is explicit, in two separate facts.** (1) Are the frame times
+  trustworthy? `video.timestamps.status` is `verified` only when every frame has a
+  container presentation time and ffprobe's per-frame times agree within 0.5 ms;
+  otherwise `unverified` (no independent check), `inconsistent` (they disagree) or
+  `estimated` (some frame times were guessed from the nominal rate — counted in
+  `estimated_frames`, and each label carries `timestamp_basis: container|estimated`).
+  (2) Is playback the swing's real time? `timing.motion_time` (`real_time`,
+  `slowed`, `retimed`, `unknown`) with `capture_fps` and a `basis`. The motion-timing
+  gate needs **both**: verified frame times *and* real time with a basis (or slowed
+  with a known capture rate and basis). YouTube material defaults to `unknown` and
+  never qualifies, however clean its timestamps.
+- **Collections hold one reference golfer's shots** and can restrict swing types.
+  User shots are never put in collections. **Freezing** writes a snapshot: every
+  member's shot definition (streams, windows, crops, metadata, review), its source
+  records (checksums, video facts, timing) and its complete label document with
+  that document's SHA-256. The snapshot is content-addressed and write-once; the
+  collection records its path and hash, and a save that alters a frozen collection
+  record is refused. Freezing is refused if a member's source bytes can't be found
+  and checked or its labels don't validate. The working shots **stay editable**:
+  `load_snapshot` always returns the frozen inputs (after re-checking the hash),
+  and `frozen_drift` lists what has changed in the working shots since — the editor
+  shows it, and `scripts/catalog.py verify` checks every snapshot.
 - **Saves are safe.** Every save validates first and writes nothing on any
   problem; each file has a `revision`, and a save refuses to overwrite a file saved
   elsewhere since it was loaded; files are replaced atomically.
@@ -119,7 +135,7 @@ setup differences rather than normalize them away.
 ```bash
 podman run --rm --security-opt label=disable -v "$PWD":/app -w /app swingai \
     python scripts/catalog.py bootstrap      # existing GW/TW videos, idempotent
-#   ... list | verify [--no-search] | add-golfer NAME --role user
+#   ... list | verify [--no-search] (sources + frozen snapshots) | add-golfer NAME --role user
 #   ... register VIDEO --golfer ID --view face_on --source-type youtube --date 2011-05
 ```
 
@@ -170,5 +186,4 @@ high-fps files can be one frame early, and some predate P7 = impact.
   importer creates it yet.
 - Frame indexing decodes the whole file once (a few seconds for a 1,244-frame
   1440×1080 capture), then is cached.
-- A frozen collection pins its shot ids, not the shots' later label revisions; a
-  model build must record the label revisions it used.
+- Model builds should read a frozen collection only through `load_snapshot`.

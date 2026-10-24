@@ -84,8 +84,14 @@ def test_grant_waite_collection_from_independent_dtl_and_face_on(dataset):
     cat = cm.load_catalog()
     with pytest.raises(cm.CatalogError, match="frozen"):
         cm.remove_from_collection(cat, "grant-waite-full-swing-v1", s_fo)
-    with pytest.raises(cm.CatalogError, match="frozen"):
-        cm.update_shot(cat, s_fo, swing_type="half")
+    # The working shot stays editable; the frozen collection keeps its snapshot.
+    cm.update_shot(cat, s_fo, swing_type="half")
+    cm.save_catalog(cat)
+    cat = cm.load_catalog()
+    frozen = {e["shot"]["shot_id"]: e["shot"] for e in
+              cm.load_snapshot(cat, "grant-waite-full-swing-v1")["shots"]}
+    assert frozen[s_fo]["swing_type"] == "full"
+    assert cm.frozen_drift(cat, "grant-waite-full-swing-v1") == {s_fo: ["swing_type changed"]}
     # Editing the record behind the API's back is caught at save.
     cat.collections["grant-waite-full-swing-v1"]["shot_ids"].pop()
     with pytest.raises(cm.CatalogError, match="frozen and can't be changed"):
@@ -359,3 +365,145 @@ def test_the_schema_examples_form_a_consistent_catalog(tmp_path):
     assert len(cat.shot("shot-jy-2026-07-27-135006")["streams"]) == 2
     coll = cat.collection("grant-waite-full-swing-v1")
     assert all(len(cat.shot(s)["streams"]) == 1 for s in coll["shot_ids"])
+
+
+# --- frozen collections are reproducible ------------------------------------
+
+def _labelled_collection(d):
+    from utils import frame_access as fa
+    from utils import shot_annotations as sa
+    cat = _fresh(d)
+    dtl = register(cat, d, "gw_dtl", "grant-waite", "down_the_line")
+    fo = register(cat, d, "gw_fo", "grant-waite", "face_on")
+    s1 = _shot(cat, "grant-waite", dtl, "down_the_line", 2, 30)
+    s2 = _shot(cat, "grant-waite", fo, "face_on", 0, 39)
+    cm.create_collection(cat, "gw-v1", "grant-waite", "GW v1")
+    cm.add_to_collection(cat, "gw-v1", s1)
+    cm.add_to_collection(cat, "gw-v1", s2)
+    cm.save_catalog(cat)
+    shot, src = cat.shot(s1), cat.source(dtl)
+    index = fa.get_frame_index(d.videos["gw_dtl"])
+    sid = shot["streams"][0]["stream_id"]
+    doc = sa.load(s1)
+    sa.set_position(doc, shot, src, index, sid, "P1", 5, by="tester")
+    sa.set_point(doc, shot, src, index, sid, 5, "ball_center", 100, 150, by="tester")
+    sa.save(doc, cat)
+    return cat, s1, s2, sid, shot, src, index
+
+
+def test_a_frozen_collection_reproduces_its_inputs_after_the_shots_are_edited(dataset):
+    from utils import shot_annotations as sa
+    cat, s1, s2, sid, shot, src, index = _labelled_collection(dataset)
+    cm.freeze_collection(cat, "gw-v1", by="tester")
+    cm.save_catalog(cat)
+    cat = cm.load_catalog()
+    ref = cat.collection("gw-v1")["snapshot"]
+    assert os.path.exists(os.path.join(cat.root, ref["path"]))
+    before = json.loads(json.dumps(cm.load_snapshot(cat, "gw-v1")))
+    entry = before["shots"][0]
+    assert entry["shot"]["streams"][0]["window"] == {"start_frame": 2, "end_frame": 30}
+    assert entry["sources"][0]["sha256"] == src["sha256"]
+    assert entry["annotations"]["streams"][sid]["positions"]["P1"]["frame"] == 5
+    assert entry["annotations_sha256"] == cm.canonical_sha256(entry["annotations"])
+    assert before["shots"][1]["annotations"] is None
+    assert cm.frozen_drift(cat, "gw-v1") == {}
+
+    # Normal editing of the working shots carries on...
+    cm.set_window(cat, s1, sid, 4, 25)
+    cm.set_crop(cat, s1, sid, {"x": 10, "y": 10, "width": 100, "height": 100})
+    cm.update_shot(cat, s1, club={"name": "7-iron"})
+    cm.set_stream_quality(cat, s2, cat.shot(s2)["streams"][0]["stream_id"],
+                          body_visibility="good")
+    cm.save_catalog(cat)
+    doc = sa.load(s1)
+    sa.set_position(doc, cat.shot(s1), src, index, sid, "P1", 6, by="tester")
+    sa.clear_position(doc, sid, "P1")
+    sa.set_position(doc, cat.shot(s1), src, index, sid, "P4", 20, by="tester")
+    sa.save(doc, cat)
+
+    # ...and the frozen collection still represents exactly what was frozen.
+    cat = cm.load_catalog()
+    assert cm.load_snapshot(cat, "gw-v1") == before
+    assert cat.collection("gw-v1")["snapshot"] == ref
+    assert cat.shot(s1)["streams"][0]["window"] == {"start_frame": 4, "end_frame": 25}
+    drift = cm.frozen_drift(cat, "gw-v1")
+    assert set(drift[s1]) >= {f"{sid} window changed", f"{sid} crop changed", "club changed",
+                              "labels changed"}
+    assert drift[s2] == [f"{cat.shot(s2)['streams'][0]['stream_id']} quality changed"]
+    # Freezing again needs a new collection; the old one can't be re-frozen.
+    with pytest.raises(cm.CatalogError, match="frozen"):
+        cm.freeze_collection(cat, "gw-v1", by="tester")
+
+
+def test_an_altered_or_missing_snapshot_is_refused(dataset):
+    cat, *_ = _labelled_collection(dataset)
+    cm.freeze_collection(cat, "gw-v1", by="tester")
+    cm.save_catalog(cat)
+    path = os.path.join(cat.root, cat.collection("gw-v1")["snapshot"]["path"])
+    doc = json.load(open(path))
+    doc["shots"][0]["shot"]["streams"][0]["window"]["end_frame"] = 31
+    json.dump(doc, open(path, "w"), indent=2)
+    with pytest.raises(cm.CatalogError, match="does not match its recorded sha256"):
+        cm.load_snapshot(cm.load_catalog(), "gw-v1")
+    os.remove(path)
+    with pytest.raises(cm.CatalogError, match="unreadable"):
+        cm.load_snapshot(cm.load_catalog(), "gw-v1")
+    # Re-pointing the collection at another snapshot is a change to a frozen record.
+    cat = cm.load_catalog()
+    cat.collections["gw-v1"]["snapshot"]["sha256"] = "0" * 64
+    with pytest.raises(cm.CatalogError, match="frozen and can't be changed"):
+        cm.save_catalog(cat)
+
+
+def test_freezing_is_refused_when_inputs_are_not_reproducible(dataset):
+    cat, s1, *_ = _labelled_collection(dataset)
+    os.rename(dataset.videos["gw_fo"], dataset.videos["gw_fo"] + ".away")
+    try:
+        with pytest.raises(cm.CatalogError, match="is missing"):
+            cm.freeze_collection(cat, "gw-v1", by="tester")
+    finally:
+        os.rename(dataset.videos["gw_fo"] + ".away", dataset.videos["gw_fo"])
+    assert cat.collection("gw-v1")["status"] == "draft"
+    with pytest.raises(cm.CatalogError, match="name of who froze"):
+        cm.freeze_collection(cat, "gw-v1", by=" ")
+    # A failed save leaves no frozen record behind.
+    cm.freeze_collection(cat, "gw-v1", by="tester")
+    cat.golfers["alice"]["role"] = "coach"
+    with pytest.raises(cm.CatalogError):
+        cm.save_catalog(cat)
+    assert cm.load_catalog().collection("gw-v1")["status"] == "draft"
+
+
+# --- timing reliability -------------------------------------------------------
+
+def test_motion_timing_needs_verified_timestamps_and_a_basis(dataset, monkeypatch):
+    from utils import frame_access as fa
+    cat = _fresh(dataset)
+    ok = register(cat, dataset, "alice_dtl", "alice", "down_the_line", motion_time="real_time",
+                  capture_fps=60, timing_basis="phone slow-mo off, 60fps")
+    assert cat.source(ok)["video"]["timestamps"]["status"] == "verified"
+    assert cm.eligibility(cat, _shot(cat, "alice", ok, "down_the_line"))["motion_timing"][
+        "eligible"]
+
+    no_basis = register(cat, dataset, "alice_fo", "alice", "face_on", motion_time="real_time")
+    gate = cm.eligibility(cat, _shot(cat, "alice", no_basis, "face_on"))["motion_timing"]
+    assert not gate["eligible"] and "without a basis" in gate["reasons"][0]
+
+    # Estimated frame times never qualify, whatever is claimed about the source.
+    fa._memo.clear()
+    real_pos = fa._pos_msec
+    calls = {"n": 0}
+
+    def flaky(cap):
+        calls["n"] += 1
+        return 0.0 if calls["n"] == 10 else real_pos(cap)
+    monkeypatch.setattr(fa, "_pos_msec", flaky)
+    monkeypatch.setattr(fa, "get_frame_index",
+                        lambda p, progress=None, **k: fa.build_frame_index(p))
+    est = register(cat, dataset, "bob_fo", "bob", "face_on", motion_time="real_time",
+                   capture_fps=60, timing_basis="claimed")
+    ts = cat.source(est)["video"]["timestamps"]
+    assert ts["status"] == "estimated" and ts["estimated_frames"] == 1
+    gate = cm.eligibility(cat, _shot(cat, "bob", est, "face_on"))["motion_timing"]
+    assert not gate["eligible"] and "estimated" in gate["reasons"][0]
+    cm.save_catalog(cat)

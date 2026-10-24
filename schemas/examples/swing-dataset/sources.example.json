@@ -44,7 +44,13 @@
         "duration_ms": 17984.651,
         "start_offset_ms": 0.0,
         "reported_frame_count": 540,
-        "decoder": "opencv-4.13.0-1a2b3c4d"
+        "decoder": "opencv-4.13.0-1a2b3c4d",
+        "timestamps": {
+          "status": "unverified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": null,
+          "detail": "ffprobe unavailable: no independent timestamp check"
+        }
       },
       "timing": {
         "motion_time": "unknown",
@@ -88,7 +94,13 @@
         "duration_ms": 16983.65,
         "start_offset_ms": 0.0,
         "reported_frame_count": 510,
-        "decoder": "opencv-4.13.0-1a2b3c4d"
+        "decoder": "opencv-4.13.0-1a2b3c4d",
+        "timestamps": {
+          "status": "unverified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": null,
+          "detail": "ffprobe unavailable: no independent timestamp check"
+        }
       },
       "timing": {
         "motion_time": "unknown",
@@ -132,7 +144,13 @@
         "duration_ms": 4985.961,
         "start_offset_ms": 4.014,
         "reported_frame_count": 1245,
-        "decoder": "opencv-4.13.0-1a2b3c4d"
+        "decoder": "opencv-4.13.0-1a2b3c4d",
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        }
       },
       "timing": {
         "motion_time": "real_time",
@@ -176,7 +194,13 @@
         "duration_ms": 4985.961,
         "start_offset_ms": 4.014,
         "reported_frame_count": 1245,
-        "decoder": "opencv-4.13.0-1a2b3c4d"
+        "decoder": "opencv-4.13.0-1a2b3c4d",
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        }
       },
       "timing": {
         "motion_time": "real_time",

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "kind": "sources",
-  "revision": 2,
+  "revision": 3,
   "sources": [
     {
       "source_id": "src-40a32a1912",
@@ -39,6 +39,12 @@
         "duration_ms": 19019.0,
         "start_offset_ms": 0.0,
         "reported_frame_count": 571,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
         "decoder": "opencv-4.13.0-865a1cda"
       },
       "timing": {
@@ -83,6 +89,12 @@
         "duration_ms": 17984.633,
         "start_offset_ms": 0.0,
         "reported_frame_count": 540,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
         "decoder": "opencv-4.13.0-865a1cda"
       },
       "timing": {
@@ -127,6 +139,12 @@
         "duration_ms": 16983.633,
         "start_offset_ms": 0.0,
         "reported_frame_count": 510,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
         "decoder": "opencv-4.13.0-865a1cda"
       },
       "timing": {
@@ -171,6 +189,12 @@
         "duration_ms": 38538.5,
         "start_offset_ms": 0.0,
         "reported_frame_count": 1156,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
         "decoder": "opencv-4.13.0-865a1cda"
       },
       "timing": {
@@ -215,6 +239,12 @@
         "duration_ms": 24466.667,
         "start_offset_ms": 0.0,
         "reported_frame_count": 735,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
         "decoder": "opencv-4.13.0-865a1cda"
       },
       "timing": {
@@ -259,6 +289,12 @@
         "duration_ms": 24858.167,
         "start_offset_ms": 0.0,
         "reported_frame_count": 746,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
         "decoder": "opencv-4.13.0-865a1cda"
       },
       "timing": {
@@ -303,6 +339,12 @@
         "duration_ms": 4900.0,
         "start_offset_ms": 0.0,
         "reported_frame_count": 148,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
         "decoder": "opencv-4.13.0-865a1cda"
       },
       "timing": {
@@ -347,6 +389,12 @@
         "duration_ms": 43243.2,
         "start_offset_ms": 0.0,
         "reported_frame_count": 1297,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
         "decoder": "opencv-4.13.0-865a1cda"
       },
       "timing": {

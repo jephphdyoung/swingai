@@ -15,7 +15,8 @@
           "image_sha1": "1111111111111111111111111111111111111111",
           "origin": "manual",
           "set_by": "jeff",
-          "set_at": "2026-10-24T18:10:00Z"
+          "set_at": "2026-10-24T18:10:00Z",
+          "timestamp_basis": "container"
         },
         "P4": {
           "frame": 212,
@@ -23,7 +24,8 @@
           "image_sha1": "2222222222222222222222222222222222222222",
           "origin": "manual",
           "set_by": "jeff",
-          "set_at": "2026-10-24T18:10:00Z"
+          "set_at": "2026-10-24T18:10:00Z",
+          "timestamp_basis": "container"
         },
         "P7": {
           "frame": 281,
@@ -31,7 +33,8 @@
           "image_sha1": "3333333333333333333333333333333333333333",
           "origin": "manual",
           "set_by": "jeff",
-          "set_at": "2026-10-24T18:10:00Z"
+          "set_at": "2026-10-24T18:10:00Z",
+          "timestamp_basis": "container"
         },
         "P10": {
           "frame": 400,
@@ -39,7 +42,8 @@
           "image_sha1": "4444444444444444444444444444444444444444",
           "origin": "manual",
           "set_by": "jeff",
-          "set_at": "2026-10-24T18:10:00Z"
+          "set_at": "2026-10-24T18:10:00Z",
+          "timestamp_basis": "container"
         }
       },
       "frames": {
@@ -107,7 +111,8 @@
             "by": "jeff",
             "at": "2026-10-24T18:25:00Z",
             "notes": null
-          }
+          },
+          "timestamp_basis": "container"
         }
       }
     }

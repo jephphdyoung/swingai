@@ -49,3 +49,26 @@ def test_bootstrap_registers_known_bytes_once_and_never_touches_them(dataset, mo
         f.write(b"\xff" * 8)
     cm._sha_memo.clear()
     assert cli.main(["verify", "--no-search"]) == 1
+
+
+def test_verify_reports_a_tampered_frozen_snapshot(dataset, capsys):
+    import json
+    cli = _cli()
+    cat = cm.load_catalog()
+    cm.add_golfer(cat, "Grant Waite", "reference", "right")
+    src, _ = cm.register_source(cat, dataset.videos["gw_dtl"], golfer_id="grant-waite")
+    shot = cm.add_shot(cat, golfer_id="grant-waite", source_id=src["source_id"],
+                       camera_view="down_the_line", start_frame=0, end_frame=10,
+                       swing_type="full")
+    cm.create_collection(cat, "gw-v1", "grant-waite", "GW")
+    cm.add_to_collection(cat, "gw-v1", shot["shot_id"])
+    cm.freeze_collection(cat, "gw-v1", by="tester")
+    cm.save_catalog(cat)
+    assert cli.main(["verify"]) == 0
+    assert "snapshot intact" in capsys.readouterr().out
+    path = os.path.join(cat.root, cat.collection("gw-v1")["snapshot"]["path"])
+    doc = json.load(open(path))
+    doc["frozen_by"] = "someone else"
+    json.dump(doc, open(path, "w"))
+    assert cli.main(["verify"]) == 1
+    assert "BROKEN" in capsys.readouterr().out

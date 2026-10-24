@@ -27,6 +27,24 @@ raises `FrameAccessError`; an adjacent frame is never returned in its place.
 Indexes are cached on disk keyed by the file's SHA-256 and the decoder
 identity (OpenCV and runtime fingerprint), since a different decoder build may
 produce different pixels.
+
+Timestamp reliability is explicit. A frame's time is either the container's
+presentation time as the decoder reports it, or -- when the decoder gives
+nothing usable (0 after frame 0, or not increasing) -- an *estimate* from the
+nominal frame rate, listed in `estimated_frames`. The file as a whole gets a
+`timestamp_status`:
+
+- ``verified``: every frame has a container time and ffprobe's per-frame
+  presentation times agree with them within `TIMESTAMP_TOLERANCE_MS`;
+- ``unverified``: every frame has a container time, but there was no
+  independent check (no ffprobe, a frame-count mismatch, or ffprobe frames
+  without a time);
+- ``inconsistent``: ffprobe disagrees beyond the tolerance;
+- ``estimated``: at least one frame's time is an estimate.
+
+Only ``verified`` times are fit for motion timing. Even then they are
+*playback* times: whether playback is the swing's real time is a separate,
+recorded fact about the source (`utils/catalog.py`, `timing.motion_time`).
 """
 
 import hashlib
@@ -38,13 +56,16 @@ from typing import Callable, Optional
 
 import numpy as np
 
-INDEX_SCHEMA = 1
+INDEX_SCHEMA = 2
 # Read forward instead of seeking when the target is at most this far ahead.
 FORWARD_WINDOW = 48
 # Seek this many frames before the target: the seek may land early or late.
 SEEK_BACKOFF = 4
 # Frame intervals varying by more than this fraction mean variable frame rate.
 VFR_TOLERANCE = 0.02
+# Largest decoder-vs-ffprobe disagreement still counted as the same time.
+TIMESTAMP_TOLERANCE_MS = 0.5
+TIMESTAMP_STATUSES = ("verified", "unverified", "inconsistent", "estimated")
 
 
 class FrameAccessError(RuntimeError):
@@ -88,6 +109,10 @@ class FrameIndex:
     start_offset_ms: Optional[float] = None
     # Largest |OpenCV - ffprobe| relative timestamp difference, as a check.
     ffprobe_max_deviation_ms: Optional[float] = None
+    # Frames whose time is a nominal-rate estimate, not a container time.
+    estimated_frames: tuple = ()
+    timestamp_status: str = "unverified"
+    timestamp_detail: str = ""
     _by_digest: dict = field(default=None, compare=False, repr=False)
 
     @property
@@ -120,6 +145,20 @@ class FrameIndex:
             object.__setattr__(self, "_by_digest", by)
         return by.get(digest, [])
 
+    @property
+    def timestamps_verified(self):
+        return self.timestamp_status == "verified"
+
+    def timestamp_is_estimated(self, f):
+        return f in self._estimated_set()
+
+    def _estimated_set(self):
+        cached = self.__dict__.get("_estimated_cache")
+        if cached is None:
+            cached = frozenset(self.estimated_frames)
+            object.__setattr__(self, "_estimated_cache", cached)
+        return cached
+
     def presentation_ms(self, f):
         """The container's own timestamp of frame f, when known."""
         if self.start_offset_ms is None:
@@ -143,7 +182,11 @@ class FrameIndex:
                 "variable_frame_rate": self.is_variable_frame_rate,
                 "duration_ms": round(self.duration_ms, 3),
                 "start_offset_ms": self.start_offset_ms,
-                "reported_frame_count": self.reported_frame_count}
+                "reported_frame_count": self.reported_frame_count,
+                "timestamps": {"status": self.timestamp_status,
+                               "estimated_frames": len(self.estimated_frames),
+                               "ffprobe_max_deviation_ms": self.ffprobe_max_deviation_ms,
+                               "detail": self.timestamp_detail}}
 
     def to_json(self):
         return {"schema": INDEX_SCHEMA, "file_sha256": self.file_sha256,
@@ -153,7 +196,10 @@ class FrameIndex:
                 "nominal_fps": self.nominal_fps,
                 "reported_frame_count": self.reported_frame_count, "codec": self.codec,
                 "decoder": self.decoder, "start_offset_ms": self.start_offset_ms,
-                "ffprobe_max_deviation_ms": self.ffprobe_max_deviation_ms}
+                "ffprobe_max_deviation_ms": self.ffprobe_max_deviation_ms,
+                "estimated_frames": list(self.estimated_frames),
+                "timestamp_status": self.timestamp_status,
+                "timestamp_detail": self.timestamp_detail}
 
     @classmethod
     def from_json(cls, path, d):
@@ -163,7 +209,10 @@ class FrameIndex:
                    nominal_fps=d["nominal_fps"],
                    reported_frame_count=d["reported_frame_count"], codec=d["codec"],
                    decoder=d["decoder"], start_offset_ms=d.get("start_offset_ms"),
-                   ffprobe_max_deviation_ms=d.get("ffprobe_max_deviation_ms"))
+                   ffprobe_max_deviation_ms=d.get("ffprobe_max_deviation_ms"),
+                   estimated_frames=tuple(d["estimated_frames"]),
+                   timestamp_status=d["timestamp_status"],
+                   timestamp_detail=d["timestamp_detail"])
 
 
 def _fourcc(cap):
@@ -174,7 +223,8 @@ def _fourcc(cap):
 
 
 def _ffprobe_timestamps_ms(path):
-    """Per-frame best-effort presentation times, or None without ffprobe."""
+    """Per-frame best-effort presentation times (None for a frame ffprobe gives
+    no time), or None when ffprobe is unavailable or fails."""
     import shutil
     import subprocess
     if not shutil.which("ffprobe"):
@@ -184,9 +234,64 @@ def _ffprobe_timestamps_ms(path):
             ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
              "frame=best_effort_timestamp_time", "-of", "csv=p=0", path],
             capture_output=True, text=True, timeout=600, check=True).stdout
-        return [float(v.strip().rstrip(",")) * 1000.0 for v in out.split() if v.strip()]
-    except (OSError, subprocess.SubprocessError, ValueError):
+    except (OSError, subprocess.SubprocessError):
         return None
+    out_ms = []
+    for line in out.splitlines():
+        v = line.strip().rstrip(",")
+        if not v:
+            continue
+        try:
+            out_ms.append(float(v) * 1000.0)
+        except ValueError:          # "N/A"
+            out_ms.append(None)
+    return out_ms
+
+
+def _pos_msec(cap):
+    import cv2
+    return cap.get(cv2.CAP_PROP_POS_MSEC)
+
+
+def _container_time(raw, idx, fps, previous):
+    """(time, estimated) for the frame just decoded.
+
+    The same values pose_data._frame_timestamp stores (so index and pose
+    frames share one clock), plus whether the value is an estimate.
+    """
+    if idx == 0:
+        return (raw if raw and raw > 0 else 0.0), False
+    if not raw or raw <= previous[-1]:
+        return max(idx * 1000.0 / fps, previous[-1] + 1e-3), True
+    return raw, False
+
+
+def timestamp_check(timestamps, estimated, probed):
+    """(status, start_offset_ms, max_deviation_ms, detail) -- see the module doc."""
+    n = len(timestamps)
+    start = deviation = None
+    detail = ""
+    if probed is None:
+        status, detail = "unverified", "ffprobe unavailable: no independent timestamp check"
+    elif len(probed) != n:
+        status, detail = "unverified", (f"ffprobe lists {len(probed)} frames, the decode "
+                                        f"{n}: timestamps can't be matched frame by frame")
+    elif any(p is None for p in probed):
+        missing = sum(p is None for p in probed)
+        status, detail = "unverified", f"ffprobe has no timestamp for {missing} frame(s)"
+    else:
+        start = round(probed[0], 3)
+        deviation = round(max(abs((p - probed[0]) - t) for p, t in zip(probed, timestamps)), 3)
+        if deviation > TIMESTAMP_TOLERANCE_MS:
+            status, detail = "inconsistent", (f"decoder and ffprobe times differ by up to "
+                                              f"{deviation:.3f} ms")
+        else:
+            status = "verified"
+    if estimated:
+        status = "estimated"
+        detail = (f"{len(estimated)} frame time(s) estimated from the nominal frame rate "
+                  f"(first: frame {estimated[0]})" + (f"; {detail}" if detail else ""))
+    return status, start, deviation, detail
 
 
 def build_frame_index(path, progress: Optional[Callable[[int, int], None]] = None,
@@ -194,7 +299,6 @@ def build_frame_index(path, progress: Optional[Callable[[int, int], None]] = Non
     """Decode every frame in order and record its timestamp and digest."""
     import cv2
     from utils.joint_labels import frame_digest
-    from utils.pose_data import _frame_timestamp
 
     if not os.path.isfile(path):
         raise FrameAccessError(f"no video file at {path}")
@@ -207,12 +311,16 @@ def build_frame_index(path, progress: Optional[Callable[[int, int], None]] = Non
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         reported = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         codec = _fourcc(cap)
-        timestamps, digests, shape = [], [], None
+        timestamps, estimated, digests, shape = [], [], [], None
         while True:
             ok, frame = cap.read()
             if not ok:
                 break
-            timestamps.append(_frame_timestamp(cap, len(timestamps), fps, timestamps))
+            idx = len(timestamps)
+            t, guessed = _container_time(_pos_msec(cap), idx, fps, timestamps)
+            timestamps.append(t)
+            if guessed:
+                estimated.append(idx)
             digests.append(frame_digest(frame))
             shape = frame.shape
             if progress is not None:
@@ -221,17 +329,16 @@ def build_frame_index(path, progress: Optional[Callable[[int, int], None]] = Non
         cap.release()
     if not digests:
         raise FrameAccessError(f"no frames could be decoded from {path}")
-    start, deviation = None, None
-    probed = _ffprobe_timestamps_ms(path)
-    if probed is not None and len(probed) == len(timestamps):
-        start = round(probed[0], 3)
-        deviation = round(max(abs((p - probed[0]) - t) for p, t in zip(probed, timestamps)), 3)
+    status, start, deviation, detail = timestamp_check(timestamps, estimated,
+                                                       _ffprobe_timestamps_ms(path))
     return FrameIndex(path=path, file_sha256=sha, size_bytes=size, frame_count=len(digests),
                       width=int(shape[1]), height=int(shape[0]),
                       timestamps_ms=tuple(float(t) for t in timestamps),
                       digests=tuple(digests), nominal_fps=float(fps),
                       reported_frame_count=reported, codec=codec, decoder=decoder_identity(),
-                      start_offset_ms=start, ffprobe_max_deviation_ms=deviation)
+                      start_offset_ms=start, ffprobe_max_deviation_ms=deviation,
+                      estimated_frames=tuple(estimated), timestamp_status=status,
+                      timestamp_detail=detail)
 
 
 _memo = {}

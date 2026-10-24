@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "kind": "collections",
-  "revision": 1,
+  "revision": 2,
   "collections": [
     {
       "collection_id": "grant-waite-full-swing-v1",
@@ -14,7 +14,8 @@
       "status": "draft",
       "frozen_at": null,
       "frozen_by": null,
-      "shot_ids": []
+      "shot_ids": [],
+      "snapshot": null
     }
   ]
 }

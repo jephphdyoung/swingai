@@ -24,7 +24,8 @@ CONTRACTS = [
     ("analysis-result", "analysis-result.schema.json", "analysis-result.example.json"),
 ] + [
     (f"swing-dataset-{k}", "swing-dataset.schema.json", f"swing-dataset/{k}.example.json")
-    for k in ("golfers", "sources", "shots", "collections", "shot-annotations")
+    for k in ("golfers", "sources", "shots", "collections", "shot-annotations",
+              "collection-snapshot")
 ]
 
 

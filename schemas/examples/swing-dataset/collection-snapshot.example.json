@@ -1,0 +1,388 @@
+{
+  "schema_version": "1.0",
+  "kind": "collection_snapshot",
+  "revision": 0,
+  "collection_id": "grant-waite-full-swing-v1",
+  "golfer_id": "grant-waite",
+  "title": "Grant Waite full swings, v1",
+  "swing_types": [
+    "full"
+  ],
+  "frozen_at": "2026-10-25T09:00:00Z",
+  "frozen_by": "jeff",
+  "shots": [
+    {
+      "shot": {
+        "shot_id": "shot-gw-dtl-01",
+        "golfer_id": "grant-waite",
+        "created_at": "2026-10-24T18:05:00Z",
+        "swing_type": "full",
+        "club": {
+          "category": "iron",
+          "name": null,
+          "length_in": null,
+          "length_basis": null
+        },
+        "handedness": "right",
+        "recording_date": null,
+        "setup_notes": null,
+        "streams": [
+          {
+            "stream_id": "down_the_line",
+            "source_id": "src-gw-dtl",
+            "camera_view": "down_the_line",
+            "window": {
+              "start_frame": 32,
+              "end_frame": 410
+            },
+            "crop": {
+              "x": 96,
+              "y": 0,
+              "width": 288,
+              "height": 360
+            },
+            "quality": {
+              "body_visibility": "good",
+              "club_visibility": "partial",
+              "resolution_usable": "yes",
+              "notes": null
+            }
+          }
+        ],
+        "multi_view": {
+          "same_swing": {
+            "status": "not_applicable",
+            "method": null,
+            "by": null,
+            "at": null,
+            "notes": null
+          },
+          "synchronization": {
+            "status": "not_applicable",
+            "method": null,
+            "by": null,
+            "at": null,
+            "notes": null,
+            "offset_ms": null,
+            "uncertainty_ms": null
+          },
+          "calibration": {
+            "status": "unknown",
+            "method": null,
+            "by": null,
+            "at": null,
+            "notes": null
+          }
+        },
+        "review": {
+          "status": "reviewed",
+          "by": "jeff",
+          "at": "2026-10-24T18:30:00Z",
+          "notes": null
+        },
+        "capture": null,
+        "notes": null
+      },
+      "sources": [
+        {
+          "source_id": "src-gw-dtl",
+          "golfer_id": "grant-waite",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size_bytes": 1843200,
+          "location": {
+            "root": "reference",
+            "path": "GW_DTL.mp4"
+          },
+          "also_found_at": [
+            {
+              "root": "absolute",
+              "path": "/home/me/swingai/downloader/GW_DTL.mp4"
+            }
+          ],
+          "registered_at": "2026-10-24T18:00:00Z",
+          "legacy_annotation_key": "videos/reference/GW_DTL.mp4",
+          "provenance": {
+            "source_type": "youtube",
+            "url": null,
+            "title": null,
+            "original_filename": "GW_DTL.mp4",
+            "notes": "URL not recorded at download"
+          },
+          "recording": {
+            "date": null,
+            "date_basis": null,
+            "camera_view": "down_the_line",
+            "notes": null
+          },
+          "video": {
+            "frame_count": 540,
+            "width": 480,
+            "height": 360,
+            "codec": "avc1",
+            "nominal_fps": 29.97,
+            "average_fps": 29.97,
+            "variable_frame_rate": false,
+            "duration_ms": 17984.651,
+            "start_offset_ms": 0.0,
+            "reported_frame_count": 540,
+            "decoder": "opencv-4.13.0-1a2b3c4d",
+            "timestamps": {
+              "status": "unverified",
+              "estimated_frames": 0,
+              "ffprobe_max_deviation_ms": null,
+              "detail": "ffprobe unavailable: no independent timestamp check"
+            }
+          },
+          "timing": {
+            "motion_time": "unknown",
+            "capture_fps": null,
+            "basis": null
+          }
+        }
+      ],
+      "annotations": {
+        "schema_version": "1.0",
+        "kind": "shot_annotations",
+        "revision": 5,
+        "shot_id": "shot-gw-dtl-01",
+        "p_convention": "p7-impact",
+        "streams": {
+          "down_the_line": {
+            "source_id": "src-gw-dtl",
+            "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "positions": {
+              "P1": {
+                "frame": 40,
+                "timestamp_ms": 1334.668,
+                "image_sha1": "1111111111111111111111111111111111111111",
+                "origin": "manual",
+                "set_by": "jeff",
+                "set_at": "2026-10-24T18:10:00Z",
+                "timestamp_basis": "container"
+              },
+              "P4": {
+                "frame": 212,
+                "timestamp_ms": 7073.74,
+                "image_sha1": "2222222222222222222222222222222222222222",
+                "origin": "manual",
+                "set_by": "jeff",
+                "set_at": "2026-10-24T18:10:00Z",
+                "timestamp_basis": "container"
+              },
+              "P7": {
+                "frame": 281,
+                "timestamp_ms": 9376.043,
+                "image_sha1": "3333333333333333333333333333333333333333",
+                "origin": "manual",
+                "set_by": "jeff",
+                "set_at": "2026-10-24T18:10:00Z",
+                "timestamp_basis": "container"
+              },
+              "P10": {
+                "frame": 400,
+                "timestamp_ms": 13346.68,
+                "image_sha1": "4444444444444444444444444444444444444444",
+                "origin": "manual",
+                "set_by": "jeff",
+                "set_at": "2026-10-24T18:10:00Z",
+                "timestamp_basis": "container"
+              }
+            },
+            "frames": {
+              "40": {
+                "timestamp_ms": 1334.668,
+                "image_sha1": "1111111111111111111111111111111111111111",
+                "points": {
+                  "ball_center": {
+                    "x": 251.5,
+                    "y": 331.0,
+                    "visible": true,
+                    "origin": "manual",
+                    "model": null,
+                    "confidence": null,
+                    "set_by": "jeff",
+                    "set_at": "2026-10-24T18:20:00Z"
+                  },
+                  "shaft_butt": {
+                    "x": 201.0,
+                    "y": 214.5,
+                    "visible": true,
+                    "origin": "manual",
+                    "model": null,
+                    "confidence": null,
+                    "set_by": "jeff",
+                    "set_at": "2026-10-24T18:20:00Z"
+                  },
+                  "shaft_hosel": {
+                    "x": 246.0,
+                    "y": 322.0,
+                    "visible": true,
+                    "origin": "manual",
+                    "model": null,
+                    "confidence": null,
+                    "set_by": "jeff",
+                    "set_at": "2026-10-24T18:20:00Z"
+                  },
+                  "left_knee": {
+                    "x": 170.0,
+                    "y": 270.0,
+                    "visible": false,
+                    "origin": "corrected",
+                    "model": "rtmpose-m",
+                    "confidence": null,
+                    "set_by": "jeff",
+                    "set_at": "2026-10-24T18:20:00Z"
+                  },
+                  "right_knee": {
+                    "x": 158.0,
+                    "y": 268.0,
+                    "visible": true,
+                    "origin": "model_proposed",
+                    "model": "rtmpose-m",
+                    "confidence": 0.82,
+                    "set_by": "jeff",
+                    "set_at": "2026-10-24T18:20:00Z"
+                  }
+                },
+                "unavailable": {
+                  "left_heel": "occluded",
+                  "clubhead_toe": "cannot_determine"
+                },
+                "review": {
+                  "status": "reviewed",
+                  "by": "jeff",
+                  "at": "2026-10-24T18:25:00Z",
+                  "notes": null
+                },
+                "timestamp_basis": "container"
+              }
+            }
+          }
+        }
+      },
+      "annotations_sha256": "f5e662a9273199e6f9a3a8df50312edbd0c89dcea59bcdb7617eba5abcc4f807"
+    },
+    {
+      "shot": {
+        "shot_id": "shot-gw-2010-fo-01",
+        "golfer_id": "grant-waite",
+        "created_at": "2026-10-24T18:06:00Z",
+        "swing_type": "full",
+        "club": {
+          "category": "iron",
+          "name": "6-iron",
+          "length_in": null,
+          "length_basis": null
+        },
+        "handedness": "right",
+        "recording_date": "2010-10-27",
+        "setup_notes": "Range mat, outdoor",
+        "streams": [
+          {
+            "stream_id": "face_on",
+            "source_id": "src-gw-2010-fo",
+            "camera_view": "face_on",
+            "window": {
+              "start_frame": 60,
+              "end_frame": 395
+            },
+            "crop": null,
+            "quality": {
+              "body_visibility": "good",
+              "club_visibility": "good",
+              "resolution_usable": "yes",
+              "notes": null
+            }
+          }
+        ],
+        "multi_view": {
+          "same_swing": {
+            "status": "not_applicable",
+            "method": null,
+            "by": null,
+            "at": null,
+            "notes": null
+          },
+          "synchronization": {
+            "status": "not_applicable",
+            "method": null,
+            "by": null,
+            "at": null,
+            "notes": null,
+            "offset_ms": null,
+            "uncertainty_ms": null
+          },
+          "calibration": {
+            "status": "unknown",
+            "method": null,
+            "by": null,
+            "at": null,
+            "notes": null
+          }
+        },
+        "review": {
+          "status": "unreviewed",
+          "by": null,
+          "at": null,
+          "notes": null
+        },
+        "capture": null,
+        "notes": null
+      },
+      "sources": [
+        {
+          "source_id": "src-gw-2010-fo",
+          "golfer_id": "grant-waite",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size_bytes": 2048000,
+          "location": {
+            "root": "reference",
+            "path": "GW_2010-10-27_6iron_faceon.mp4"
+          },
+          "also_found_at": [],
+          "registered_at": "2026-10-24T18:00:05Z",
+          "legacy_annotation_key": null,
+          "provenance": {
+            "source_type": "youtube",
+            "url": null,
+            "title": null,
+            "original_filename": "GW_2010-10-27_6iron_faceon.mp4",
+            "notes": null
+          },
+          "recording": {
+            "date": "2010-10-27",
+            "date_basis": "filename",
+            "camera_view": "face_on",
+            "notes": null
+          },
+          "video": {
+            "frame_count": 510,
+            "width": 480,
+            "height": 360,
+            "codec": "avc1",
+            "nominal_fps": 29.97,
+            "average_fps": 29.97,
+            "variable_frame_rate": false,
+            "duration_ms": 16983.65,
+            "start_offset_ms": 0.0,
+            "reported_frame_count": 510,
+            "decoder": "opencv-4.13.0-1a2b3c4d",
+            "timestamps": {
+              "status": "unverified",
+              "estimated_frames": 0,
+              "ffprobe_max_deviation_ms": null,
+              "detail": "ffprobe unavailable: no independent timestamp check"
+            }
+          },
+          "timing": {
+            "motion_time": "unknown",
+            "capture_fps": null,
+            "basis": null
+          }
+        }
+      ],
+      "annotations": null,
+      "annotations_sha256": null
+    }
+  ]
+}

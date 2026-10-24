@@ -162,3 +162,25 @@ def test_invalid_edits_show_problems_instead_of_saving(editor):
     at.button(key="re_new_submit").click().run()
     assert any("not within" in e.value for e in at.error)
     assert cm.load_catalog().shots == {}
+
+
+def test_freezing_in_the_editor_keeps_the_frozen_copy_while_the_shot_is_edited(editor):
+    cat = cm.load_catalog()
+    shot = cm.add_shot(cat, golfer_id="grant-waite", source_id=editor.src,
+                       camera_view="face_on", start_frame=5, end_frame=60, swing_type="full")
+    cm.create_collection(cat, "grant-waite-full-swing-v1", "grant-waite", "GW v1")
+    cm.save_catalog(cat)
+    sid = shot["shot_id"]
+    at = editor.run(re_source=editor.src, re_shot=sid, re_frame=5)
+    _ok(at.button(key="re_coll_grant-waite-full-swing-v1").click().run())
+    _ok(at.button(key="re_freeze_grant-waite-full-swing-v1").click().run())
+    cat = cm.load_catalog()
+    assert cat.collection("grant-waite-full-swing-v1")["status"] == "frozen"
+
+    at.session_state["re_frame"] = 9
+    _ok(at.run())
+    _ok(at.button(key="re_win_start").click().run())
+    assert cm.load_catalog().shot(sid)["streams"][0]["window"]["start_frame"] == 9
+    snap = cm.load_snapshot(cm.load_catalog(), "grant-waite-full-swing-v1")
+    assert snap["shots"][0]["shot"]["streams"][0]["window"]["start_frame"] == 5
+    assert any("keeps its frozen copy" in i.value for i in at.info)

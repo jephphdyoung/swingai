@@ -185,3 +185,78 @@ def test_shared_read_frame_matches_sequential_decode(tmp_path):
     decoded = decode_frames(path, want)
     for f in want:
         assert frame_digest(fa.read_frame(path, f).image) == frame_digest(decoded[f])
+
+
+# --- timestamp reliability ----------------------------------------------------
+
+def test_container_times_checked_by_ffprobe_are_verified(tmp_path):
+    index = fa.build_frame_index(offset_video(tmp_path))
+    assert index.timestamp_status == "verified" and index.timestamps_verified
+    assert index.estimated_frames == () and index.ffprobe_max_deviation_ms < 0.5
+    assert index.summary()["timestamps"] == {"status": "verified", "estimated_frames": 0,
+                                             "ffprobe_max_deviation_ms":
+                                                 index.ffprobe_max_deviation_ms,
+                                             "detail": ""}
+
+
+@pytest.mark.parametrize("probed,status,detail", [
+    (None, "unverified", "ffprobe unavailable"),
+    ("short", "unverified", "can't be matched frame by frame"),
+    ("na", "unverified", "no timestamp for 2 frame(s)"),
+    ("shifted", "inconsistent", "differ by up to"),
+], ids=["no-ffprobe", "count-mismatch", "ffprobe-NA", "disagreeing"])
+def test_unchecked_or_disagreeing_times_are_not_verified(tmp_path, monkeypatch, probed,
+                                                         status, detail):
+    path = offset_video(tmp_path)
+    real = ffprobe_timestamps_ms(path)
+    fake = {None: None, "short": real[:-3], "na": real[:5] + [None, None] + real[7:],
+            "shifted": real[:50] + [t + 2.0 for t in real[50:]]}[probed]
+    monkeypatch.setattr(fa, "_ffprobe_timestamps_ms", lambda p: fake)
+    index = fa.build_frame_index(path)
+    assert index.timestamp_status == status and not index.timestamps_verified
+    assert detail in index.timestamp_detail
+    assert index.estimated_frames == ()
+
+
+def test_missing_or_non_increasing_decoder_times_are_estimated_and_listed(tmp_path,
+                                                                        monkeypatch):
+    path = seek_trap_video(tmp_path, n=120)
+    real_pos = fa._pos_msec
+    calls = {"n": 0}
+
+    def flaky(cap):
+        i = calls["n"]
+        calls["n"] += 1
+        t = real_pos(cap)
+        if i in (5, 6):
+            return 0.0                  # decoder gave no time
+        if i == 40:
+            return 1.0                  # goes backwards
+        return t
+    monkeypatch.setattr(fa, "_pos_msec", flaky)
+    index = fa.build_frame_index(path)
+    assert index.estimated_frames == (5, 6, 40)
+    assert index.timestamp_status == "estimated"
+    assert "3 frame time(s) estimated" in index.timestamp_detail
+    assert index.timestamp_is_estimated(5) and not index.timestamp_is_estimated(7)
+    # Estimates still keep time monotonic, as pose_data does.
+    assert all(b > a for a, b in zip(index.timestamps_ms, index.timestamps_ms[1:]))
+    # The flags survive the disk cache.
+    restored = fa.FrameIndex.from_json(path, index.to_json())
+    assert restored.estimated_frames == (5, 6, 40)
+    assert restored.timestamp_status == "estimated"
+
+
+def test_index_times_match_what_pose_extraction_stores():
+    from utils.pose_data import _frame_timestamp
+
+    class Cap:
+        def __init__(self, t):
+            self.t = t
+
+        def get(self, prop):
+            return self.t
+    previous = [0.0, 4.0]
+    for raw, idx in ((8.0, 2), (0.0, 2), (3.0, 2), (0.0, 0), (5.0, 0)):
+        t, _ = fa._container_time(raw, idx, 250.0, previous if idx else [])
+        assert t == _frame_timestamp(Cap(raw), idx, 250.0, previous if idx else [])

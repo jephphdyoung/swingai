@@ -5,7 +5,10 @@ One file per shot, `data/annotations/<shot_id>.json`, validated against
 shot's stream ids. Each label records:
 
 - the **source frame index** and its **presentation time**, from the
-  sequential frame index (`utils/frame_access.py`);
+  sequential frame index (`utils/frame_access.py`), with `timestamp_basis`
+  "container" or "estimated" (the decoder gave no time for that frame). The
+  source's `video.timestamps.status` says whether container times were
+  verified;
 - the **SHA-1 of the decoded image** it was placed on, the same digest the
   joint-label benchmark pins. A label whose digest no longer matches the
   source's frame is reported by `identity_problems`, never silently moved;
@@ -221,6 +224,8 @@ def _identity(sa, source, index, frame):
         raise cat_mod.CatalogError(f"frame {frame} outside 0..{index.frame_count - 1}")
     sa["source_sha256"] = source["sha256"]
     return {"timestamp_ms": round(index.timestamps_ms[frame], 3),
+            "timestamp_basis": "estimated" if index.timestamp_is_estimated(frame)
+            else "container",
             "image_sha1": index.digests[frame]}
 
 

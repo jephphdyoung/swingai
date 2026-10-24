@@ -2,7 +2,7 @@
 
     python scripts/catalog.py bootstrap         # register the existing GW / TW videos
     python scripts/catalog.py list
-    python scripts/catalog.py verify            # re-check every source's checksum
+    python scripts/catalog.py verify            # source checksums + frozen snapshots
     python scripts/catalog.py add-golfer "Jane Doe" --role user --handedness right
     python scripts/catalog.py register <video> --golfer grant-waite --view face_on \\
         --source-type youtube --url https://... --date 2011-05 --motion-time unknown
@@ -128,7 +128,9 @@ def list_(args):
                   f"view={s['recording']['camera_view']}  date={s['recording']['date']}  "
                   f"motion_time={s['timing']['motion_time']}")
     for c in cat.collections.values():
-        print(f"collection {c['collection_id']} [{c['status']}]: {len(c['shot_ids'])} shot(s)")
+        snap = c.get("snapshot")
+        print(f"collection {c['collection_id']} [{c['status']}]: {len(c['shot_ids'])} shot(s)"
+              + (f", snapshot {snap['path']} sha256 {snap['sha256'][:12]}…" if snap else ""))
 
 
 def verify(args):
@@ -137,6 +139,18 @@ def verify(args):
     for st in cm.verify_sources(cat, search=not args.no_search):
         print(f"{st.state:9s} {st.source_id}  {st.path or ''} {st.detail}")
         bad += st.state == "changed"
+    for cid, c in cat.collections.items():
+        if c["status"] != "frozen":
+            continue
+        try:
+            cm.load_snapshot(cat, cid)
+        except cm.CatalogError as e:
+            print(f"BROKEN    {cid}: {e}")
+            bad += 1
+            continue
+        drift = cm.frozen_drift(cat, cid)
+        print(f"frozen    {cid}: snapshot intact"
+              + (f"; working shots changed since: {sorted(drift)}" if drift else ""))
     return 1 if bad else 0
 
 

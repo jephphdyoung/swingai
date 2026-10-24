@@ -100,7 +100,9 @@ in `data/catalog/`; per-shot labels `utils/shot_annotations.py` in `data/annotat
 schema `schemas/swing-dataset.schema.json` (shares the capture contract's id/view defs);
 UI `reference_editor_tab.py`; CLI `scripts/catalog.py`. Independent DTL/FO recordings are
 separate shots; multi-stream shots need a same-swing assertion; sync/calibration stay
-`unknown` until measured. Never move/rewrite sources; never convert legacy
+`unknown` until measured. A frozen collection is its write-once snapshot
+(`load_snapshot`); motion timing needs `video.timestamps.status == verified`. Never
+move/rewrite sources; never convert legacy
 `data/annotations.json`. Doc: [docs/swing-dataset.md](docs/swing-dataset.md).
 
 ## Entry points
@@ -143,7 +145,7 @@ separate shots; multi-stream shots need a same-swing assertion; sync/calibration
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 837 pass, 7 GPU/ORT-only skip (2026-10-24)
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 853 pass, 7 GPU/ORT-only skip (2026-10-24)
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```
