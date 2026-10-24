@@ -57,9 +57,12 @@ Each camera is stored with `camera_to_rig` and, when defined, `camera_to_world`.
    own source-frame ids, timestamps, timestamp basis and image digests.
    - *static_address*: every stream's own P1 frame (the golfer is still; no sync needed).
    - *dynamic*: paired by synchronized time, t_ref = t_stream + `offset_ms`, only with
-     a known offset and only within 0.5 ms (effectively simultaneous exposures).
-5. **Measurements**: `utils/alignment_3d.py` (P1) and `utils/club_3d.py` (club).
-6. **Artifacts** (`utils/reconstruction_io.py`).
+     a known offset and only within `max_pair_gap_ms` (0.5 ms on the files' timestamp
+     clock). Pairing alone doesn't make a moving point trustworthy: see *Timing*.
+5. **Timing** (`utils/timing_3d.py`): a timing-error bound per dynamic frame and the
+   motion it allows per point.
+6. **Measurements**: `utils/alignment_3d.py` (P1) and `utils/club_3d.py` (club).
+7. **Artifacts** (`utils/reconstruction_io.py`).
 
 ## Statuses
 
@@ -68,9 +71,60 @@ Each camera is stored with `camera_to_rig` and, when defined, `camera_to_world`.
 | point | `observed` | triangulated from visible labels in ≥ 2 views, passing reprojection (≤ 3 px), parallax (≥ 5°) and uncertainty (≤ 20 mm) checks |
 | | `inferred` | as observed, but a contributing label was placed as hidden, or is an unreviewed model proposal |
 | | `missing` | labelled in one view only, or rejected — with the reason |
-| frame | `measured` | calibration verified (document **and** catalog) and same swing verified with method, by and at — for the static address too, since views of different swings don't share a pose; for dynamic frames also synchronization verified with uncertainty ≤ 1 ms and every view's timestamp a verified container time |
+| frame | `measured` | calibration verified (document **and** catalog) and same swing verified with method, by and at — for the static address too, since views of different swings don't share a pose; for dynamic frames also synchronization verified with an offset and uncertainty, every view's timestamp a verified container time, every stream's motion time known, and the frame's timing-error bound known |
 | | `unverified` | anything short of that, with reasons |
+| point timing (dynamic frames) | `within` / `exceeds` / `unknown` | the motion the timing bound allows at the point's speed bound, against `max_timing_position_error_m` (10 mm). Orthogonal to observed/inferred/missing, whose meaning is unchanged: an `exceeds` clubhead is still triangulated and stored, but isn't a trustworthy measured input |
 | value | `measured` / `inferred` / `unavailable` | unavailable values are `null` with reasons, never a guess |
+
+## Timing (`utils/timing_3d.py`)
+
+Two cameras never expose at exactly the same instant; a point moving between the
+exposures is seen at two places and triangulated somewhere in between. A shoulder at
+1 m/s moves 1 mm in 1 ms, a clubhead at 40 m/s moves 40 mm. So timing is judged
+**per landmark**, not with one threshold.
+
+**Motion time first.** Verified presentation timestamps don't prove real swing time.
+Each source's catalog `timing` gives a motion-clock scale (`catalog.motion_clock`, the
+same rule as the catalog's `motion_timing` eligibility): 1 for `real_time` with a
+documented basis; presented fps ÷ capture fps for `slowed` footage with a capture rate
+and basis (one presented frame per captured frame; variable-rate files refused);
+unknown for `retimed`, `unknown` or undocumented footage. With an unknown scale no
+moving frame is measured and nothing time-dependent (speed, path, attack, swing
+direction, low point) is reported. Frames carry `motion_time_ms` (real time).
+
+**Timing-error bound** of a dynamic frame, in real ms — a worst case, not a standard
+deviation:
+
+    bound_ms = scale × (pair_gap_ms + sync_uncertainty_ms) + exposure_ms
+
+- `pair_gap_ms`: the actual synchronized-time gap of the paired frames.
+- `sync_uncertainty_ms`: the synchronization record's uncertainty (same clock as the
+  offset: t_ref = t_stream + offset_ms).
+- `exposure_ms`: exposure-midpoint misalignment not already in the synchronization
+  uncertainty. The synchronization record says which (`exposure_alignment`):
+  `included` (0 — e.g. the offset was measured from a flash both exposures caught, so
+  its uncertainty covers it), `bounded` (`exposure_uncertainty_ms`, e.g. trigger
+  jitter plus half the difference in exposure time), or `unknown` — the default, which
+  leaves the bound unknown and the frame unverified. Equal nominal frame rates never
+  imply aligned exposures.
+- Streams whose motion clocks run at different rates can't be related by one offset:
+  bound unknown.
+
+**Per point:** position error bound = speed bound × bound_ms / 1000. The speed bounds
+are documented **a-priori** upper bounds per landmark class (clubhead and hosel 70 m/s,
+ball 105, hands and grip end 20, elbows/forearms 15, head and torso 6, legs and feet 6,
+ground markers 1; unlisted points get the largest), not estimates from the
+triangulations being judged, so a mistimed triangulation can't vouch for itself. They
+are generous for a full swing, so slow motions are judged conservatively. A point
+passes when its bound is ≤ `max_timing_position_error_m` (10 mm): a hardware-triggered
+pair with 0.05 ms sync and 0.02 ms exposure uncertainty passes the clubhead (4.9 mm);
+0.3 ms of sync uncertainty fails it (22 mm) while the shoulders pass (1.9 mm).
+
+The timing bound is stored apart from the covariance and never added to it: the
+covariance is a 1-sigma Gaussian model of labelling noise, the timing bound a
+worst-case displacement. Consumers use `Reconstruction.problem(i, j)`, which applies
+the frame status, the point state and the timing gate. Static address frames aren't
+timed (the golfer is still).
 
 ## P1 alignment (`utils/alignment_3d.py`)
 
@@ -98,7 +152,22 @@ excluded: a label error along an epipolar line passes the two-view reprojection
 check but changes these lengths.
 
 Usable samples: measured dynamic frames, tracking centre *observed*, σ ≤ 10 mm,
-consistent club geometry. Impact = the reference stream's P7 label time.
+every point it comes from within the timing gate, consistent club geometry. Times are
+the swing's real time (`motion_time_ms`). Impact = the reference stream's P7 label
+time.
+
+**Impact time is frame-level.** P7 marks the frame containing or nearest impact, so
+impact lies within one frame interval of it: `impact_time_uncertainty_ms` (4.17 ms at
+240 fps, real time). Nothing finer is claimed.
+
+**Two uncertainties per value.** `uncertainty` is the 1-sigma from image localization.
+`timing_uncertainty` is a separate worst-case bound: for speed, path and attack angle,
+the first-order change of the value over the impact-time uncertainty (from the fit's
+acceleration) plus the samples' timing position bounds through the fit weights
+(Σ|wₖ|·eₖ); for the observed low point, that sample's timing bound (and the impact-time
+uncertainty for its time). Near impact the path turns ~0.9°/ms, so a frame-level P7
+gives path a timing uncertainty of ~4° — reported, not hidden. Swing direction and the
+fitted arc don't propagate it (`null`); their samples each pass the timing gate.
 
 | Value | Method |
 |---|---|
@@ -123,7 +192,12 @@ Plus a per-sample series of speed (central difference) and displacement.
   digest; missing points with reasons; summary.
 - `trajectory.npz` — `time_ms` (F), `xyz` (F,P,3), `cov` (F,P,3,3), `state` (F,P;
   0 missing, 1 observed, 2 inferred), `n_views`, `reprojection_px` (F,P,V),
-  `parallax_deg`. Each array's SHA-256 is in the manifest.
+  `parallax_deg`; timing: `motion_time_ms` (F), `timing_bound_ms` (F),
+  `speed_bound_m_s` (P), `timing_error_m` (F,P) and `timing_status` (F,P; 0 not
+  applicable, 1 within, 2 exceeds, 3 unknown). Each array's SHA-256 is in the manifest.
+  The manifest's frames carry each frame's timing record, the association each
+  stream's motion clock and the exposure alignment, and the summary counts moving
+  points by timing status.
 - `measurements.json` — kind `measurements_3d`, linked by the manifest's hash.
 
 The reconstruction id is derived from the inputs, algorithm and parameters: the same
@@ -142,7 +216,10 @@ Nothing below has been run yet. Until it has, all accuracy statements are synthe
    --board 9x6 --square-mm 40 --out dtl.json`. Expect RMS well under 1 px.
 3. **Synchronized capture.** Hardware-trigger both cameras (or genlock) so exposures
    coincide; otherwise dynamic frames will never pair. Record the frame offset between
-   the two files.
+   the two files, and establish the exposure alignment: the same exposure time on both
+   cameras and the trigger's jitter, or an LED/flash visible to both (then the offset's
+   uncertainty already covers it). Clubhead positions need a timing bound under
+   ~0.14 ms (10 mm at 70 m/s).
 4. **Extrinsics:** record the board visible to *both* cameras in several poses, ending
    with it lying flat on the floor in the hitting area. `calibrate-extrinsics ...
    --offset-frames N --reference-pair -1 --board-on-ground --calibration-id fox-YYYY-MM-DD
@@ -162,12 +239,16 @@ Nothing below has been run yet. Until it has, all accuracy statements are synthe
 7. **Catalog:** in the editor, the DTL/FO streams of the swing are one shot
    (*Add another camera view of this same swing*); once confirmed (e.g. the shared
    trigger and the same ball strike in both files), set same swing to verified with
-   the method and your name; record synchronization (method, `offset_ms` with
-   t_ref = t_FO + offset, uncertainty) and calibration as verified.
+   the method and your name; record synchronization and its exposure alignment with
+   `scripts/catalog.py set-sync <shot> --status verified --method ... --by ...
+   --offset-ms ... --uncertainty-ms ... --exposure bounded --exposure-uncertainty-ms ...`
+   (t_ref = t_FO + offset), and calibration as verified. Register the sources with
+   `--motion-time real_time --timing-basis ...`.
 8. **Reconstruct:** `scripts/geometry_3d.py reconstruct --shot <id> --calibration
    fox-v2.json`; check the summary's measured frames, max reprojection error and the
-   world-frame evidence, then compare P1 angles with a physical check (e.g. an
-   alignment stick across the toes) and clubhead speed with a launch monitor.
+   world-frame evidence and the moving points' timing summary, then compare P1 angles
+   with a physical check (e.g. an alignment stick across the toes) and clubhead speed
+   with a launch monitor.
 
 ## Limitations
 
@@ -178,11 +259,18 @@ Nothing below has been run yet. Until it has, all accuracy statements are synthe
   error. The club rigidity check catches it for club points; body points rely on
   label quality.
 - Impact is the **P7 frame's time**, so it's quantized to a frame: near impact the path
-  direction turns about 0.9° per millisecond at 40 m/s on a 1.6 m arc.
+  direction turns about 0.9° per millisecond at 40 m/s on a 1.6 m arc. This is now
+  reported as `impact_time_uncertainty_ms` and in path/attack `timing_uncertainty`.
+- The timing bound is only as good as the recorded synchronization: a wrong offset with
+  a small stated uncertainty gives a small bound (reprojection error catches some of
+  these, not all). The speed bounds are a priori and conservative; slower swings
+  (chips) are judged as if full speed. Rolling-shutter skew within a frame isn't
+  modelled.
 - The observed low point is quantized by frame spacing (≈ 17 cm at 40 m/s and 240 fps);
   its stated uncertainty includes that. Heights are of the tracking centre, not the sole.
-- Dynamic frames need exposures within 0.5 ms. Free-running cameras would need 2D
-  interpolation between frames, which isn't implemented.
+- Dynamic frames pair only within 0.5 ms, and clubhead points need a timing bound of
+  ~0.14 ms. Free-running cameras would need 2D interpolation between frames, which
+  isn't implemented.
 - Every 2D point is a manual label; there's no automatic clubhead detection.
 - Only the 5-coefficient lens model (no fisheye). Scale depends on the measured board
   square size.

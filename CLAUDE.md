@@ -111,7 +111,10 @@ move/rewrite sources; never convert legacy
 `schemas/geometry-3d.schema.json`; CLI `scripts/geometry_3d.py`. World: +X target, +Y left of
 the target line, +Z up, origin = ball's ground projection at address; ground/target/origin
 need explicit evidence. Only same-swing multi-stream shots are stereo inputs, and nothing
-is `measured` until same-swing is *verified* with method/by/at. Synthetic-
+is `measured` until same-swing is *verified* with method/by/at. Moving points also pass a
+per-landmark timing gate (`utils/timing_3d.py`: pair gap + sync + exposure alignment ×
+a-priori speed bound, apart from the covariance); unknown exposure alignment or motion time
+is never taken as zero, and club values need it. Synthetic-
 validated only: never claim real-world accuracy until FOX recordings are checked
 (docs/geometry-3d.md). Extrinsic boards must be orientable (inner-corner sum odd).
 
@@ -155,7 +158,7 @@ validated only: never claim real-world accuracy until FOX recordings are checked
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 912 pass, 7 GPU/ORT-only skip (2026-10-24)
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 925 pass, 7 GPU/ORT-only skip (2026-10-24)
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```
