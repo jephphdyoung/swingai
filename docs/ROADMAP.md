@@ -60,11 +60,13 @@ Streams missing calibration or timing support can contribute only to the measure
 - Small historical face-on joint benchmark only; DTL accuracy unmeasured.
 - Final reported 2026-10-22 tests: CPU 766 passed/7 skipped; GPU 771 passed/2 skipped.
 
-### Proposed PR #5 — Shot catalog + reference editing foundation
+### PR #5 — Shot catalog + reference editing foundation (implemented, in review)
+
+Implemented on `feat/swing-catalog-reference-editor`; see [swing-dataset.md](swing-dataset.md) and [STATUS.md](STATUS.md). The catalog lives in `data/catalog/` + `data/annotations/` without moving any video (the layout below stays a logical target). Deferred from the list below: rotation, rendered derivative clips, model proposals in the editor.
 
 **Goal:** turn raw reference or user footage into consistent, inspectable, versioned *swing records* suitable for future 3D reconstruction and model development. Keep PR #5 focused; its exact scope requires discussion before giving coding instructions.
 
-Proposed library shape (not yet implemented):
+Proposed library shape (logical target; PR #5 implements `data/catalog/` and `data/annotations/` only):
 
 ```text
 videos/

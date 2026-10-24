@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "kind": "collections",
+  "revision": 2,
+  "collections": [
+    {
+      "collection_id": "grant-waite-full-swing-v1",
+      "golfer_id": "grant-waite",
+      "title": "Grant Waite full swings, v1",
+      "description": "Curated in the Reference Editor. Independent DTL and face-on recordings are separate shots.",
+      "swing_types": [
+        "full"
+      ],
+      "status": "draft",
+      "frozen_at": null,
+      "frozen_by": null,
+      "shot_ids": [],
+      "snapshot": null
+    }
+  ]
+}

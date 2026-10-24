@@ -251,14 +251,13 @@ def build_comparison(slots: dict, position: str, use_partner_view=False,
 # --- frames and drawing ---------------------------------------------------
 
 def read_frame(path, frame_idx):
-    """BGR frame by index, or None. Same seek the annotator uses."""
-    cap = cv2.VideoCapture(path)
+    """BGR frame by index, or None. The exact sequentially decoded frame
+    (utils.frame_access), the one pose extraction saw -- never a neighbour."""
+    from utils.frame_access import FrameAccessError, read_frame as exact
     try:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-        ok, frame = cap.read()
-        return frame if ok else None
-    finally:
-        cap.release()
+        return exact(path, frame_idx).image
+    except FrameAccessError:
+        return None
 
 
 SKELETON_COLOR = (230, 230, 230)

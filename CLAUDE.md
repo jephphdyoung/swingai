@@ -74,10 +74,12 @@ Gotchas:
   kernel execution is shown with NVML `utilization.gpu` against a CPU-provider control.
 - RTMPose's score is **not visibility** (`score_is_visibility = False`): occluded joints
   score high. The UI must never present its measurements as verified.
-- **OpenCV seeking is one frame early** on the 240fps captures past ~frame 700. Pose
-  extraction decodes sequentially, so anything that must match pose frames has to decode
-  sequentially (`utils/joint_labels.decode_frames`). The annotator and the panel images
-  still seek (STATUS.md).
+- **OpenCV seeking is one frame early** on the 240fps captures past ~frame 700. Never
+  `CAP_PROP_POS_FRAMES`-seek for a frame that must match pose/labels: use
+  `utils/frame_access.read_frame` (sequential-decode index, digest-verified). The Annotate,
+  Dual-View and Reference Editor tabs do. Still seeking: `analyzer._read_frame` (legacy
+  Analyze path), `make_joint_label_set.seek_digests` (on purpose: it reproduces the old
+  labeller) and `verify_gpu` (sampled frames, identity irrelevant).
 - Joint-accuracy evaluation: `scripts/evaluate_joint_labels.py`. It only runs on labels a
   person exported from `labeler.html`. It scores **only the 15 body joints on the 20
   benchmark frames** (pinned by digest). Feet, hands/club points (`utils/label_points.py`)
@@ -92,11 +94,22 @@ Gotchas:
   labelling has started.
 Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-backends-2026-10-20.md).
 
+## Swing dataset (PR #5)
+`utils/catalog.py` (golfers, checksummed immutable sources, shots = one swing, collections)
+in `data/catalog/`; per-shot labels `utils/shot_annotations.py` in `data/annotations/`;
+schema `schemas/swing-dataset.schema.json` (shares the capture contract's id/view defs);
+UI `reference_editor_tab.py`; CLI `scripts/catalog.py`. Independent DTL/FO recordings are
+separate shots; multi-stream shots need a same-swing assertion; sync/calibration stay
+`unknown` until measured. A frozen collection is its write-once snapshot
+(`load_snapshot`); motion timing needs `video.timestamps.status == verified`. Never
+move/rewrite sources; never convert legacy
+`data/annotations.json`. Doc: [docs/swing-dataset.md](docs/swing-dataset.md).
+
 ## Entry points
 - `app.py` — Streamlit UI. **Analyze** tab (pick user + reference video → custom HTML5
   player with P-position jump buttons, skeleton toggle, side-by-side / overlay switch) and
-  **Annotate** tab (`annotator.py`: frame-by-frame manual P-marking + save), and
-  **Dual-View Comparison** tab (`dual_view_tab.py`).
+  **Annotate** tab (`annotator.py`: frame-by-frame manual P-marking + save),
+  **Dual-View Comparison** tab (`dual_view_tab.py`) and **Reference Editor** tab.
 - `main.py` — CLI: `python main.py <user_video> <reference_video>`.
 - `analyzer.py::analyze_swing` — the orchestrator both call (5 reported steps; logs to
   stderr, reports progress via an optional `progress_callback`).
@@ -132,7 +145,7 @@ Docs: [docs/gpu-pose.md](docs/gpu-pose.md), [benchmark](docs/benchmarks/pose-bac
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 766 pass, 7 GPU/ORT-only skip (GPU image: 771 / 2)
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 856 pass, 7 GPU/ORT-only skip (2026-10-24)
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```

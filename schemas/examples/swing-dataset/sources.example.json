@@ -1,0 +1,212 @@
+{
+  "schema_version": "1.0",
+  "kind": "sources",
+  "revision": 4,
+  "sources": [
+    {
+      "source_id": "src-gw-dtl",
+      "golfer_id": "grant-waite",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size_bytes": 1843200,
+      "location": {
+        "root": "reference",
+        "path": "GW_DTL.mp4"
+      },
+      "also_found_at": [
+        {
+          "root": "absolute",
+          "path": "/home/me/swingai/downloader/GW_DTL.mp4"
+        }
+      ],
+      "registered_at": "2026-10-24T18:00:00Z",
+      "legacy_annotation_key": "videos/reference/GW_DTL.mp4",
+      "provenance": {
+        "source_type": "youtube",
+        "url": null,
+        "title": null,
+        "original_filename": "GW_DTL.mp4",
+        "notes": "URL not recorded at download"
+      },
+      "recording": {
+        "date": null,
+        "date_basis": null,
+        "camera_view": "down_the_line",
+        "notes": null
+      },
+      "video": {
+        "frame_count": 540,
+        "width": 480,
+        "height": 360,
+        "codec": "avc1",
+        "nominal_fps": 29.97,
+        "average_fps": 29.97,
+        "variable_frame_rate": false,
+        "duration_ms": 17984.651,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 540,
+        "decoder": "opencv-4.13.0-1a2b3c4d",
+        "timestamps": {
+          "status": "unverified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": null,
+          "detail": "ffprobe unavailable: no independent timestamp check"
+        }
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    },
+    {
+      "source_id": "src-gw-2010-fo",
+      "golfer_id": "grant-waite",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size_bytes": 2048000,
+      "location": {
+        "root": "reference",
+        "path": "GW_2010-10-27_6iron_faceon.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T18:00:05Z",
+      "legacy_annotation_key": null,
+      "provenance": {
+        "source_type": "youtube",
+        "url": null,
+        "title": null,
+        "original_filename": "GW_2010-10-27_6iron_faceon.mp4",
+        "notes": null
+      },
+      "recording": {
+        "date": "2010-10-27",
+        "date_basis": "filename",
+        "camera_view": "face_on",
+        "notes": null
+      },
+      "video": {
+        "frame_count": 510,
+        "width": 480,
+        "height": 360,
+        "codec": "avc1",
+        "nominal_fps": 29.97,
+        "average_fps": 29.97,
+        "variable_frame_rate": false,
+        "duration_ms": 16983.65,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 510,
+        "decoder": "opencv-4.13.0-1a2b3c4d",
+        "timestamps": {
+          "status": "unverified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": null,
+          "detail": "ffprobe unavailable: no independent timestamp check"
+        }
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    },
+    {
+      "source_id": "src-jy-dtl-0001",
+      "golfer_id": "jeff-young",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "size_bytes": 91000000,
+      "location": {
+        "root": "user",
+        "path": "2026-07-27 135006/Jeff Young - 2026-07-27 135006 Fox Down the line 61fc.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T18:01:00Z",
+      "legacy_annotation_key": null,
+      "provenance": {
+        "source_type": "swing_catalyst",
+        "url": null,
+        "title": null,
+        "original_filename": "Jeff Young - 2026-07-27 135006 Fox Down the line 61fc.mp4",
+        "notes": null
+      },
+      "recording": {
+        "date": "2026-07-27",
+        "date_basis": "Swing Catalyst filename",
+        "camera_view": "down_the_line",
+        "notes": null
+      },
+      "video": {
+        "frame_count": 1244,
+        "width": 1440,
+        "height": 1080,
+        "codec": "mp4v",
+        "nominal_fps": 249.1,
+        "average_fps": 249.3,
+        "variable_frame_rate": false,
+        "duration_ms": 4985.961,
+        "start_offset_ms": 4.014,
+        "reported_frame_count": 1245,
+        "decoder": "opencv-4.13.0-1a2b3c4d",
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        }
+      },
+      "timing": {
+        "motion_time": "real_time",
+        "capture_fps": 249.3,
+        "basis": "Swing Catalyst capture"
+      }
+    },
+    {
+      "source_id": "src-jy-fo-0001",
+      "golfer_id": "jeff-young",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "size_bytes": 90000000,
+      "location": {
+        "root": "user",
+        "path": "2026-07-27 135006/Jeff Young - 2026-07-27 135006 Fox Face on right aaf0.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T18:01:02Z",
+      "legacy_annotation_key": null,
+      "provenance": {
+        "source_type": "swing_catalyst",
+        "url": null,
+        "title": null,
+        "original_filename": "Jeff Young - 2026-07-27 135006 Fox Face on right aaf0.mp4",
+        "notes": null
+      },
+      "recording": {
+        "date": "2026-07-27",
+        "date_basis": "Swing Catalyst filename",
+        "camera_view": "face_on",
+        "notes": null
+      },
+      "video": {
+        "frame_count": 1244,
+        "width": 1440,
+        "height": 1080,
+        "codec": "mp4v",
+        "nominal_fps": 249.1,
+        "average_fps": 249.3,
+        "variable_frame_rate": false,
+        "duration_ms": 4985.961,
+        "start_offset_ms": 4.014,
+        "reported_frame_count": 1245,
+        "decoder": "opencv-4.13.0-1a2b3c4d",
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        }
+      },
+      "timing": {
+        "motion_time": "real_time",
+        "capture_fps": 249.3,
+        "basis": "Swing Catalyst capture"
+      }
+    }
+  ]
+}

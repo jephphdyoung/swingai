@@ -1,0 +1,407 @@
+{
+  "schema_version": "1.0",
+  "kind": "sources",
+  "revision": 3,
+  "sources": [
+    {
+      "source_id": "src-40a32a1912",
+      "golfer_id": "grant-waite",
+      "sha256": "1572418fa34d0613dc44a0078832a4302f6f4025c39c1f37bbad9fb0f39f9919",
+      "size_bytes": 878279,
+      "location": {
+        "root": "reference",
+        "path": "GW_faceon.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T15:39:37Z",
+      "legacy_annotation_key": "videos/reference/GW_faceon.mp4",
+      "provenance": {
+        "source_type": "youtube",
+        "url": null,
+        "title": null,
+        "original_filename": "GW_faceon.mp4",
+        "notes": "Downloaded with downloader/ (yt-dlp); a byte-identical copy is in downloader/. Its URL was not recorded. downloader/README.md lists https://www.youtube.com/watch?v=6sD5asBLNrw as 'Grant Waite (slow motion)', but which file came from it is unconfirmed."
+      },
+      "recording": {
+        "date": null,
+        "date_basis": null,
+        "camera_view": "face_on",
+        "notes": null
+      },
+      "video": {
+        "frame_count": 571,
+        "width": 480,
+        "height": 360,
+        "codec": "h264",
+        "nominal_fps": 29.97003,
+        "average_fps": 29.97003,
+        "variable_frame_rate": false,
+        "duration_ms": 19019.0,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 571,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
+        "decoder": "opencv-4.13.0-865a1cda"
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    },
+    {
+      "source_id": "src-44fb91dedc",
+      "golfer_id": "grant-waite",
+      "sha256": "4c12cf38a6b3c9c34c6f06741b08c9f9455d808226c6d91ce7695a4b3c547673",
+      "size_bytes": 797465,
+      "location": {
+        "root": "reference",
+        "path": "GW_DTL.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T15:39:37Z",
+      "legacy_annotation_key": "videos/reference/GW_DTL.mp4",
+      "provenance": {
+        "source_type": "youtube",
+        "url": null,
+        "title": null,
+        "original_filename": "GW_DTL.mp4",
+        "notes": "Downloaded with downloader/ (yt-dlp); a byte-identical copy is in downloader/. Its URL was not recorded. downloader/README.md lists https://www.youtube.com/watch?v=6sD5asBLNrw as 'Grant Waite (slow motion)', but which file came from it is unconfirmed."
+      },
+      "recording": {
+        "date": null,
+        "date_basis": null,
+        "camera_view": "down_the_line",
+        "notes": null
+      },
+      "video": {
+        "frame_count": 540,
+        "width": 480,
+        "height": 360,
+        "codec": "h264",
+        "nominal_fps": 29.97003,
+        "average_fps": 29.97003,
+        "variable_frame_rate": false,
+        "duration_ms": 17984.633,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 540,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
+        "decoder": "opencv-4.13.0-865a1cda"
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    },
+    {
+      "source_id": "src-fce1b51466",
+      "golfer_id": "grant-waite",
+      "sha256": "148e80d1fad577cae67257f94394c301f2eee95f9035d5a35a9215b5b51bcdd1",
+      "size_bytes": 657600,
+      "location": {
+        "root": "reference",
+        "path": "GW_2010-10-27_6iron_faceon.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T15:39:38Z",
+      "legacy_annotation_key": null,
+      "provenance": {
+        "source_type": "unknown",
+        "url": null,
+        "title": null,
+        "original_filename": "GW_2010-10-27_6iron_faceon.mp4",
+        "notes": null
+      },
+      "recording": {
+        "date": "2010-10-27",
+        "date_basis": "filename",
+        "camera_view": "face_on",
+        "notes": "Filename says 6-iron; unverified."
+      },
+      "video": {
+        "frame_count": 510,
+        "width": 480,
+        "height": 360,
+        "codec": "h264",
+        "nominal_fps": 29.97003,
+        "average_fps": 29.97003,
+        "variable_frame_rate": false,
+        "duration_ms": 16983.633,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 510,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
+        "decoder": "opencv-4.13.0-865a1cda"
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    },
+    {
+      "source_id": "src-3c79bcf3e9",
+      "golfer_id": "grant-waite",
+      "sha256": "f2bdf579b1b8abafcebf70686dacf73897f1d290c58128d29d72d1aa920896c3",
+      "size_bytes": 2935580,
+      "location": {
+        "root": "reference",
+        "path": "GW_2009_faceon.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T15:39:39Z",
+      "legacy_annotation_key": null,
+      "provenance": {
+        "source_type": "unknown",
+        "url": null,
+        "title": null,
+        "original_filename": "GW_2009_faceon.mp4",
+        "notes": null
+      },
+      "recording": {
+        "date": "2009",
+        "date_basis": "filename",
+        "camera_view": "face_on",
+        "notes": null
+      },
+      "video": {
+        "frame_count": 1156,
+        "width": 480,
+        "height": 360,
+        "codec": "h264",
+        "nominal_fps": 29.97003,
+        "average_fps": 29.97003,
+        "variable_frame_rate": false,
+        "duration_ms": 38538.5,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 1156,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
+        "decoder": "opencv-4.13.0-865a1cda"
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    },
+    {
+      "source_id": "src-23a9ccf908",
+      "golfer_id": "grant-waite",
+      "sha256": "f6d19af5ea9ed424212b687a82a93a7b5e5b9036cc8cf7009ebfd08dbce0a949",
+      "size_bytes": 2537135,
+      "location": {
+        "root": "reference",
+        "path": "GW_2010_vegas_faceon.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T15:39:39Z",
+      "legacy_annotation_key": null,
+      "provenance": {
+        "source_type": "unknown",
+        "url": null,
+        "title": null,
+        "original_filename": "GW_2010_vegas_faceon.mp4",
+        "notes": null
+      },
+      "recording": {
+        "date": "2010",
+        "date_basis": "filename",
+        "camera_view": "face_on",
+        "notes": "Filename says Las Vegas; unverified."
+      },
+      "video": {
+        "frame_count": 735,
+        "width": 640,
+        "height": 480,
+        "codec": "h264",
+        "nominal_fps": 30.0,
+        "average_fps": 30.0,
+        "variable_frame_rate": false,
+        "duration_ms": 24466.667,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 735,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
+        "decoder": "opencv-4.13.0-865a1cda"
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    },
+    {
+      "source_id": "src-66f49a500a",
+      "golfer_id": "grant-waite",
+      "sha256": "7417c26b66d894197c0438b617af6b4f51aeaf4a2868198149c26e4347988f94",
+      "size_bytes": 674719,
+      "location": {
+        "root": "reference",
+        "path": "GW_caddie_faceon.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T15:39:40Z",
+      "legacy_annotation_key": null,
+      "provenance": {
+        "source_type": "unknown",
+        "url": null,
+        "title": null,
+        "original_filename": "GW_caddie_faceon.mp4",
+        "notes": null
+      },
+      "recording": {
+        "date": null,
+        "date_basis": null,
+        "camera_view": "face_on",
+        "notes": "Filename mentions a caddie; unreviewed."
+      },
+      "video": {
+        "frame_count": 746,
+        "width": 480,
+        "height": 360,
+        "codec": "h264",
+        "nominal_fps": 29.97003,
+        "average_fps": 29.97003,
+        "variable_frame_rate": false,
+        "duration_ms": 24858.167,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 746,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
+        "decoder": "opencv-4.13.0-865a1cda"
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    },
+    {
+      "source_id": "src-fe0a1d58ad",
+      "golfer_id": "tiger-woods",
+      "sha256": "b3fd238757d239b2164e8b90683f950590ccf31d08276def12b206b80b2945b3",
+      "size_bytes": 230052,
+      "location": {
+        "root": "user",
+        "path": "TW_face.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T15:39:40Z",
+      "legacy_annotation_key": "videos/user/TW_face.mp4",
+      "provenance": {
+        "source_type": "youtube",
+        "url": null,
+        "title": "Tiger Woods Face On Iron Swing At The Presidents Cup",
+        "original_filename": "Tiger Woods Face On Iron Swing At The Presidents Cup.mp4",
+        "notes": "Downloaded with downloader/ (yt-dlp); the original file, with its YouTube title as the name, is a byte-identical copy in downloader/. URL not recorded."
+      },
+      "recording": {
+        "date": null,
+        "date_basis": null,
+        "camera_view": "face_on",
+        "notes": "Stored under videos/user/ for historical reasons, but this is Tiger Woods reference footage. The catalog records it under the reference golfer tiger-woods; the file is not moved."
+      },
+      "video": {
+        "frame_count": 148,
+        "width": 496,
+        "height": 360,
+        "codec": "h264",
+        "nominal_fps": 30.0,
+        "average_fps": 30.0,
+        "variable_frame_rate": false,
+        "duration_ms": 4900.0,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 148,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
+        "decoder": "opencv-4.13.0-865a1cda"
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    },
+    {
+      "source_id": "src-ef66a8e51e",
+      "golfer_id": "grant-waite",
+      "sha256": "abfd2ab268f91d034ed5631fbef3085101d0cea3a00d99043fb6e207722525dc",
+      "size_bytes": 8427962,
+      "location": {
+        "root": "reference",
+        "path": "GW_bio.mp4"
+      },
+      "also_found_at": [],
+      "registered_at": "2026-10-24T15:39:52Z",
+      "legacy_annotation_key": null,
+      "provenance": {
+        "source_type": "unknown",
+        "url": null,
+        "title": null,
+        "original_filename": "GW_bio.mp4",
+        "notes": null
+      },
+      "recording": {
+        "date": null,
+        "date_basis": null,
+        "camera_view": "unknown",
+        "notes": "Content unreviewed: may hold several swings and camera views, so each shot states its own view."
+      },
+      "video": {
+        "frame_count": 1297,
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "nominal_fps": 29.97003,
+        "average_fps": 29.97003,
+        "variable_frame_rate": false,
+        "duration_ms": 43243.2,
+        "start_offset_ms": 0.0,
+        "reported_frame_count": 1297,
+        "timestamps": {
+          "status": "verified",
+          "estimated_frames": 0,
+          "ffprobe_max_deviation_ms": 0.0,
+          "detail": ""
+        },
+        "decoder": "opencv-4.13.0-865a1cda"
+      },
+      "timing": {
+        "motion_time": "unknown",
+        "capture_fps": null,
+        "basis": null
+      }
+    }
+  ]
+}

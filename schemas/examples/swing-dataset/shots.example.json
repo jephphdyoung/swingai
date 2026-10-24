@@ -1,0 +1,226 @@
+{
+  "schema_version": "1.0",
+  "kind": "shots",
+  "revision": 7,
+  "shots": [
+    {
+      "shot_id": "shot-gw-dtl-01",
+      "golfer_id": "grant-waite",
+      "created_at": "2026-10-24T18:05:00Z",
+      "swing_type": "full",
+      "club": {
+        "category": "iron",
+        "name": null,
+        "length_in": null,
+        "length_basis": null
+      },
+      "handedness": "right",
+      "recording_date": null,
+      "setup_notes": null,
+      "streams": [
+        {
+          "stream_id": "down_the_line",
+          "source_id": "src-gw-dtl",
+          "camera_view": "down_the_line",
+          "window": {
+            "start_frame": 32,
+            "end_frame": 410
+          },
+          "crop": {
+            "x": 96,
+            "y": 0,
+            "width": 288,
+            "height": 360
+          },
+          "quality": {
+            "body_visibility": "good",
+            "club_visibility": "partial",
+            "resolution_usable": "yes",
+            "notes": null
+          }
+        }
+      ],
+      "multi_view": {
+        "same_swing": {
+          "status": "not_applicable",
+          "method": null,
+          "by": null,
+          "at": null,
+          "notes": null
+        },
+        "synchronization": {
+          "status": "not_applicable",
+          "method": null,
+          "by": null,
+          "at": null,
+          "notes": null,
+          "offset_ms": null,
+          "uncertainty_ms": null
+        },
+        "calibration": {
+          "status": "unknown",
+          "method": null,
+          "by": null,
+          "at": null,
+          "notes": null
+        }
+      },
+      "review": {
+        "status": "reviewed",
+        "by": "jeff",
+        "at": "2026-10-24T18:30:00Z",
+        "notes": null
+      },
+      "capture": null,
+      "notes": null
+    },
+    {
+      "shot_id": "shot-gw-2010-fo-01",
+      "golfer_id": "grant-waite",
+      "created_at": "2026-10-24T18:06:00Z",
+      "swing_type": "full",
+      "club": {
+        "category": "iron",
+        "name": "6-iron",
+        "length_in": null,
+        "length_basis": null
+      },
+      "handedness": "right",
+      "recording_date": "2010-10-27",
+      "setup_notes": "Range mat, outdoor",
+      "streams": [
+        {
+          "stream_id": "face_on",
+          "source_id": "src-gw-2010-fo",
+          "camera_view": "face_on",
+          "window": {
+            "start_frame": 60,
+            "end_frame": 395
+          },
+          "crop": null,
+          "quality": {
+            "body_visibility": "good",
+            "club_visibility": "good",
+            "resolution_usable": "yes",
+            "notes": null
+          }
+        }
+      ],
+      "multi_view": {
+        "same_swing": {
+          "status": "not_applicable",
+          "method": null,
+          "by": null,
+          "at": null,
+          "notes": null
+        },
+        "synchronization": {
+          "status": "not_applicable",
+          "method": null,
+          "by": null,
+          "at": null,
+          "notes": null,
+          "offset_ms": null,
+          "uncertainty_ms": null
+        },
+        "calibration": {
+          "status": "unknown",
+          "method": null,
+          "by": null,
+          "at": null,
+          "notes": null
+        }
+      },
+      "review": {
+        "status": "unreviewed",
+        "by": null,
+        "at": null,
+        "notes": null
+      },
+      "capture": null,
+      "notes": null
+    },
+    {
+      "shot_id": "shot-jy-2026-07-27-135006",
+      "golfer_id": "jeff-young",
+      "created_at": "2026-10-24T18:07:00Z",
+      "swing_type": "full",
+      "club": {
+        "category": "iron",
+        "name": "7-iron",
+        "length_in": 37.0,
+        "length_basis": "manufacturer spec"
+      },
+      "handedness": "right",
+      "recording_date": "2026-07-27",
+      "setup_notes": null,
+      "streams": [
+        {
+          "stream_id": "down_the_line",
+          "source_id": "src-jy-dtl-0001",
+          "camera_view": "down_the_line",
+          "window": {
+            "start_frame": 0,
+            "end_frame": 1243
+          },
+          "crop": null,
+          "quality": {
+            "body_visibility": "good",
+            "club_visibility": "partial",
+            "resolution_usable": "yes",
+            "notes": null
+          }
+        },
+        {
+          "stream_id": "face_on",
+          "source_id": "src-jy-fo-0001",
+          "camera_view": "face_on",
+          "window": {
+            "start_frame": 0,
+            "end_frame": 1243
+          },
+          "crop": null,
+          "quality": {
+            "body_visibility": "good",
+            "club_visibility": "partial",
+            "resolution_usable": "yes",
+            "notes": null
+          }
+        }
+      ],
+      "multi_view": {
+        "same_swing": {
+          "status": "asserted",
+          "method": "co-triggered Swing Catalyst pair",
+          "by": "jeff",
+          "at": "2026-10-24T18:07:00Z",
+          "notes": null
+        },
+        "synchronization": {
+          "status": "unknown",
+          "method": null,
+          "by": null,
+          "at": null,
+          "notes": null,
+          "offset_ms": null,
+          "uncertainty_ms": null
+        },
+        "calibration": {
+          "status": "unknown",
+          "method": null,
+          "by": null,
+          "at": null,
+          "notes": null
+        }
+      },
+      "review": {
+        "status": "unreviewed",
+        "by": null,
+        "at": null,
+        "notes": null
+      },
+      "capture": null,
+      "notes": null
+    }
+  ]
+}

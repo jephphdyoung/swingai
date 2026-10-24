@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "kind": "golfers",
+  "revision": 1,
+  "golfers": [
+    {
+      "golfer_id": "grant-waite",
+      "display_name": "Grant Waite",
+      "role": "reference",
+      "handedness": "right",
+      "notes": null
+    },
+    {
+      "golfer_id": "tiger-woods",
+      "display_name": "Tiger Woods",
+      "role": "reference",
+      "handedness": "right",
+      "notes": null
+    }
+  ]
+}
