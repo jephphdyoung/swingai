@@ -60,6 +60,10 @@ def manifest(rec, rid=None, created_at=None):
         cams.append({"camera_id": s.stream_id, "camera_to_rig": c2r.tolist(),
                      "camera_to_world": None if T is None else (T @ c2r).tolist()})
     counts = {name: int((rec.state == code).sum()) for code, name in STATE_NAMES.items()}
+    # "missing" = labelled in at least one view but no valid 3D point;
+    # points nobody labelled in a frame are counted apart.
+    counts["not_labelled"] = int(((rec.state == 0) & (rec.n_views == 0)).sum())
+    counts["missing"] -= counts["not_labelled"]
     reproj = rec.reprojection_px[rec.state > 0]
     return {"schema_version": SCHEMA_VERSION, "kind": "reconstruction_3d",
             "reconstruction_id": rid or reconstruction_id(rec), "shot_id": rec.shot_id,

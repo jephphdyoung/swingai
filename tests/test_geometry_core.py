@@ -277,3 +277,13 @@ def test_canonical_corner_order_needs_an_orientable_board():
     assert np.allclose(b[0], [w - 1, h - 1] - a[0], atol=1.0)
     with pytest.raises(cal.CalibrationError, match="looks the same rotated"):
         cal.detect_board(render(7, 5, False), 7, 5, canonical=True)
+
+
+def test_geometry_contract_shares_the_capture_contracts_definitions():
+    import json
+    import os
+    root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "schemas")
+    geo = json.load(open(os.path.join(root, "geometry-3d.schema.json")))["$defs"]
+    cap = json.load(open(os.path.join(root, "capture-manifest.schema.json")))["$defs"]
+    for name in ("identifier", "rfc3339DateTime", "relativePath", "cameraView"):
+        assert geo[name] == cap[name], name

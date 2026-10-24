@@ -26,6 +26,9 @@ CONTRACTS = [
     (f"swing-dataset-{k}", "swing-dataset.schema.json", f"swing-dataset/{k}.example.json")
     for k in ("golfers", "sources", "shots", "collections", "shot-annotations",
               "collection-snapshot")
+] + [
+    (f"geometry-3d-{k}", "geometry-3d.schema.json", f"geometry-3d/{k}.example.json")
+    for k in ("camera-calibration", "reconstruction-3d", "measurements-3d")
 ]
 
 

@@ -1,12 +1,14 @@
 # SwingAI — Current Status
 
-**Last reviewed: 2026-10-24** (PR #5 branch `feat/swing-catalog-reference-editor`). This is the current implementation snapshot, not an aspirational feature list. The long-term product direction and proposed PR scope live in [ROADMAP.md](ROADMAP.md). Earlier implementation notes remain available in [the pre-update Git revision](https://github.com/jephphdyoung/swingai/blob/1fa9eee/docs/STATUS.md).
+**Last reviewed: 2026-10-24** (PR #6 branch `feat/geometry-3d-foundation`; PR #5 merged as `c9096d9`). This is the current implementation snapshot, not an aspirational feature list. The long-term product direction and proposed PR scope live in [ROADMAP.md](ROADMAP.md). Earlier implementation notes remain available in [the pre-update Git revision](https://github.com/jephphdyoung/swingai/blob/1fa9eee/docs/STATUS.md).
 
 ## Product goal
 
 Automatically capture or import a golfer's synchronized down-the-line (DTL) and face-on (FO) observations, identify body and club landmarks and P1–P10, reconstruct a time-varying **3D** motion model where calibration and synchronization support it, and compare that 3D swing against a versioned reference model built from **multiple** curated Grant Waite swings. Support multiple users and additional reference golfers without duplicating the reference library.
 
-**Current reality:** SwingAI has a working **offline, predominantly 2D** pose-analysis and comparison prototype plus a **synthetic** multi-camera capture core. There is **no validated 3D reconstruction, Grant Waite aggregate 3D model, or automatic real-camera capture pipeline yet.** MediaPipe's model-relative depth is not calibrated world-space 3D.
+**Current reality:** SwingAI has a working **offline, predominantly 2D** pose-analysis and comparison prototype, a swing dataset catalog and editor (PR #5), a **synthetic** multi-camera capture core, and (PR #6) a **synthetically validated** 3D geometry foundation: calibration, triangulation from labelled views, a target-line world frame, P1 alignment and clubhead trajectory values. **It has not been run on real calibration recordings yet**, so no real-world 3D accuracy is established. There is no Grant Waite aggregate 3D model and no automatic real-camera capture. MediaPipe's model-relative depth is not calibrated world-space 3D.
+
+**Two kinds of 3D:** independent professional reference recordings (e.g. Grant Waite DTL and face-on clips of different swings) can be used for a later *statistical* 3D inference with stated uncertainty; *directly measured* stereo reconstruction needs calibrated, synchronized recordings of the same swing. The code refuses to treat the former as the latter.
 
 ## Implementation inventory
 
@@ -22,20 +24,34 @@ Automatically capture or import a golfer's synchronized down-the-line (DTL) and 
 | Offline dual-view comparison | Working in 2D | Four view panels (user/reference DTL/FO), per-view 2D joint angles and body-relative displacement, not triangulated 3D |
 | Side-by-side / ghost overlays | Available | Renderers and overlay editor; not a validated 3D comparison |
 | Automatic P1–P10 | Experimental | `utils/p_positions.py` and `scripts/detect_p_positions.py` run on existing recordings, but accuracy and failure cases are not yet validated against a representative labeled dataset |
-| Club shaft detection | Experimental | Edge/Hough method; P2/P6/P8 can be missing; **no reliable 3D shaft, clubhead or clubface tracking** |
+| Club shaft detection | Experimental | Edge/Hough method; P2/P6/P8 can be missing; **no automatic 3D shaft, clubhead or clubface tracking** (PR #6 triangulates manually labelled club points only) |
 | Exact frame access | Working (PR #5) | `utils/frame_access.py`: sequential-decode frame index with presentation times and image digests; verified reads, never a neighbouring frame. Used by Annotate, Dual-View and the Reference Editor |
 | Video preprocessing | Utility present | ffprobe timestamps and CFR conversion; not a calibration pipeline |
 | YouTube downloader | Standalone utility | `downloader/` has yt-dlp container code; no integrated reference import/editor/catalog |
 | Rust capture contracts | Implemented | Versioned capture/analysis JSON schemas, stable shot IDs, per-stream time and relative media paths |
 | Rust capture simulation | Working synthetically | Independent camera ring buffers, timestamp-based retroactive extraction, per-shot PGM writer and manifest |
 | Real camera/audio capture | **Not implemented** | No working MVS/FOX capture adapter, microphone trigger, hardware clock conversion or replay loop in SwingAI |
-| Stereo 3D reconstruction | **Not implemented** | No camera intrinsics/extrinsics calibration, frame association, triangulation, reprojection validation or 3D body/club motion output |
+| Stereo 3D reconstruction | Foundation, synthetic-validated (PR #6) | Calibration (intrinsics, two-camera extrinsics, known-distance verification), labelled-view triangulation with reprojection/parallax/uncertainty gates, same-swing/sync/calibration/timestamp status rules, target-line world frame from explicit evidence, versioned artifacts. **Not yet run on real FOX recordings.** `docs/geometry-3d.md` |
+| 3D measurements | Foundation, synthetic-validated (PR #6) | P1 shoulder/pelvis/knee-centre/stance alignment and foot flare vs. the target line; clubhead speed, path, attack angle, swing direction, observed and fitted low point. Manual 2D labels only; no automatic clubhead detection |
 | Aggregated Grant Waite model | **Not implemented** | Current reference selections operate on videos, not a multi-swing 3D model |
 | Automatic 3D comparison/coaching | **Not implemented** | No versioned 3D reference distributions, 3D deviation metrics or validated prioritized coaching rules |
 | Swing dataset catalog | Working (PR #5) | Golfers, immutable checksummed sources, shots (one swing; windows and crops as metadata), reference collections; schema-validated, atomic, revision-checked. `docs/swing-dataset.md` |
 | Reference Editor | Working (PR #5) | Register videos in place, cut shots, crop, P1–P10, body/feet/hands-club/ball points with origin and review, quality and eligibility gates |
 
-## PR #5 — swing dataset catalog and Reference Editor (in review)
+## PR #6 — 3D geometry and measurement foundation (in review)
+
+Branch `feat/geometry-3d-foundation`. Details: [geometry-3d.md](geometry-3d.md).
+
+- **Contract** `schemas/geometry-3d.schema.json`: `camera_calibration`, `reconstruction_3d` (manifest + `trajectory.npz`), `measurements_3d`; shares the capture contract's id/time/path/view definitions.
+- **World frame**: +X toward target, +Y left of the target line, +Z up, origin at the ball's ground projection at address; ground, target line and origin each need explicit evidence.
+- **Reconstruction** from the PR #5 catalog shot and labels; refuses non-same-swing inputs; per-point observed/inferred/missing and per-frame measured/unverified with reasons; camera-specific source frames and timestamps preserved.
+- **Measurements**: P1 alignment (shoulder, pelvis, knee-centre line, stance, feet, differences) and clubhead trajectory (speed, path, attack, swing direction, observed and fitted low point), each `measured` / `inferred` / `unavailable`.
+- **CLI** `scripts/geometry_3d.py`: calibrate-intrinsics, calibrate-extrinsics, check-distance (the only way to a verified calibration), reconstruct.
+- New shot-label points: `clubhead_center`, `floor_c`, `target_line_back`, `target_line_front`.
+
+Tests run 2026-10-24, CPU image: Python **908 passed, 7 skipped** (PR #5 baseline on main: 856 / 7). Rust **227 passed, 0 failed** (unchanged code). **GPU image not run** (PR #6 adds no GPU code). Accuracy figures are synthetic only; the real FOX validation procedure is in geometry-3d.md and has not been run.
+
+## PR #5 — swing dataset catalog and Reference Editor (merged)
 
 Branch `feat/swing-catalog-reference-editor`. Details: [swing-dataset.md](swing-dataset.md).
 
@@ -93,3 +109,4 @@ After PR #5 review: curate Grant Waite shots in the editor (windows, crops, P1�
 - [GPU pose](gpu-pose.md): current RTMPose/YOLOX and GPU environment.
 - [P-position detection](p-position-detection.md): current heuristics and definitions.
 - [Swing dataset](swing-dataset.md): catalog, exact frames, labels and the Reference Editor.
+- [3D geometry](geometry-3d.md): calibration, reconstruction, measurements, FOX validation procedure.
