@@ -53,6 +53,27 @@ def get_output_dir():
     return _resolve("SWINGAI_OUTPUT_DIR", DEFAULT_OUTPUT_DIR, create=True)
 
 
+def get_data_dir():
+    """Directory holding the swing dataset: `catalog/` (golfers, sources,
+    shots, collections) and `annotations/` (one file per shot). Repointable
+    with SWINGAI_DATA_DIR. run.sh mounts the repo's data/ at /app/data, so the
+    default is what the container uses."""
+    return _resolve("SWINGAI_DATA_DIR", os.path.join(REPO_ROOT, "data"))
+
+
+def get_catalog_dir():
+    return os.path.join(get_data_dir(), "catalog")
+
+
+def get_shot_annotations_dir():
+    return os.path.join(get_data_dir(), "annotations")
+
+
+def get_frame_index_dir():
+    """Regenerable per-video frame indexes, next to the pose cache."""
+    return os.path.join(get_output_dir(), "frame_index")
+
+
 def list_videos(directory):
     """Video files under a directory, as paths relative to it, sorted.
 

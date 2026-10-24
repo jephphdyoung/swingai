@@ -1,5 +1,6 @@
 import cv2
 import streamlit as st
+from utils.frame_access import FrameAccessError, get_frame_index, read_frame
 from utils.annotations import (
     P_DEFINITIONS, P_POSITIONS, confirm_annotations, convention_warnings, is_confirmed,
     load_annotation_record, load_annotations, load_view_angle, save_annotations,
@@ -9,21 +10,24 @@ VIEW_ANGLE_LABELS = {"face_on": "Face On", "dtl": "DTL"}
 
 
 def _get_frame(video_path: str, frame_num: int):
-    cap = cv2.VideoCapture(video_path)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
-    ret, frame = cap.read()
-    cap.release()
-    if ret:
-        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return None
+    """The exact decoded frame (utils.frame_access), never a seek's neighbour."""
+    try:
+        return cv2.cvtColor(read_frame(video_path, frame_num).image, cv2.COLOR_BGR2RGB)
+    except FrameAccessError as e:
+        st.error(str(e))
+        return None
 
 
 def _get_video_info(video_path: str):
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    cap.release()
-    return fps, total
+    """Nominal fps (what saved timestamp_ms has always used) and the number
+    of frames that actually decode -- the container's count can be off by one."""
+    try:
+        with st.spinner("Indexing frames (once per video)..."):
+            index = get_frame_index(video_path)
+    except FrameAccessError as e:
+        st.error(str(e))
+        return 30.0, 0, None
+    return index.nominal_fps or 30.0, index.frame_count, index
 
 
 def _step_frame(slider_key, delta, max_frame):
@@ -33,7 +37,7 @@ def _step_frame(slider_key, delta, max_frame):
 
 def render_annotator(video_path: str, key_prefix: str, default_view_angle=None,
                      on_save=None):
-    fps, total_frames = _get_video_info(video_path)
+    fps, total_frames, index = _get_video_info(video_path)
     if total_frames == 0:
         st.error(f"Cannot read video: {video_path}")
         return
@@ -83,8 +87,8 @@ def render_annotator(video_path: str, key_prefix: str, default_view_angle=None,
         0, max_frame,
         key=slider_key,
     )
-    timestamp_s = frame_num / fps
-    st.caption(f"Frame {frame_num} / {max_frame}  |  {timestamp_s:.2f}s")
+    st.caption(f"Frame {frame_num} / {max_frame}  |  "
+               f"{index.timestamps_ms[frame_num] / 1000:.3f}s")
 
     frame_img = _get_frame(video_path, frame_num)
     if frame_img is not None:
