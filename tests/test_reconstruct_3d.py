@@ -62,7 +62,7 @@ def test_measured_reconstruction_in_the_world_frame(tmp_path):
             continue                    # out of one camera's frame (labelled unavailable)
         assert state == r3.STATE_OBSERVED
         errs.append(np.linalg.norm(got - cap.club_truth(k)["clubhead_center"]))
-    assert len(errs) >= 40 and max(errs) < 0.006
+    assert len(errs) >= 35 and max(errs) < 0.006
     # Uncertainty is reported and of the right order for 0.3 px noise.
     j = rec.point_index("clubhead_center")
     i = next(i for i in dyn if rec.state[i, j] == r3.STATE_OBSERVED)

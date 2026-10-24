@@ -22,10 +22,12 @@ def camera(camera_id, center, target, f=1500.0, dist=DIST):
     return Camera(camera_id, W, H, f, f * 1.001, W / 2 + 3.5, H / 2 - 2.0, dist).with_pose(R, t)
 
 
-def rig():
-    """DTL behind the hands looking down the target line; face-on facing the golfer."""
-    dtl = camera("down_the_line", (-4.2, 0.95, 1.25), (0.0, 0.45, 0.8))
-    fo = camera("face_on", (0.1, -3.6, 1.15), (0.0, 0.55, 0.8))
+def rig(handedness="right"):
+    """DTL behind the hands looking down the target line; face-on facing the
+    golfer. Mirrored across the target line for a left-hander."""
+    m = 1 if handedness == "right" else -1
+    dtl = camera("down_the_line", (-4.2, 0.95 * m, 1.25), (0.0, 0.45 * m, 0.8))
+    fo = camera("face_on", (0.1, -3.6 * m, 1.15), (0.0, 0.55 * m, 0.8))
     return dtl, fo
 
 
@@ -120,7 +122,8 @@ class Arc:
         return self.r * self.omega * (math.sin(phi) * self.u + math.cos(phi) * self.e1)
 
     def _solve_x(self, x):
-        lo, hi = -0.5, 0.5
+        # Within one radian of the low point, where x increases monotonically.
+        lo, hi = -1.0 / self.omega, 1.0 / self.omega
         for _ in range(100):
             mid = (lo + hi) / 2
             if self.position(mid)[0] < x:
@@ -129,8 +132,10 @@ class Arc:
                 hi = mid
         return (lo + hi) / 2
 
-    def expected(self):
-        v = self.velocity(self.t_impact)
+    def expected(self, t=None):
+        """Velocity-derived truth at arc time t (default: the true impact)."""
+        t = self.t_impact if t is None else t
+        v = self.velocity(t)
         horiz = math.hypot(v[0], v[1])
         return {"speed": float(np.linalg.norm(v)),
                 "path_yaw_deg": math.degrees(math.atan2(v[1], v[0])),
@@ -143,16 +148,13 @@ def club_points(arc, t):
     """Club landmarks at time t: tracking centre, heel/toe either side, hosel
     and butt along a shaft toward the hands."""
     c = arc.position(t)
-    v = arc.velocity(t)
-    vdir = v / np.linalg.norm(v)
-    toward_golfer = arc.center - c
-    toward_golfer /= np.linalg.norm(toward_golfer)
-    face_axis = np.cross(vdir, np.cross(toward_golfer, vdir))
-    face_axis /= np.linalg.norm(face_axis)
-    hosel = c + 0.05 * face_axis + [0, 0, 0.03]
-    return {"clubhead_center": c, "clubhead_heel": c + 0.045 * face_axis,
-            "clubhead_toe": c - 0.045 * face_axis, "shaft_hosel": hosel,
-            "shaft_butt": hosel + 0.9 * toward_golfer}
+    radial = arc.center - c                        # toward the hands; turns with the club
+    radial /= np.linalg.norm(radial)
+    normal = np.cross(arc.e1, arc.u)               # fixed: the swing plane's normal
+    hosel = c + 0.05 * normal + 0.03 * radial      # all offsets in the club's own frame
+    return {"clubhead_center": c, "clubhead_heel": c + 0.045 * normal,
+            "clubhead_toe": c - 0.045 * normal, "shaft_hosel": hosel,
+            "shaft_butt": hosel + 0.9 * radial}
 
 
 # --- a complete synthetic capture in the existing contracts ---------------------------
@@ -210,11 +212,12 @@ class Capture:
         self.body = body or p1_body(handedness)
         self.true_offset_ms = fo_phase_ms - fo_shift_frames * 1000.0 / FPS
         self.world_to_rig = (np.eye(4) if world_to_rig is None else np.asarray(world_to_rig))
-        cams_world = rig()
+        cams_world = rig(handedness)
         self.cams_world = cams_world
         cams_rig = [c.reframed(self.world_to_rig) for c in cams_world]
         # Arc time of reference (DTL) frame k.
-        self.t0 = self.arc.t_impact - (impact_frame - 0.3) / FPS
+        # The P7 frame is the last one before the ball is passed (by 0.3 frame).
+        self.t0 = self.arc.t_impact - (impact_frame + 0.3) / FPS
         self.fo_shift, self.fo_phase_ms = fo_shift_frames, fo_phase_ms
 
         cat = cm.Catalog(root=str(tmp_path / "catalog"))
@@ -286,6 +289,10 @@ class Capture:
         return {"frame": f, "timestamp_ms": round(f * 1000.0 / FPS, 3),
                 "timestamp_basis": "container", "image_sha1": _digest(sid, f),
                 "origin": "manual", "set_by": "synthetic", "set_at": "2026-11-01T10:00:00Z"}
+
+    def arc_time(self, ref_ms):
+        """Arc time of a reference-clock time (ms)."""
+        return self.t0 + ref_ms / 1000.0
 
     def club_truth(self, ref_frame):
         return club_points(self.arc, self.t0 + ref_frame / FPS)

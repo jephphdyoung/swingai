@@ -1486,12 +1486,50 @@
                   "reasons"
                 ]
               }
+            },
+            "series": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "time_ms",
+                "speed_m_s",
+                "displacement_m"
+              ],
+              "description": "Per usable tracking-centre sample: time from impact, speed by central difference (null where neighbours are missing), and displacement from the first usable sample.",
+              "properties": {
+                "time_ms": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "speed_m_s": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "displacement_m": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                }
+              }
             }
           },
           "required": [
             "impact_time_ms",
             "values",
-            "points"
+            "points",
+            "series"
           ]
         }
       },
