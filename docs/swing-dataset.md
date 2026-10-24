@@ -39,7 +39,11 @@ Camera views use the contract's spelling (`down_the_line`), not the Python `dtl`
   DTL and face-on recordings are **separate shots**, grouped by a collection.
 - **Unknown stays unknown.** Synchronization and calibration start `unknown`;
   `estimated`/`verified` need a method and a person; synchronization can't be
-  `verified` while the same swing is only `asserted`.
+  `verified` while the same swing is only `asserted`. Synchronization also records
+  how the cameras' exposures line up beyond its offset/uncertainty
+  (`exposure_alignment`: `unknown` by default, `included` in the uncertainty, or
+  `bounded` by `exposure_uncertainty_ms`); equal frame rates never imply aligned
+  exposures. Set it with `scripts/catalog.py set-sync` (docs/geometry-3d.md, *Timing*).
 - **Timing is explicit, in two separate facts.** (1) Are the frame times
   trustworthy? `video.timestamps.status` is `verified` only when every frame has a
   container presentation time and ffprobe's per-frame times agree within 0.5 ms;
@@ -50,7 +54,9 @@ Camera views use the contract's spelling (`down_the_line`), not the Python `dtl`
   `slowed`, `retimed`, `unknown`) with `capture_fps` and a `basis`. The motion-timing
   gate needs **both**: verified frame times *and* real time with a basis (or slowed
   with a known capture rate and basis). YouTube material defaults to `unknown` and
-  never qualifies, however clean its timestamps.
+  never qualifies, however clean its timestamps. `catalog.motion_clock` turns this
+  into a real-time scale (1, or presented ÷ capture fps for slowed footage taken
+  frame for frame; none for variable-rate slowed files), which 3D reconstruction uses.
 - **Collections hold one reference golfer's shots** and can restrict swing types.
   User shots are never put in collections. **Freezing** writes a snapshot: every
   member's shot definition (streams, windows, crops, metadata, review), its source

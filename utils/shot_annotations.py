@@ -55,9 +55,30 @@ BALL_POINTS = (
      "models": {m: {"point": None, "match": None, "extracted": False, "column": None}
                 for m in lp.MODELS}},
 )
-GROUPS = lp.GROUPS + ("ball",)
-GROUP_TITLES = {**lp.GROUP_TITLES, "ball": "Ball"}
-POINTS = lp.POINTS + BALL_POINTS
+_NO_MODEL = {m: {"point": None, "match": None, "extracted": False, "column": None}
+             for m in lp.MODELS}
+# Points the 3D geometry needs (utils/reconstruct_3d.py, utils/club_3d.py).
+GEOMETRY_POINTS = (
+    {"name": "clubhead_center", "group": "hands_club", "kind": "equipment",
+     "help": "Clubhead tracking centre: the middle of the clubhead as seen, between heel and "
+             "toe. Place it on the clubhead itself; never extend the shaft to guess it. Skip "
+             "when motion blur makes it a guess.",
+     "models": _NO_MODEL},
+    {"name": "floor_c", "group": "scene", "kind": "reference",
+     "help": "A third point on the floor surface, away from the line through floor_a and "
+             "floor_b. With them it gives the ground plane.",
+     "models": _NO_MODEL},
+    {"name": "target_line_back", "group": "scene", "kind": "reference",
+     "help": "The back end of a target-line marker on the ground (e.g. an alignment stick "
+             "laid parallel to the target line).",
+     "models": _NO_MODEL},
+    {"name": "target_line_front", "group": "scene", "kind": "reference",
+     "help": "The target end of the same target-line marker.",
+     "models": _NO_MODEL},
+)
+GROUPS = lp.GROUPS + ("ball", "scene")
+GROUP_TITLES = {**lp.GROUP_TITLES, "ball": "Ball", "scene": "Scene"}
+POINTS = lp.POINTS + BALL_POINTS + GEOMETRY_POINTS
 POINT = {p["name"]: p for p in POINTS}
 GROUP_POINTS = {g: tuple(p["name"] for p in POINTS if p["group"] == g) for g in GROUPS}
 

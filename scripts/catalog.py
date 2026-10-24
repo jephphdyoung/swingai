@@ -6,6 +6,9 @@
     python scripts/catalog.py add-golfer "Jane Doe" --role user --handedness right
     python scripts/catalog.py register <video> --golfer grant-waite --view face_on \\
         --source-type youtube --url https://... --date 2011-05 --motion-time unknown
+    python scripts/catalog.py set-sync <shot_id> --status verified --method "LED flash \
+        seen in both views" --by Jeff --offset-ms -37.5 --uncertainty-ms 0.05 \
+        --exposure bounded --exposure-uncertainty-ms 0.02
 
 Registering reads a video (checksum + sequential frame index) and never moves,
 copies or writes it. Run inside the container so the frame index uses the
@@ -161,6 +164,23 @@ def add_golfer(args):
     print(f"+ golfer {rec['golfer_id']}")
 
 
+def set_sync(args):
+    """Record a shot's synchronization, including how its exposures line up
+    (utils/timing_3d.py: unknown exposure alignment is never taken as zero)."""
+    cat = _load()
+    rec = cm.set_multi_view(cat, args.shot, "synchronization", args.status, args.method,
+                            args.by, args.notes, offset_ms=args.offset_ms,
+                            uncertainty_ms=args.uncertainty_ms,
+                            exposure_alignment=args.exposure,
+                            exposure_uncertainty_ms=args.exposure_uncertainty_ms)
+    cm.save_catalog(cat)
+    sync = rec["multi_view"]["synchronization"]
+    print(f"{args.shot}: synchronization {sync['status']}, offset {sync['offset_ms']} ms "
+          f"± {sync['uncertainty_ms']} ms, exposure alignment {sync['exposure_alignment']}"
+          + (f" ± {sync['exposure_uncertainty_ms']} ms"
+             if sync["exposure_uncertainty_ms"] is not None else ""))
+
+
 def register(args):
     cat = _load()
     rec, created = cm.register_source(
@@ -197,10 +217,23 @@ def main(argv=None):
     r.add_argument("--motion-time", choices=cm.MOTION_TIME, default="unknown")
     r.add_argument("--capture-fps", type=float)
     r.add_argument("--timing-basis")
+    y = sub.add_parser("set-sync", help="a shot's synchronization and exposure alignment")
+    y.add_argument("shot")
+    y.add_argument("--status", choices=("unknown", "estimated", "verified"), required=True)
+    y.add_argument("--method")
+    y.add_argument("--by")
+    y.add_argument("--notes")
+    y.add_argument("--offset-ms", type=float, help="t_reference = t_stream + offset_ms")
+    y.add_argument("--uncertainty-ms", type=float)
+    y.add_argument("--exposure", choices=cm.EXPOSURE_ALIGNMENT, default="unknown",
+                   help="included: --uncertainty-ms already bounds the exposure alignment; "
+                        "bounded: add --exposure-uncertainty-ms")
+    y.add_argument("--exposure-uncertainty-ms", type=float)
     args = p.parse_args(argv)
     try:
         return {"bootstrap": bootstrap, "list": list_, "verify": verify,
-                "add-golfer": add_golfer, "register": register}[args.cmd](args) or 0
+                "add-golfer": add_golfer, "register": register,
+                "set-sync": set_sync}[args.cmd](args) or 0
     except (cm.CatalogError, cm.ConflictError) as e:
         for problem in getattr(e, "problems", [str(e)]):
             print(f"error: {problem}", file=sys.stderr)

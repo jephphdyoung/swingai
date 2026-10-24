@@ -145,11 +145,12 @@ def test_points_origins_unavailable_and_review(dataset):
 
 
 def test_every_labelling_group_is_available_and_the_benchmark_catalogue_is_untouched():
-    assert set(sa.GROUPS) == {"body", "feet", "hands_club", "ball"}
+    assert set(sa.GROUPS) == {"body", "feet", "hands_club", "ball", "scene"}
     for needed in ("left_wrist", "right_wrist", "left_ankle", "left_heel", "ball_center",
                    "shaft_butt", "shaft_hosel", "clubhead_heel", "clubhead_toe"):
         assert needed in sa.POINT
-    assert "ball_center" not in lp.POINT_NAMES
+    for extra in ("ball_center", "clubhead_center", "floor_c", "target_line_back"):
+        assert extra not in lp.POINT_NAMES
     assert lp.BENCHMARK_POINTS == tuple(n for n in lp.POINT_NAMES
                                         if lp.POINT[n]["group"] == "body")
 

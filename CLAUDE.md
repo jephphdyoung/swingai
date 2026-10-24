@@ -105,6 +105,19 @@ separate shots; multi-stream shots need a same-swing assertion; sync/calibration
 move/rewrite sources; never convert legacy
 `data/annotations.json`. Doc: [docs/swing-dataset.md](docs/swing-dataset.md).
 
+## 3D geometry (PR #6)
+`utils/camera_model.py`, `calibration.py`, `triangulation.py`, `world_frame.py`,
+`reconstruct_3d.py`, `reconstruction_io.py`, `alignment_3d.py`, `club_3d.py`; contract
+`schemas/geometry-3d.schema.json`; CLI `scripts/geometry_3d.py`. World: +X target, +Y left of
+the target line, +Z up, origin = ball's ground projection at address; ground/target/origin
+need explicit evidence. Only same-swing multi-stream shots are stereo inputs, and nothing
+is `measured` until same-swing is *verified* with method/by/at. Moving points also pass a
+per-landmark timing gate (`utils/timing_3d.py`: pair gap + sync + exposure alignment ×
+a-priori speed bound, apart from the covariance); unknown exposure alignment or motion time
+is never taken as zero, and club values need it. Synthetic-
+validated only: never claim real-world accuracy until FOX recordings are checked
+(docs/geometry-3d.md). Extrinsic boards must be orientable (inner-corner sum odd).
+
 ## Entry points
 - `app.py` — Streamlit UI. **Analyze** tab (pick user + reference video → custom HTML5
   player with P-position jump buttons, skeleton toggle, side-by-side / overlay switch) and
@@ -145,7 +158,7 @@ move/rewrite sources; never convert legacy
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 856 pass, 7 GPU/ORT-only skip (2026-10-24)
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 925 pass, 7 GPU/ORT-only skip (2026-10-24)
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```

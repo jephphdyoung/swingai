@@ -1,0 +1,338 @@
+{
+ "schema_version": "1.0",
+ "kind": "measurements_3d",
+ "reconstruction_id": "rec-07031dbecd8868a9",
+ "shot_id": "shot-synthetic",
+ "manifest_sha256": "5fa1c9f4948646ae0ebfdaa2bcb072bf44242a6632bab8ed22fe4e0e3467218b",
+ "created_at": "2026-11-01T12:00:01Z",
+ "algorithm": {
+  "name": "swingai-p1-alignment+swingai-club-trajectory",
+  "version": "1.0.0+1.1.0",
+  "parameters": {}
+ },
+ "handedness": "right",
+ "alignment_p1": {
+  "shoulder_yaw_deg": {
+   "status": "measured",
+   "value": 4.071119,
+   "unit": "deg",
+   "uncertainty": 0.606961,
+   "timing_uncertainty": null,
+   "method": "trail->lead shoulder joint centres, projected to the ground [right_shoulder -> left_shoulder]",
+   "reasons": []
+  },
+  "shoulder_open_deg": {
+   "status": "measured",
+   "value": 4.071119,
+   "unit": "deg",
+   "uncertainty": 0.606961,
+   "timing_uncertainty": null,
+   "method": "trail->lead shoulder joint centres, projected to the ground [right_shoulder -> left_shoulder]; positive = open",
+   "reasons": []
+  },
+  "pelvis_yaw_deg": {
+   "status": "measured",
+   "value": 8.325794,
+   "unit": "deg",
+   "uncertainty": 0.685474,
+   "timing_uncertainty": null,
+   "method": "trail->lead hip joint centres, projected to the ground [right_hip -> left_hip]",
+   "reasons": []
+  },
+  "pelvis_open_deg": {
+   "status": "measured",
+   "value": 8.325794,
+   "unit": "deg",
+   "uncertainty": 0.685474,
+   "timing_uncertainty": null,
+   "method": "trail->lead hip joint centres, projected to the ground [right_hip -> left_hip]; positive = open",
+   "reasons": []
+  },
+  "knee_center_yaw_deg": {
+   "status": "measured",
+   "value": 2.020233,
+   "unit": "deg",
+   "uncertainty": 0.887423,
+   "timing_uncertainty": null,
+   "method": "trail->lead knee joint centres, projected to the ground (a line through the knee centres, not kneecap direction) [right_knee -> left_knee]",
+   "reasons": []
+  },
+  "knee_center_open_deg": {
+   "status": "measured",
+   "value": 2.020233,
+   "unit": "deg",
+   "uncertainty": 0.887423,
+   "timing_uncertainty": null,
+   "method": "trail->lead knee joint centres, projected to the ground (a line through the knee centres, not kneecap direction) [right_knee -> left_knee]; positive = open",
+   "reasons": []
+  },
+  "stance_yaw_deg": {
+   "status": "measured",
+   "value": -2.875631,
+   "unit": "deg",
+   "uncertainty": 0.458763,
+   "timing_uncertainty": null,
+   "method": "trail->lead toe line (big toes, else shoe toe-contact points), projected to the ground [right_big_toe -> left_big_toe]",
+   "reasons": []
+  },
+  "stance_open_deg": {
+   "status": "measured",
+   "value": -2.875631,
+   "unit": "deg",
+   "uncertainty": 0.458763,
+   "timing_uncertainty": null,
+   "method": "trail->lead toe line (big toes, else shoe toe-contact points), projected to the ground [right_big_toe -> left_big_toe]; positive = open",
+   "reasons": []
+  },
+  "lead_foot_flare_deg": {
+   "status": "measured",
+   "value": 25.780995,
+   "unit": "deg",
+   "uncertainty": 0.96468,
+   "timing_uncertainty": null,
+   "method": "lead foot heel->toe on the ground, from square (perpendicular to the target line, toward the ball); positive = toe turned out [left_heel -> left_big_toe]",
+   "reasons": []
+  },
+  "trail_foot_flare_deg": {
+   "status": "measured",
+   "value": 9.577831,
+   "unit": "deg",
+   "uncertainty": 0.985424,
+   "timing_uncertainty": null,
+   "method": "trail foot heel->toe on the ground, from square (perpendicular to the target line, toward the ball); positive = toe turned out [right_heel -> right_big_toe]",
+   "reasons": []
+  },
+  "shoulder_minus_pelvis_open_deg": {
+   "status": "measured",
+   "value": -4.254674,
+   "unit": "deg",
+   "uncertainty": 0.915574,
+   "timing_uncertainty": null,
+   "method": "shoulder_open_deg - pelvis_open_deg",
+   "reasons": []
+  },
+  "shoulder_minus_stance_open_deg": {
+   "status": "measured",
+   "value": 6.94675,
+   "unit": "deg",
+   "uncertainty": 0.760832,
+   "timing_uncertainty": null,
+   "method": "shoulder_open_deg - stance_open_deg",
+   "reasons": []
+  },
+  "pelvis_minus_stance_open_deg": {
+   "status": "measured",
+   "value": 11.201424,
+   "unit": "deg",
+   "uncertainty": 0.824826,
+   "timing_uncertainty": null,
+   "method": "pelvis_open_deg - stance_open_deg",
+   "reasons": []
+  }
+ },
+ "club": {
+  "impact_time_ms": 291.667,
+  "impact_time_uncertainty_ms": 4.166667,
+  "impact_time_basis": "P7 marks the frame containing or nearest impact: true impact within one frame interval of its time",
+  "motion_scale": 1.0,
+  "values": {
+   "clubhead_speed_m_s": {
+    "status": "measured",
+    "value": 39.693885,
+    "unit": "m/s",
+    "uncertainty": 0.238398,
+    "timing_uncertainty": 0.735485,
+    "method": "quadratic least-squares fit of the tracking centre over \u00b110 ms of impact; derivative at impact; impact time \u00b14.17 ms (P7 frame), so timing_uncertainty includes the change over that interval",
+    "reasons": []
+   },
+   "clubhead_speed_mph": {
+    "status": "measured",
+    "value": 88.792693,
+    "unit": "mph",
+    "uncertainty": 0.533282,
+    "timing_uncertainty": 1.645234,
+    "method": "quadratic least-squares fit of the tracking centre over \u00b110 ms of impact; derivative at impact; impact time \u00b14.17 ms (P7 frame), so timing_uncertainty includes the change over that interval",
+    "reasons": []
+   },
+   "path_yaw_deg": {
+    "status": "measured",
+    "value": -4.600864,
+    "unit": "deg",
+    "uncertainty": 0.344114,
+    "timing_uncertainty": 3.936056,
+    "method": "quadratic least-squares fit of the tracking centre over \u00b110 ms of impact; derivative at impact; impact time \u00b14.17 ms (P7 frame), so timing_uncertainty includes the change over that interval; ground direction, +Y positive",
+    "reasons": []
+   },
+   "club_path_deg": {
+    "status": "measured",
+    "value": 4.600864,
+    "unit": "deg",
+    "uncertainty": 0.344114,
+    "timing_uncertainty": 3.936056,
+    "method": "quadratic least-squares fit of the tracking centre over \u00b110 ms of impact; derivative at impact; impact time \u00b14.17 ms (P7 frame), so timing_uncertainty includes the change over that interval; positive = in-to-out",
+    "reasons": []
+   },
+   "attack_angle_deg": {
+    "status": "measured",
+    "value": -2.912851,
+    "unit": "deg",
+    "uncertainty": 0.344114,
+    "timing_uncertainty": 6.155196,
+    "method": "quadratic least-squares fit of the tracking centre over \u00b110 ms of impact; derivative at impact; impact time \u00b14.17 ms (P7 frame), so timing_uncertainty includes the change over that interval; elevation, negative = descending",
+    "reasons": []
+   },
+   "swing_direction_deg": {
+    "status": "measured",
+    "value": 2.957044,
+    "unit": "deg",
+    "uncertainty": null,
+    "timing_uncertainty": null,
+    "method": "total-least-squares plane through the tracking centre over \u00b140 ms of impact; its horizontal line toward the target; positive = right of target (RH)",
+    "reasons": []
+   },
+   "swing_plane_inclination_deg": {
+    "status": "measured",
+    "value": 59.983354,
+    "unit": "deg",
+    "uncertainty": null,
+    "timing_uncertainty": null,
+    "method": "total-least-squares plane through the tracking centre over \u00b140 ms of impact; its horizontal line toward the target",
+    "reasons": []
+   },
+   "low_point_ahead_of_ball_m": {
+    "status": "measured",
+    "value": 0.116006,
+    "unit": "m",
+    "uncertainty": 0.083361,
+    "timing_uncertainty": 0.0049,
+    "method": "lowest usable tracking-centre sample in [-30, 60] ms of impact, bracketed by samples on both sides; uncertainty includes half the sample spacing",
+    "reasons": []
+   },
+   "low_point_height_m": {
+    "status": "measured",
+    "value": 0.012609,
+    "unit": "m",
+    "uncertainty": 0.00307,
+    "timing_uncertainty": 0.0049,
+    "method": "lowest usable tracking-centre sample in [-30, 60] ms of impact, bracketed by samples on both sides; uncertainty includes half the sample spacing (tracking centre, not the sole)",
+    "reasons": []
+   },
+   "low_point_time_ms": {
+    "status": "measured",
+    "value": 4.166,
+    "unit": "ms",
+    "uncertainty": 4.167,
+    "timing_uncertainty": 4.166667,
+    "method": "lowest usable tracking-centre sample in [-30, 60] ms of impact, bracketed by samples on both sides; uncertainty includes half the sample spacing; relative to the P7 time",
+    "reasons": []
+   },
+   "fitted_arc_low_point_ahead_of_ball_m": {
+    "status": "inferred",
+    "value": 0.043065,
+    "unit": "m",
+    "uncertainty": 0.00069,
+    "timing_uncertainty": null,
+    "method": "circle fitted in its plane to usable pre-impact samples in [-40, -3] ms (the free arc before contact); its lowest point. A model extrapolation, distinct from the observed low point",
+    "reasons": [
+     "fitted circle radius 1.60 m, residual 0.7 mm"
+    ]
+   }
+  },
+  "points": {
+   "observed_low_point": {
+    "status": "measured",
+    "value": [
+     0.116006,
+     -0.002921,
+     0.012609
+    ],
+    "unit": "m",
+    "uncertainty": 0.083361,
+    "timing_uncertainty": 0.0049,
+    "method": "lowest usable tracking-centre sample in [-30, 60] ms of impact, bracketed by samples on both sides; uncertainty includes half the sample spacing",
+    "reasons": [],
+    "time_ms": 4.166,
+    "frame": null
+   },
+   "fitted_free_arc_low_point": {
+    "status": "inferred",
+    "value": [
+     0.043065,
+     0.000349,
+     0.011759
+    ],
+    "unit": "m",
+    "uncertainty": 0.00069,
+    "timing_uncertainty": null,
+    "method": "circle fitted in its plane to usable pre-impact samples in [-40, -3] ms (the free arc before contact); its lowest point. A model extrapolation, distinct from the observed low point",
+    "reasons": [
+     "fitted circle radius 1.60 m, residual 0.7 mm"
+    ],
+    "time_ms": null,
+    "frame": null
+   }
+  },
+  "series": {
+   "time_ms": [
+    -33.334,
+    -29.167,
+    -25.0,
+    -20.834,
+    -16.667,
+    -12.5,
+    -8.334,
+    -4.167,
+    0.0,
+    4.166,
+    8.333,
+    12.5,
+    16.666,
+    20.833,
+    25.0,
+    29.166,
+    33.333,
+    37.5
+   ],
+   "speed_m_s": [
+    null,
+    40.03325,
+    39.475706,
+    40.058924,
+    40.033258,
+    39.801042,
+    39.964391,
+    39.827893,
+    39.833911,
+    39.920033,
+    40.07646,
+    39.975673,
+    39.928737,
+    39.973448,
+    39.993824,
+    39.842413,
+    39.92153,
+    null
+   ],
+   "displacement_m": [
+    0.0,
+    0.169792,
+    0.333637,
+    0.497681,
+    0.664,
+    0.824609,
+    0.985059,
+    1.141689,
+    1.295724,
+    1.446226,
+    1.59308,
+    1.736016,
+    1.872442,
+    2.006488,
+    2.133027,
+    2.255017,
+    2.36888,
+    2.479928
+   ]
+  }
+ }
+}

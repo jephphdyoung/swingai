@@ -62,6 +62,12 @@ SWING_TYPE_LABELS = {"full": "Full swing", "three_quarter": "Three-quarter swing
 CLUB_CATEGORIES = ("driver", "fairway_wood", "hybrid", "iron", "wedge", "unknown")
 SOURCE_TYPES = ("youtube", "swing_catalyst", "fox_capture", "local_file", "other", "unknown")
 MOTION_TIME = ("real_time", "slowed", "retimed", "unknown")
+# How the cameras' exposure midpoints line up beyond what the synchronization
+# offset/uncertainty already says: unknown; included (uncertainty_ms already
+# bounds it, e.g. measured from a flash both exposures caught); bounded (an
+# extra exposure_uncertainty_ms, e.g. trigger jitter + half the difference in
+# exposure time). Equal nominal frame rates never imply aligned exposures.
+EXPOSURE_ALIGNMENT = ("unknown", "included", "bounded")
 VISIBILITY = ("unassessed", "good", "partial", "poor")
 REVIEW_STATUSES = ("unreviewed", "reviewed", "rejected")
 
@@ -300,6 +306,26 @@ def _decided(rec, what, where, problems):
                             f"{' or '.join(missing)}")
 
 
+def _exposure_problems(sync, where):
+    problems = []
+    for k in ("uncertainty_ms", "exposure_uncertainty_ms"):
+        v = sync.get(k)
+        if v is not None and not v >= 0:
+            problems.append(f"{where}: synchronization {k} must be >= 0")
+    alignment = sync.get("exposure_alignment", "unknown")
+    extra = sync.get("exposure_uncertainty_ms")
+    if alignment == "bounded" and extra is None:
+        problems.append(f"{where}: exposure alignment is bounded but has no "
+                        "exposure_uncertainty_ms")
+    if alignment != "bounded" and extra is not None:
+        problems.append(f"{where}: exposure_uncertainty_ms is only for a bounded exposure "
+                        f"alignment (it is {alignment})")
+    if alignment != "unknown" and sync["status"] not in ("estimated", "verified"):
+        problems.append(f"{where}: exposure alignment {alignment} needs a measured "
+                        "synchronization")
+    return problems
+
+
 def check_catalog(cat: Catalog):
     problems = []
     for gid, g in cat.golfers.items():
@@ -394,6 +420,7 @@ def _check_shot(cat, shot):
         if sync["status"] == "verified" and same["status"] != "verified":
             problems.append(f"{where}: synchronization can't be verified while same_swing "
                             "is only asserted")
+    problems += _exposure_problems(sync, where)
     _decided(same, "same_swing", where, problems)
     _decided(sync, "synchronization", where, problems)
     _decided(cal, "calibration", where, problems)
@@ -742,6 +769,10 @@ def set_multi_view(cat, shot_id, which, status, method=None, by=None, notes=None
         if which == "synchronization":
             rec["offset_ms"] = extra.get("offset_ms")
             rec["uncertainty_ms"] = extra.get("uncertainty_ms")
+            rec["exposure_alignment"] = extra.get("exposure_alignment") or "unknown"
+            rec["exposure_uncertainty_ms"] = extra.get("exposure_uncertainty_ms")
+            if rec["exposure_alignment"] not in EXPOSURE_ALIGNMENT:
+                raise CatalogError(f"exposure_alignment must be one of {EXPOSURE_ALIGNMENT}")
         shot["multi_view"][which] = rec
     return _apply(cat, shot_id, change)
 
@@ -978,6 +1009,44 @@ def _gate(reasons):
     return {"eligible": not reasons, "reasons": reasons}
 
 
+def motion_clock(src, label=None):
+    """How a source's frame timestamps map to the swing's real time.
+
+    {"scale": real ms per timestamp ms, or None when unknown; "basis"; "reasons"}.
+    Only the motion time: whether the timestamps themselves are verified is a
+    separate check. Verified presentation timestamps alone don't establish
+    real time: real_time
+    needs a documented basis; slowed footage needs its capture rate and a basis,
+    and is taken as one presented frame per captured frame (a constant-rate
+    file; interpolated frames would break this, so the basis must vouch for
+    it). Retimed or unknown footage has no real-time scale.
+    """
+    label = label or src["source_id"]
+    t, video = src["timing"], src["video"]
+    reasons = []
+    scale = basis = None
+    if t["motion_time"] == "real_time" and t.get("basis"):
+        scale, basis = 1.0, f"real time: {t['basis']}"
+    elif t["motion_time"] == "slowed" and t.get("capture_fps") and t.get("basis"):
+        if video.get("variable_frame_rate"):
+            reasons.append(f"{label}: slowed footage with a variable frame rate can't be "
+                           "rescaled by its capture rate")
+        else:
+            scale = video["nominal_fps"] / t["capture_fps"]
+            basis = (f"slowed: captured at {t['capture_fps']:g} fps, presented at "
+                     f"{video['nominal_fps']:g} fps, one presented frame per captured frame "
+                     f"({t['basis']})")
+    elif t["motion_time"] == "real_time":
+        reasons.append(f"{label}: real time is claimed without a basis")
+    else:
+        reasons.append(f"{label}: motion time is {t['motion_time']}"
+                       + (" without a known capture rate and basis"
+                          if t["motion_time"] == "slowed" else "")
+                       + "; playback fps is not real swing time")
+    return {"motion_time": t["motion_time"], "capture_fps": t.get("capture_fps"),
+            "scale": scale, "basis": basis, "reasons": reasons}
+
+
 def eligibility(cat, shot_id):
     """What each later stage may use this shot for, with reasons when not.
 
@@ -1008,22 +1077,11 @@ def eligibility(cat, shot_id):
     reasons = []
     for st in streams:
         src = cat.sources[st["source_id"]]
-        t = src["timing"]
         ts = src["video"]["timestamps"]
         if ts["status"] != "verified":
             reasons.append(f"{st['stream_id']}: frame timestamps are {ts['status']} "
                            f"({ts['detail']}), not verified presentation times")
-        if t["motion_time"] == "real_time" and t.get("basis"):
-            continue
-        if t["motion_time"] == "slowed" and t.get("capture_fps") and t.get("basis"):
-            continue
-        if t["motion_time"] == "real_time":
-            reasons.append(f"{st['stream_id']}: real time is claimed without a basis")
-            continue
-        reasons.append(f"{st['stream_id']}: motion time is {t['motion_time']}"
-                       + (" without a known capture rate and basis"
-                          if t["motion_time"] == "slowed" else "")
-                       + "; playback fps is not real swing time")
+        reasons += motion_clock(src, st["stream_id"])["reasons"]
     if len(streams) > 1 and mv["synchronization"]["status"] in ("unknown", "not_applicable"):
         reasons.append("cross-view timing needs synchronization")
     out["motion_timing"] = _gate(reasons)

@@ -1,0 +1,1099 @@
+{
+ "schema_version": "1.0",
+ "kind": "reconstruction_3d",
+ "reconstruction_id": "rec-07031dbecd8868a9",
+ "shot_id": "shot-synthetic",
+ "created_at": "2026-11-01T12:00:00Z",
+ "algorithm": {
+  "name": "swingai-label-triangulation",
+  "version": "1.1.0",
+  "parameters": {
+   "sigma_px": 1.0,
+   "max_reprojection_px": 3.0,
+   "min_parallax_deg": 5.0,
+   "max_point_sigma_m": 0.02,
+   "max_pair_gap_ms": 0.5,
+   "max_timing_position_error_m": 0.01,
+   "speed_bounds_m_s": {
+    "ball": 105.0,
+    "clubhead": 70.0,
+    "forearm_elbow": 15.0,
+    "ground_marker": 1.0,
+    "hands_grip": 20.0,
+    "head_torso": 6.0,
+    "legs_feet": 6.0
+   }
+  }
+ },
+ "inputs": {
+  "shot_sha256": "28764c92d940075f794eb751c5e6b4622cb943e3de0ba079de50012de31edf9a",
+  "annotations": {
+   "revision": 1,
+   "sha256": "6b8b7004b0416c397d4fa62bfada387720360970c3e8becd97d6c3c09ff01bd6"
+  },
+  "sources": [
+   {
+    "stream_id": "down_the_line",
+    "source_id": "src-dtl",
+    "sha256": "b4dfed6d410e307ae9f1518e787419c319ca2d8cd2e4d085bb57ac7d30526b4e",
+    "camera_view": "down_the_line",
+    "timestamp_status": "verified"
+   },
+   {
+    "stream_id": "face_on",
+    "source_id": "src-fo",
+    "sha256": "db4556f51644605f24d1a5b7e690d16cb17e2a27bc8fb8992fb474e3739d3ca0",
+    "camera_view": "face_on",
+    "timestamp_status": "verified"
+   }
+  ],
+  "calibration": {
+   "calibration_id": "synthetic-rig",
+   "version": 1,
+   "sha256": "0f5860c8df0c87da2d3eabb4e5fc1b1c47b1e5054b1433d4bf8e0eb32a57e666",
+   "status": "verified"
+  }
+ },
+ "association": {
+  "reference_stream": "down_the_line",
+  "same_swing": {
+   "status": "verified",
+   "method": "synthetic: one simulated swing",
+   "by": "test",
+   "at": "2026-10-24T18:48:43Z"
+  },
+  "synchronization": {
+   "status": "verified",
+   "method": "synthetic clocks",
+   "offset_ms": -37.5,
+   "uncertainty_ms": 0.05,
+   "exposure_alignment": "bounded",
+   "exposure_uncertainty_ms": 0.02,
+   "convention": "t_reference = t_stream + offset_ms for every non-reference stream"
+  },
+  "motion_time": [
+   {
+    "stream_id": "down_the_line",
+    "motion_time": "real_time",
+    "capture_fps": 240.0,
+    "scale": 1.0,
+    "basis": "real time: synthetic 240fps capture",
+    "reasons": []
+   },
+   {
+    "stream_id": "face_on",
+    "motion_time": "real_time",
+    "capture_fps": 240.0,
+    "scale": 1.0,
+    "basis": "real time: synthetic 240fps capture",
+    "reasons": []
+   }
+  ],
+  "timing_convention": "bound_ms = scale * (pair_gap_ms + sync_uncertainty_ms) + exposure_ms; position error = speed bound * bound_ms / 1000 (worst case, kept apart from the 1-sigma triangulation covariance)",
+  "catalog_calibration": {
+   "status": "verified",
+   "method": "synthetic board"
+  },
+  "notes": []
+ },
+ "world_frame": {
+  "status": "defined",
+  "convention": "right-handed, metres: +X toward the target along the target line, +Y left of the target line, +Z up normal to the ground; origin at the ground projection of the ball centre at address",
+  "units": "m",
+  "rig_to_world": [
+   [
+    1.0,
+    -0.000594,
+    7.4e-05,
+    0.000372
+   ],
+   [
+    0.000594,
+    1.0,
+    -0.000447,
+    -0.000656
+   ],
+   [
+    -7.3e-05,
+    0.000447,
+    1.0,
+    9.8e-05
+   ],
+   [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  ],
+  "evidence": {
+   "ground": {
+    "normal": [
+     7.3e-05,
+     -0.000447,
+     -1.0
+    ],
+    "d": -9.8e-05,
+    "rms_m": 0.0,
+    "n_points": 3,
+    "method": "floor_a/b/c labelled at address, triangulated"
+   },
+   "target_line": {
+    "method": "target_line_back -> target_line_front labelled at address",
+    "direction_rig": [
+     1.0,
+     -0.000594,
+     7.4e-05
+    ]
+   },
+   "origin": {
+    "method": "ball_center at address (P1), triangulated, projected to the ground",
+    "ball_center_rig": [
+     -0.000373,
+     0.000665,
+     0.021796
+    ],
+    "ball_height_m": 0.021894
+   }
+  },
+  "reasons": []
+ },
+ "cameras": [
+  {
+   "camera_id": "down_the_line",
+   "camera_to_rig": [
+    [
+     -0.118213,
+     -0.105053,
+     0.987416,
+     -4.2
+    ],
+    [
+     -0.992988,
+     0.012506,
+     -0.117549,
+     0.95
+    ],
+    [
+     0.0,
+     -0.994388,
+     -0.105795,
+     1.25
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "camera_to_world": [
+    [
+     -0.117623,
+     -0.105133,
+     0.987478,
+     -4.2001
+    ],
+    [
+     -0.993058,
+     0.012888,
+     -0.116915,
+     0.946289
+    ],
+    [
+     -0.000435,
+     -0.994375,
+     -0.105919,
+     1.25083
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ]
+  },
+  {
+   "camera_id": "face_on",
+   "camera_to_rig": [
+    [
+     0.99971,
+     0.002024,
+     -0.024004,
+     0.1
+    ],
+    [
+     0.024089,
+     -0.08399,
+     0.996175,
+     -3.6
+    ],
+    [
+     0.0,
+     -0.996465,
+     -0.084015,
+     1.15
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "camera_to_world": [
+    [
+     0.999695,
+     0.002001,
+     -0.024603,
+     0.102597
+    ],
+    [
+     0.024684,
+     -0.083544,
+     0.996198,
+     -3.601109
+    ],
+    [
+     -6.3e-05,
+     -0.996502,
+     -0.083568,
+     1.148482
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ]
+  }
+ ],
+ "points": [
+  "ball_center",
+  "clubhead_center",
+  "clubhead_heel",
+  "clubhead_toe",
+  "floor_a",
+  "floor_b",
+  "floor_c",
+  "left_ankle",
+  "left_big_toe",
+  "left_heel",
+  "left_hip",
+  "left_knee",
+  "left_shoulder",
+  "left_wrist",
+  "right_ankle",
+  "right_big_toe",
+  "right_heel",
+  "right_hip",
+  "right_knee",
+  "right_shoulder",
+  "right_wrist",
+  "shaft_butt",
+  "shaft_hosel",
+  "target_line_back",
+  "target_line_front"
+ ],
+ "frames": [
+  {
+   "kind": "static_address",
+   "pair_gap_ms": null,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 5,
+     "timestamp_ms": 20.833,
+     "timestamp_basis": "container",
+     "image_sha1": "7747ab28c05c160698c0895311a809e969fdba31"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 7,
+     "timestamp_ms": 29.167,
+     "timestamp_basis": "container",
+     "image_sha1": "d27d435da10de6e83118956f848a83858ce1a658"
+    }
+   ],
+   "time_ms": 20.833,
+   "motion_time_ms": 20.833,
+   "index": 0,
+   "timing": null,
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 62,
+     "timestamp_ms": 258.333,
+     "timestamp_basis": "container",
+     "image_sha1": "352eafb2f0bb687f9f8a6ad53acc1d8bb8c2932b"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 71,
+     "timestamp_ms": 295.833,
+     "timestamp_basis": "container",
+     "image_sha1": "2633d840acd6e3830eee4522294e35a505d10b66"
+    }
+   ],
+   "time_ms": 258.333,
+   "motion_time_ms": 258.333,
+   "index": 1,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 63,
+     "timestamp_ms": 262.5,
+     "timestamp_basis": "container",
+     "image_sha1": "4e4dbdba989c9cb8dddf5ffe44572a2b024e5408"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 72,
+     "timestamp_ms": 300.0,
+     "timestamp_basis": "container",
+     "image_sha1": "15d3252fc47b91d869ab588f656f3e7d0bc961f5"
+    }
+   ],
+   "time_ms": 262.5,
+   "motion_time_ms": 262.5,
+   "index": 2,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 64,
+     "timestamp_ms": 266.667,
+     "timestamp_basis": "container",
+     "image_sha1": "ab1195d6f3fbbe58331b3cda4f55575cf4d958ce"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 73,
+     "timestamp_ms": 304.167,
+     "timestamp_basis": "container",
+     "image_sha1": "59463b1a4f1456036144c5bac76f93292260cc72"
+    }
+   ],
+   "time_ms": 266.667,
+   "motion_time_ms": 266.667,
+   "index": 3,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 65,
+     "timestamp_ms": 270.833,
+     "timestamp_basis": "container",
+     "image_sha1": "049f8d23f54f8f89b9a807f8deb7f154425366ad"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 74,
+     "timestamp_ms": 308.333,
+     "timestamp_basis": "container",
+     "image_sha1": "b57437c2830e0d59680e4a69bb492b95b92dfe95"
+    }
+   ],
+   "time_ms": 270.833,
+   "motion_time_ms": 270.833,
+   "index": 4,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 66,
+     "timestamp_ms": 275.0,
+     "timestamp_basis": "container",
+     "image_sha1": "2055ac21f71bb1c5f1e805643f3de25cd705d674"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 75,
+     "timestamp_ms": 312.5,
+     "timestamp_basis": "container",
+     "image_sha1": "f9bf3b5de5312c6e69f8bc041178798533cd53bc"
+    }
+   ],
+   "time_ms": 275.0,
+   "motion_time_ms": 275.0,
+   "index": 5,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 67,
+     "timestamp_ms": 279.167,
+     "timestamp_basis": "container",
+     "image_sha1": "8669d0197044c29ea920e52ab710b6eaf13a9ae7"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 76,
+     "timestamp_ms": 316.667,
+     "timestamp_basis": "container",
+     "image_sha1": "f0f861ab3bda279978e623ae08ea214754261e18"
+    }
+   ],
+   "time_ms": 279.167,
+   "motion_time_ms": 279.167,
+   "index": 6,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 68,
+     "timestamp_ms": 283.333,
+     "timestamp_basis": "container",
+     "image_sha1": "6bd0558fa8bc50b956cefbfa7ca413567dd32126"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 77,
+     "timestamp_ms": 320.833,
+     "timestamp_basis": "container",
+     "image_sha1": "e9d3f7e30c25648cbe3f72b34683c6a45b0adc15"
+    }
+   ],
+   "time_ms": 283.333,
+   "motion_time_ms": 283.333,
+   "index": 7,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 69,
+     "timestamp_ms": 287.5,
+     "timestamp_basis": "container",
+     "image_sha1": "c956c4ee6c32d6b5b8f6e9528734006734e52e46"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 78,
+     "timestamp_ms": 325.0,
+     "timestamp_basis": "container",
+     "image_sha1": "e0f14d55561d679e3648572bc02a3a806c4e6609"
+    }
+   ],
+   "time_ms": 287.5,
+   "motion_time_ms": 287.5,
+   "index": 8,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 70,
+     "timestamp_ms": 291.667,
+     "timestamp_basis": "container",
+     "image_sha1": "562f69c521cc7f4d844ed1028ec4defc390bfc4f"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 79,
+     "timestamp_ms": 329.167,
+     "timestamp_basis": "container",
+     "image_sha1": "bd4e3057f093fba3eddbd8ec2c6375fee0534001"
+    }
+   ],
+   "time_ms": 291.667,
+   "motion_time_ms": 291.667,
+   "index": 9,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 71,
+     "timestamp_ms": 295.833,
+     "timestamp_basis": "container",
+     "image_sha1": "aa74cce37ecbb979f6d5d3cbeb15a03e365079fd"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 80,
+     "timestamp_ms": 333.333,
+     "timestamp_basis": "container",
+     "image_sha1": "508ec48b4aaf7d6b2c715a3021e68d919c7ccd01"
+    }
+   ],
+   "time_ms": 295.833,
+   "motion_time_ms": 295.833,
+   "index": 10,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 72,
+     "timestamp_ms": 300.0,
+     "timestamp_basis": "container",
+     "image_sha1": "15d8851e765a699528e56cb170ed4a278a7a5d63"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 81,
+     "timestamp_ms": 337.5,
+     "timestamp_basis": "container",
+     "image_sha1": "c99fb775645f8384aed2c44cefb686144bb6ba55"
+    }
+   ],
+   "time_ms": 300.0,
+   "motion_time_ms": 300.0,
+   "index": 11,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 73,
+     "timestamp_ms": 304.167,
+     "timestamp_basis": "container",
+     "image_sha1": "9c2fb76d8ed930209ceae319d5a86e194e68a7a8"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 82,
+     "timestamp_ms": 341.667,
+     "timestamp_basis": "container",
+     "image_sha1": "8e2303b1f707775da0d35e022fd824c4f5ae404e"
+    }
+   ],
+   "time_ms": 304.167,
+   "motion_time_ms": 304.167,
+   "index": 12,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 74,
+     "timestamp_ms": 308.333,
+     "timestamp_basis": "container",
+     "image_sha1": "8eece3ed4802d099c7787ce1aa3d00b9d31e3abc"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 83,
+     "timestamp_ms": 345.833,
+     "timestamp_basis": "container",
+     "image_sha1": "d64d5ca2d21b6862bb2bab128ea3745252558da1"
+    }
+   ],
+   "time_ms": 308.333,
+   "motion_time_ms": 308.333,
+   "index": 13,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 75,
+     "timestamp_ms": 312.5,
+     "timestamp_basis": "container",
+     "image_sha1": "b304d9d44351e53ee50277686b511fb934046525"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 84,
+     "timestamp_ms": 350.0,
+     "timestamp_basis": "container",
+     "image_sha1": "ae8f197f79efea952d172c2fbfeb869024840c6a"
+    }
+   ],
+   "time_ms": 312.5,
+   "motion_time_ms": 312.5,
+   "index": 14,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 76,
+     "timestamp_ms": 316.667,
+     "timestamp_basis": "container",
+     "image_sha1": "72f0fa5c49877ab1f3db3d02dbac8f2189dfffe5"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 85,
+     "timestamp_ms": 354.167,
+     "timestamp_basis": "container",
+     "image_sha1": "0d636e23d22183eb390059d64a05633a8c1fff99"
+    }
+   ],
+   "time_ms": 316.667,
+   "motion_time_ms": 316.667,
+   "index": 15,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 77,
+     "timestamp_ms": 320.833,
+     "timestamp_basis": "container",
+     "image_sha1": "97f9bdb9a606c746422ba4a938a8218a29c7f5ef"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 86,
+     "timestamp_ms": 358.333,
+     "timestamp_basis": "container",
+     "image_sha1": "a0c94c11810e5b171d85041d372c199a4d5b256c"
+    }
+   ],
+   "time_ms": 320.833,
+   "motion_time_ms": 320.833,
+   "index": 16,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 78,
+     "timestamp_ms": 325.0,
+     "timestamp_basis": "container",
+     "image_sha1": "e2b65082b833d22a39922c37180a35d9526d9987"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 87,
+     "timestamp_ms": 362.5,
+     "timestamp_basis": "container",
+     "image_sha1": "5d3c2a3bd06ffb6fa3ce250c1f95beb0618aa54c"
+    }
+   ],
+   "time_ms": 325.0,
+   "motion_time_ms": 325.0,
+   "index": 17,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  },
+  {
+   "kind": "dynamic",
+   "pair_gap_ms": 0.0,
+   "views": [
+    {
+     "stream_id": "down_the_line",
+     "source_id": "src-dtl",
+     "source_frame": 79,
+     "timestamp_ms": 329.167,
+     "timestamp_basis": "container",
+     "image_sha1": "0cab64cc0f9e914562f5af18f1378ec88dcfca9b"
+    },
+    {
+     "stream_id": "face_on",
+     "source_id": "src-fo",
+     "source_frame": 88,
+     "timestamp_ms": 366.667,
+     "timestamp_basis": "container",
+     "image_sha1": "975368c55254871a25c5d4d2b8810634671c48f0"
+    }
+   ],
+   "time_ms": 329.167,
+   "motion_time_ms": 329.167,
+   "index": 18,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
+   "status": "measured",
+   "reasons": []
+  }
+ ],
+ "arrays": {
+  "path": "trajectory.npz",
+  "sha256": "ad4148883d76e98275601a78effa5f3db1200ab2284c0f709a051aaa9d0879a0",
+  "coordinates": "world",
+  "layout": {
+   "time_ms": {
+    "dtype": "float64",
+    "shape": [
+     19
+    ],
+    "sha256": "e78bb51bff19c9990f4cac6f427367760286072a9cf7e21a994f80d298b69e98"
+   },
+   "xyz": {
+    "dtype": "float64",
+    "shape": [
+     19,
+     25,
+     3
+    ],
+    "sha256": "df5ae3a4cff0d063f84cf6da66642a95e0c9bb7a40400a84e674f59e136fd301"
+   },
+   "cov": {
+    "dtype": "float64",
+    "shape": [
+     19,
+     25,
+     3,
+     3
+    ],
+    "sha256": "f0e34d2c60fbda95dc59a3de4281be27760596fd4b7f80c6024c1edfc01360a7"
+   },
+   "state": {
+    "dtype": "int8",
+    "shape": [
+     19,
+     25
+    ],
+    "sha256": "4617da2180fcbce1a90fbadfb4fd7511e13c144853dd77130b4e5f116f36c5b9"
+   },
+   "n_views": {
+    "dtype": "int8",
+    "shape": [
+     19,
+     25
+    ],
+    "sha256": "65e64f3b5c821351e7d5b5ad16046afecdc7ff9511ba8b69975cf7a1721f9b78"
+   },
+   "reprojection_px": {
+    "dtype": "float64",
+    "shape": [
+     19,
+     25,
+     2
+    ],
+    "sha256": "607e25b8bd79ac9fbe537414859615dc2fde7e3a7de99da285df2e5b40efdf28"
+   },
+   "parallax_deg": {
+    "dtype": "float64",
+    "shape": [
+     19,
+     25
+    ],
+    "sha256": "b57df777568f1ea78c832483a33539a74c140732599c0cdf663f52a08648987a"
+   },
+   "motion_time_ms": {
+    "dtype": "float64",
+    "shape": [
+     19
+    ],
+    "sha256": "e78bb51bff19c9990f4cac6f427367760286072a9cf7e21a994f80d298b69e98"
+   },
+   "timing_bound_ms": {
+    "dtype": "float64",
+    "shape": [
+     19
+    ],
+    "sha256": "7ec618eab5c52ae913d0d9803e8a9be51751ae097cfa98c652edba3967d1164b"
+   },
+   "speed_bound_m_s": {
+    "dtype": "float64",
+    "shape": [
+     25
+    ],
+    "sha256": "95be4ce1202ae0aa3570b3664ee4a8cd3908bbc137c84d20c0015a26e54571ca"
+   },
+   "timing_error_m": {
+    "dtype": "float64",
+    "shape": [
+     19,
+     25
+    ],
+    "sha256": "aec5ec684a09cbb0f95b30336bfe13d0071db64e3a2a6a96e0df9d9518c4c06a"
+   },
+   "timing_status": {
+    "dtype": "int8",
+    "shape": [
+     19,
+     25
+    ],
+    "sha256": "e50df917ff5fd9a2f1ba02ca9cbdc9f4b286800b34919d61f11892a15bdd7969"
+   }
+  }
+ },
+ "missing": [],
+ "summary": {
+  "frames": 19,
+  "frames_measured": 19,
+  "points": {
+   "missing": 0,
+   "observed": 110,
+   "inferred": 0,
+   "not_labelled": 365
+  },
+  "dynamic_point_timing": {
+   "within": 90,
+   "exceeds": 0,
+   "unknown": 0
+  },
+  "max_timing_bound_ms": 0.07,
+  "max_reprojection_px": 0.63157
+ }
+}

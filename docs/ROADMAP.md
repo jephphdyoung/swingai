@@ -60,7 +60,7 @@ Streams missing calibration or timing support can contribute only to the measure
 - Small historical face-on joint benchmark only; DTL accuracy unmeasured.
 - Final reported 2026-10-22 tests: CPU 766 passed/7 skipped; GPU 771 passed/2 skipped.
 
-### PR #5 — Shot catalog + reference editing foundation (implemented, in review)
+### Completed — PR #5: Shot catalog + reference editing foundation
 
 Implemented on `feat/swing-catalog-reference-editor`; see [swing-dataset.md](swing-dataset.md) and [STATUS.md](STATUS.md). The catalog lives in `data/catalog/` + `data/annotations/` without moving any video (the layout below stays a logical target). Deferred from the list below: rotation, rendered derivative clips, model proposals in the editor.
 
@@ -97,11 +97,15 @@ Editor requirements:
 
 **Explicit non-goals for PR #5:** finished 3D reconstruction, automatic model training, real camera integration, guaranteed detection accuracy, sophisticated YouTube downloading service, and a production multi-account web platform.
 
-### Next — Calibrated 3D proof of concept
+### PR #6 — 3D geometry and measurement foundation (implemented, in review)
+
+Calibration, triangulation from labelled same-swing views, the target-line world frame (+X target, +Y left, +Z up, origin under the ball at address), P1 alignment and clubhead trajectory values, versioned artifacts and a CLI — validated on synthetic captures only. See [geometry-3d.md](geometry-3d.md). The proof of concept below is now the **real-camera validation** of this foundation.
+
+### Next — Calibrated 3D proof of concept (real FOX recordings)
 
 Start with one genuinely co-captured DTL/FO FOX pair, **not** arbitrarily paired YouTube clips. Establish camera calibration and common time, triangulate visible body landmarks, reject mismatched/occluded observations, track uncertainty and reprojection error, and compare reconstructions with controlled calibration targets and physical checks. Keep 2D originals and per-view observations. Prove credible 3D before calling the product a 3D analyzer.
 
-Reference-data bottleneck: obtaining **synchronized, calibrated** Grant Waite multi-view footage may be harder than collecting YouTube videos. If only independent DTL and FO examples exist, develop and validate a prior-constrained inferred 3D fitting approach separately; report uncertainty and never present it as stereo-measured 3D.
+Reference-data bottleneck: obtaining **synchronized, calibrated** Grant Waite multi-view footage may be harder than collecting YouTube videos. **Independent professional reference swings** (separate DTL and face-on recordings, different years and clubs) are still valuable: they can feed a later *statistical* 3D inference — a prior-constrained fit with stated uncertainty — developed and validated separately. **Directly measured stereo reconstruction requires calibrated, synchronized recordings of the same swing**; PR #6 refuses independent recordings as stereo inputs, and inferred 3D must never be presented as stereo-measured.
 
 ### Next — Automatic swing understanding
 

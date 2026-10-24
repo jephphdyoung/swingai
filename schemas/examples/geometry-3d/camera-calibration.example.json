@@ -1,0 +1,118 @@
+{
+ "schema_version": "1.0",
+ "kind": "camera_calibration",
+ "calibration_id": "synthetic-rig",
+ "version": 1,
+ "created_at": "2026-11-01T09:00:00Z",
+ "units": "m",
+ "status": {
+  "status": "verified",
+  "method": "synthetic",
+  "by": "test",
+  "at": "2026-11-01T09:00:00Z",
+  "notes": null
+ },
+ "rig_frame": "board frame of the reference board pose, z toward the cameras; in-plane axes arbitrary (detector corner order)",
+ "cameras": [
+  {
+   "camera_id": "down_the_line",
+   "image_size": {
+    "width": 1440,
+    "height": 1080
+   },
+   "model": "opencv_brown_conrady_5",
+   "intrinsics": {
+    "fx": 1500.0,
+    "fy": 1501.5,
+    "cx": 723.5,
+    "cy": 538.0
+   },
+   "distortion": [
+    -0.12,
+    0.06,
+    0.0005,
+    -0.0003,
+    0.0
+   ],
+   "camera_to_rig": [
+    [
+     -0.118213,
+     -0.105053,
+     0.987416,
+     -4.2
+    ],
+    [
+     -0.992988,
+     0.012506,
+     -0.117549,
+     0.95
+    ],
+    [
+     0.0,
+     -0.994388,
+     -0.105795,
+     1.25
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "intrinsic_rms_px": null
+  },
+  {
+   "camera_id": "face_on",
+   "image_size": {
+    "width": 1440,
+    "height": 1080
+   },
+   "model": "opencv_brown_conrady_5",
+   "intrinsics": {
+    "fx": 1500.0,
+    "fy": 1501.5,
+    "cx": 723.5,
+    "cy": 538.0
+   },
+   "distortion": [
+    -0.12,
+    0.06,
+    0.0005,
+    -0.0003,
+    0.0
+   ],
+   "camera_to_rig": [
+    [
+     0.99971,
+     0.002024,
+     -0.024004,
+     0.1
+    ],
+    [
+     0.024089,
+     -0.08399,
+     0.996175,
+     -3.6
+    ],
+    [
+     0.0,
+     -0.996465,
+     -0.084015,
+     1.15
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "intrinsic_rms_px": null
+  }
+ ],
+ "extrinsic": null,
+ "ground": null,
+ "target_direction": null,
+ "notes": null
+}
