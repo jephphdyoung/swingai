@@ -153,3 +153,139 @@ def club_points(arc, t):
     return {"clubhead_center": c, "clubhead_heel": c + 0.045 * face_axis,
             "clubhead_toe": c - 0.045 * face_axis, "shaft_hosel": hosel,
             "shaft_butt": hosel + 0.9 * toward_golfer}
+
+
+# --- a complete synthetic capture in the existing contracts ---------------------------
+
+FPS = 240.0
+CLUB_NAMES = ("clubhead_center", "clubhead_heel", "clubhead_toe", "shaft_hosel", "shaft_butt")
+
+
+def _source(cat, source_id, golfer_id, view, n_frames, ts_status="verified"):
+    import hashlib
+    sha = hashlib.sha256(source_id.encode()).hexdigest()
+    cat.sources[source_id] = {
+        "source_id": source_id, "golfer_id": golfer_id, "sha256": sha, "size_bytes": 1000,
+        "location": {"root": "user", "path": f"{source_id}.mp4"}, "also_found_at": [],
+        "registered_at": "2026-11-01T10:00:00Z", "legacy_annotation_key": None,
+        "provenance": {"source_type": "fox_capture", "url": None, "title": None,
+                       "original_filename": f"{source_id}.mp4", "notes": None},
+        "recording": {"date": "2026-11-01", "date_basis": "capture", "camera_view": view,
+                      "notes": None},
+        "video": {"frame_count": n_frames, "width": W, "height": H, "codec": "mp4v",
+                  "nominal_fps": FPS, "average_fps": FPS, "variable_frame_rate": False,
+                  "duration_ms": (n_frames - 1) * 1000 / FPS, "start_offset_ms": 0.0,
+                  "reported_frame_count": n_frames, "decoder": "synthetic",
+                  "timestamps": {"status": ts_status, "estimated_frames": 0,
+                                 "ffprobe_max_deviation_ms": 0.0, "detail": ""}},
+        "timing": {"motion_time": "real_time", "capture_fps": FPS,
+                   "basis": "synthetic 240fps capture"}}
+    return sha
+
+
+def _digest(stream, f):
+    import hashlib
+    return hashlib.sha1(f"{stream}-{f}".encode()).hexdigest()
+
+
+class Capture:
+    """A two-camera capture of one right-handed swing.
+
+    fo_shift_frames: the face-on camera started this many frames earlier.
+    fo_phase_ms: extra sub-frame delay of face-on exposures (0 = genlocked).
+    The true offset (t_ref = t_fo + offset_ms) is phase - shift * 1000/fps.
+    """
+
+    def __init__(self, tmp_path, *, noise_px=0.3, fo_shift_frames=9, fo_phase_ms=0.0,
+                 sync_status="verified", sync_offset_ms="true", sync_uncertainty_ms=0.2,
+                 calibration_status="verified", ts_status="verified", handedness="right",
+                 world_to_rig=None, arc=None, seed=0, n_frames=100, impact_frame=70,
+                 p1_frames=(5, 7), club_frames=range(40, 100), body=None):
+        from utils import catalog as cm
+        from utils.calibration import calibration_document, load_calibration
+        self.noise_px = noise_px
+        self.rng = np.random.default_rng(seed)
+        self.arc = arc or Arc()
+        self.handedness = handedness
+        self.body = body or p1_body(handedness)
+        self.true_offset_ms = fo_phase_ms - fo_shift_frames * 1000.0 / FPS
+        self.world_to_rig = (np.eye(4) if world_to_rig is None else np.asarray(world_to_rig))
+        cams_world = rig()
+        self.cams_world = cams_world
+        cams_rig = [c.reframed(self.world_to_rig) for c in cams_world]
+        # Arc time of reference (DTL) frame k.
+        self.t0 = self.arc.t_impact - (impact_frame - 0.3) / FPS
+        self.fo_shift, self.fo_phase_ms = fo_shift_frames, fo_phase_ms
+
+        cat = cm.Catalog(root=str(tmp_path / "catalog"))
+        cm.add_golfer(cat, "Synthetic Golfer", "user", handedness, golfer_id="golfer")
+        _source(cat, "src-dtl", "golfer", "down_the_line", n_frames, ts_status)
+        _source(cat, "src-fo", "golfer", "face_on", n_frames, ts_status)
+        shot = cm.add_shot(cat, golfer_id="golfer", source_id="src-dtl",
+                           camera_view="down_the_line", start_frame=0, end_frame=n_frames - 1,
+                           swing_type="full", shot_id="shot-synthetic",
+                           stream_id="down_the_line")
+        cm.add_stream(cat, shot["shot_id"], source_id="src-fo", camera_view="face_on",
+                      start_frame=0, end_frame=n_frames - 1, stream_id="face_on",
+                      same_swing_method="synthetic co-triggered capture", asserted_by="test")
+        if sync_status != "unknown":
+            offset = self.true_offset_ms if sync_offset_ms == "true" else sync_offset_ms
+            if sync_status == "verified":
+                cm.set_multi_view(cat, shot["shot_id"], "same_swing", "verified",
+                                  "synthetic: one simulated swing", "test")
+            cm.set_multi_view(cat, shot["shot_id"], "synchronization", sync_status,
+                              "synthetic clocks", "test", offset_ms=offset,
+                              uncertainty_ms=sync_uncertainty_ms)
+        if calibration_status != "unknown":
+            cm.set_multi_view(cat, shot["shot_id"], "calibration", calibration_status,
+                              "synthetic board", "test")
+        self.cat, self.shot_id = cat, shot["shot_id"]
+
+        doc = {"schema_version": "1.0", "kind": "shot_annotations", "revision": 1,
+               "shot_id": self.shot_id, "p_convention": "p7-impact", "streams": {}}
+        streams = (("down_the_line", "src-dtl", cams_world[0], 0.0, 0),
+                   ("face_on", "src-fo", cams_world[1], fo_phase_ms, fo_shift_frames))
+        for (sid, src_id, cam, phase, shift), p1 in zip(streams, p1_frames):
+            frames = {}
+            entry = {"source_id": src_id, "source_sha256": cat.sources[src_id]["sha256"],
+                     "positions": {}, "frames": frames}
+            frames[str(p1)] = self._frame(sid, p1, cam, self.body)
+            entry["positions"]["P1"] = self._position(sid, p1)
+            for k in club_frames:
+                f = k + shift                      # same true instant, this camera's index
+                if not 0 <= f < n_frames:
+                    continue
+                t = self.t0 + k / FPS + phase / 1000.0
+                frames[str(f)] = self._frame(sid, f, cam, club_points(self.arc, t))
+            entry["positions"]["P7"] = self._position(sid, impact_frame + shift)
+            doc["streams"][sid] = entry
+        self.annotations = doc
+        cal = calibration_document("synthetic-rig", 1, cams_rig, calibration_status
+                                   if calibration_status != "unknown" else "estimated",
+                                   "synthetic", "test", "2026-11-01T09:00:00Z",
+                                   created_at="2026-11-01T09:00:00Z")
+        self.calibration = load_calibration(cal)
+
+    def _frame(self, sid, f, cam, points):
+        out, unavailable = {}, {}
+        for name, X in points.items():
+            px, _ = cam.project(np.asarray(X)[None])
+            p = px[0] + self.rng.normal(scale=self.noise_px, size=2) if self.noise_px else px[0]
+            if not cam.in_image(p[None], margin=-1).all():
+                unavailable[name] = "out_of_frame"      # as a person would record it
+                continue
+            out[name] = {"x": float(p[0]), "y": float(p[1]), "visible": True,
+                         "origin": "manual", "model": None, "confidence": None,
+                         "set_by": "synthetic", "set_at": "2026-11-01T10:00:00Z"}
+        return {"timestamp_ms": round(f * 1000.0 / FPS, 3), "timestamp_basis": "container",
+                "image_sha1": _digest(sid, f), "points": out, "unavailable": unavailable,
+                "review": {"status": "reviewed", "by": "synthetic",
+                           "at": "2026-11-01T10:00:00Z", "notes": None}}
+
+    def _position(self, sid, f):
+        return {"frame": f, "timestamp_ms": round(f * 1000.0 / FPS, 3),
+                "timestamp_basis": "container", "image_sha1": _digest(sid, f),
+                "origin": "manual", "set_by": "synthetic", "set_at": "2026-11-01T10:00:00Z"}
+
+    def club_truth(self, ref_frame):
+        return club_points(self.arc, self.t0 + ref_frame / FPS)

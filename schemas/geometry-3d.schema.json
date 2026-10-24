@@ -895,13 +895,20 @@
                 "status",
                 "method"
               ]
+            },
+            "notes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [
             "reference_stream",
             "same_swing",
             "synchronization",
-            "catalog_calibration"
+            "catalog_calibration",
+            "notes"
           ]
         },
         "world_frame": {
