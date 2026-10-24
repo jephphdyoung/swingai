@@ -1,23 +1,32 @@
 {
  "schema_version": "1.0",
  "kind": "reconstruction_3d",
- "reconstruction_id": "rec-759c7457e8eb6dd7",
+ "reconstruction_id": "rec-07031dbecd8868a9",
  "shot_id": "shot-synthetic",
  "created_at": "2026-11-01T12:00:00Z",
  "algorithm": {
   "name": "swingai-label-triangulation",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "parameters": {
    "sigma_px": 1.0,
    "max_reprojection_px": 3.0,
    "min_parallax_deg": 5.0,
    "max_point_sigma_m": 0.02,
    "max_pair_gap_ms": 0.5,
-   "max_sync_uncertainty_ms": 1.0
+   "max_timing_position_error_m": 0.01,
+   "speed_bounds_m_s": {
+    "ball": 105.0,
+    "clubhead": 70.0,
+    "forearm_elbow": 15.0,
+    "ground_marker": 1.0,
+    "hands_grip": 20.0,
+    "head_torso": 6.0,
+    "legs_feet": 6.0
+   }
   }
  },
  "inputs": {
-  "shot_sha256": "dd8fb0ac4174385eca9df60fb3a8c44411075eb7a78c284a2607deeeca4733af",
+  "shot_sha256": "28764c92d940075f794eb751c5e6b4622cb943e3de0ba079de50012de31edf9a",
   "annotations": {
    "revision": 1,
    "sha256": "6b8b7004b0416c397d4fa62bfada387720360970c3e8becd97d6c3c09ff01bd6"
@@ -51,15 +60,36 @@
    "status": "verified",
    "method": "synthetic: one simulated swing",
    "by": "test",
-   "at": "2026-10-24T12:00:00Z"
+   "at": "2026-10-24T18:48:43Z"
   },
   "synchronization": {
    "status": "verified",
    "method": "synthetic clocks",
    "offset_ms": -37.5,
-   "uncertainty_ms": 0.2,
+   "uncertainty_ms": 0.05,
+   "exposure_alignment": "bounded",
+   "exposure_uncertainty_ms": 0.02,
    "convention": "t_reference = t_stream + offset_ms for every non-reference stream"
   },
+  "motion_time": [
+   {
+    "stream_id": "down_the_line",
+    "motion_time": "real_time",
+    "capture_fps": 240.0,
+    "scale": 1.0,
+    "basis": "real time: synthetic 240fps capture",
+    "reasons": []
+   },
+   {
+    "stream_id": "face_on",
+    "motion_time": "real_time",
+    "capture_fps": 240.0,
+    "scale": 1.0,
+    "basis": "real time: synthetic 240fps capture",
+    "reasons": []
+   }
+  ],
+  "timing_convention": "bound_ms = scale * (pair_gap_ms + sync_uncertainty_ms) + exposure_ms; position error = speed bound * bound_ms / 1000 (worst case, kept apart from the 1-sigma triangulation covariance)",
   "catalog_calibration": {
    "status": "verified",
    "method": "synthetic board"
@@ -290,7 +320,9 @@
     }
    ],
    "time_ms": 20.833,
+   "motion_time_ms": 20.833,
    "index": 0,
+   "timing": null,
    "status": "measured",
    "reasons": []
   },
@@ -316,7 +348,17 @@
     }
    ],
    "time_ms": 258.333,
+   "motion_time_ms": 258.333,
    "index": 1,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -342,7 +384,17 @@
     }
    ],
    "time_ms": 262.5,
+   "motion_time_ms": 262.5,
    "index": 2,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -368,7 +420,17 @@
     }
    ],
    "time_ms": 266.667,
+   "motion_time_ms": 266.667,
    "index": 3,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -394,7 +456,17 @@
     }
    ],
    "time_ms": 270.833,
+   "motion_time_ms": 270.833,
    "index": 4,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -420,7 +492,17 @@
     }
    ],
    "time_ms": 275.0,
+   "motion_time_ms": 275.0,
    "index": 5,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -446,7 +528,17 @@
     }
    ],
    "time_ms": 279.167,
+   "motion_time_ms": 279.167,
    "index": 6,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -472,7 +564,17 @@
     }
    ],
    "time_ms": 283.333,
+   "motion_time_ms": 283.333,
    "index": 7,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -498,7 +600,17 @@
     }
    ],
    "time_ms": 287.5,
+   "motion_time_ms": 287.5,
    "index": 8,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -524,7 +636,17 @@
     }
    ],
    "time_ms": 291.667,
+   "motion_time_ms": 291.667,
    "index": 9,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -550,7 +672,17 @@
     }
    ],
    "time_ms": 295.833,
+   "motion_time_ms": 295.833,
    "index": 10,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -576,7 +708,17 @@
     }
    ],
    "time_ms": 300.0,
+   "motion_time_ms": 300.0,
    "index": 11,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -602,7 +744,17 @@
     }
    ],
    "time_ms": 304.167,
+   "motion_time_ms": 304.167,
    "index": 12,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -628,7 +780,17 @@
     }
    ],
    "time_ms": 308.333,
+   "motion_time_ms": 308.333,
    "index": 13,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -654,7 +816,17 @@
     }
    ],
    "time_ms": 312.5,
+   "motion_time_ms": 312.5,
    "index": 14,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -680,7 +852,17 @@
     }
    ],
    "time_ms": 316.667,
+   "motion_time_ms": 316.667,
    "index": 15,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -706,7 +888,17 @@
     }
    ],
    "time_ms": 320.833,
+   "motion_time_ms": 320.833,
    "index": 16,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -732,7 +924,17 @@
     }
    ],
    "time_ms": 325.0,
+   "motion_time_ms": 325.0,
    "index": 17,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   },
@@ -758,14 +960,24 @@
     }
    ],
    "time_ms": 329.167,
+   "motion_time_ms": 329.167,
    "index": 18,
+   "timing": {
+    "bound_ms": 0.07,
+    "pair_gap_ms": 0.0,
+    "sync_uncertainty_ms": 0.05,
+    "exposure_ms": 0.02,
+    "exposure": "bounded separately",
+    "motion_scale": 1.0,
+    "unknown": []
+   },
    "status": "measured",
    "reasons": []
   }
  ],
  "arrays": {
   "path": "trajectory.npz",
-  "sha256": "31c4b88332c7bc18d4c29fc81ac2a10f07884a22962c33dcfc93c33c59518e07",
+  "sha256": "ad4148883d76e98275601a78effa5f3db1200ab2284c0f709a051aaa9d0879a0",
   "coordinates": "world",
   "layout": {
    "time_ms": {
@@ -826,6 +1038,43 @@
      25
     ],
     "sha256": "b57df777568f1ea78c832483a33539a74c140732599c0cdf663f52a08648987a"
+   },
+   "motion_time_ms": {
+    "dtype": "float64",
+    "shape": [
+     19
+    ],
+    "sha256": "e78bb51bff19c9990f4cac6f427367760286072a9cf7e21a994f80d298b69e98"
+   },
+   "timing_bound_ms": {
+    "dtype": "float64",
+    "shape": [
+     19
+    ],
+    "sha256": "7ec618eab5c52ae913d0d9803e8a9be51751ae097cfa98c652edba3967d1164b"
+   },
+   "speed_bound_m_s": {
+    "dtype": "float64",
+    "shape": [
+     25
+    ],
+    "sha256": "95be4ce1202ae0aa3570b3664ee4a8cd3908bbc137c84d20c0015a26e54571ca"
+   },
+   "timing_error_m": {
+    "dtype": "float64",
+    "shape": [
+     19,
+     25
+    ],
+    "sha256": "aec5ec684a09cbb0f95b30336bfe13d0071db64e3a2a6a96e0df9d9518c4c06a"
+   },
+   "timing_status": {
+    "dtype": "int8",
+    "shape": [
+     19,
+     25
+    ],
+    "sha256": "e50df917ff5fd9a2f1ba02ca9cbdc9f4b286800b34919d61f11892a15bdd7969"
    }
   }
  },
@@ -839,6 +1088,12 @@
    "inferred": 0,
    "not_labelled": 365
   },
+  "dynamic_point_timing": {
+   "within": 90,
+   "exceeds": 0,
+   "unknown": 0
+  },
+  "max_timing_bound_ms": 0.07,
   "max_reprojection_px": 0.63157
  }
 }

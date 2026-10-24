@@ -2,7 +2,9 @@
 
     <output>/reconstructions/<shot_id>/<reconstruction_id>/
         manifest.json     kind "reconstruction_3d" (schemas/geometry-3d.schema.json)
-        trajectory.npz    time_ms, xyz, cov, state, n_views, reprojection_px, parallax_deg
+        trajectory.npz    time_ms, xyz, cov, state, n_views, reprojection_px, parallax_deg,
+                          motion_time_ms, timing_bound_ms, speed_bound_m_s,
+                          timing_error_m, timing_status
 
 The manifest links the arrays to everything that produced them: shot id and
 the shot record's hash, each source's checksum, the label document's
@@ -11,6 +13,12 @@ version and its parameters. The reconstruction id is derived from those, so
 re-running on the same inputs gives the same id and the same arrays. Each
 array's own SHA-256 (of its C-order bytes) is recorded as well as the file's,
 so content can be checked whatever the zip container's metadata.
+
+Timing arrays (`utils/timing_3d.py`): motion_time_ms (F; real ms, NaN when
+the motion time is unknown), timing_bound_ms (F; NaN for static or unknown),
+speed_bound_m_s (P), timing_error_m (F,P; worst-case displacement between
+exposures, NaN where not applicable -- never mixed into `cov`) and
+timing_status (F,P; 0 not applicable, 1 within, 2 exceeds, 3 unknown).
 """
 
 import hashlib
@@ -23,8 +31,11 @@ import numpy as np
 from utils.catalog import atomic_write_json, canonical_sha256, now_iso
 from utils.geometry_contract import SCHEMA_VERSION, schema_problems
 from utils.reconstruct_3d import ALGORITHM, STATE_NAMES
+from utils.timing_3d import TIMING_NAMES
 
-ARRAYS = ("time_ms", "xyz", "cov", "state", "n_views", "reprojection_px", "parallax_deg")
+ARRAYS = ("time_ms", "xyz", "cov", "state", "n_views", "reprojection_px", "parallax_deg",
+          "motion_time_ms", "timing_bound_ms", "speed_bound_m_s", "timing_error_m",
+          "timing_status")
 
 
 class ArtifactError(ValueError):
@@ -47,7 +58,12 @@ def arrays_of(rec):
             "cov": rec.cov.astype(np.float64), "state": rec.state.astype(np.int8),
             "n_views": rec.n_views.astype(np.int8),
             "reprojection_px": rec.reprojection_px.astype(np.float64),
-            "parallax_deg": rec.parallax_deg.astype(np.float64)}
+            "parallax_deg": rec.parallax_deg.astype(np.float64),
+            "motion_time_ms": rec.motion_time_ms.astype(np.float64),
+            "timing_bound_ms": rec.timing_bound_ms.astype(np.float64),
+            "speed_bound_m_s": rec.speed_bound_m_s.astype(np.float64),
+            "timing_error_m": rec.timing_error_m.astype(np.float64),
+            "timing_status": rec.timing_status.astype(np.int8)}
 
 
 def manifest(rec, rid=None, created_at=None):
@@ -65,6 +81,9 @@ def manifest(rec, rid=None, created_at=None):
     counts["not_labelled"] = int(((rec.state == 0) & (rec.n_views == 0)).sum())
     counts["missing"] -= counts["not_labelled"]
     reproj = rec.reprojection_px[rec.state > 0]
+    timing = {name: int((rec.timing_status == code).sum())
+              for code, name in TIMING_NAMES.items() if code}
+    bounds = rec.timing_bound_ms[np.isfinite(rec.timing_bound_ms)]
     return {"schema_version": SCHEMA_VERSION, "kind": "reconstruction_3d",
             "reconstruction_id": rid or reconstruction_id(rec), "shot_id": rec.shot_id,
             "created_at": created_at or now_iso(),
@@ -79,6 +98,8 @@ def manifest(rec, rid=None, created_at=None):
             "summary": {"frames": len(rec.frames),
                         "frames_measured": sum(f["status"] == "measured" for f in rec.frames),
                         "points": counts,
+                        "dynamic_point_timing": timing,
+                        "max_timing_bound_ms": float(bounds.max()) if bounds.size else None,
                         "max_reprojection_px": (float(np.nanmax(reproj))
                                                 if reproj.size and np.isfinite(reproj).any()
                                                 else None)}}

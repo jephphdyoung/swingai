@@ -58,9 +58,14 @@ FOOT_HEEL = ("heel", "shoe_heel_contact")
 FOOT_TOE = ("big_toe", "shoe_toe_contact")
 
 
-def measurement(value, unit, method, uncertainty=None, status="measured", reasons=()):
+def measurement(value, unit, method, uncertainty=None, status="measured", reasons=(),
+                timing_uncertainty=None):
+    """uncertainty: 1-sigma from image localization; timing_uncertainty: a separate
+    worst-case bound from timing (club values only), never added to it."""
     return {"status": status, "value": None if value is None else float(value), "unit": unit,
             "uncertainty": None if uncertainty is None else float(uncertainty),
+            "timing_uncertainty": (None if timing_uncertainty is None
+                                   else float(timing_uncertainty)),
             "method": method, "reasons": list(reasons)}
 
 

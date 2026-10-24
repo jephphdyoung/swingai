@@ -239,6 +239,11 @@ def reconstruct(args):
         print(f"  world frame: {r}")
     for n in m["association"]["notes"]:
         print(f"  {n}")
+    print(f"  moving points vs. the timing gate: {s['dynamic_point_timing']}, largest timing "
+          f"bound {s['max_timing_bound_ms']} ms")
+    for mt in m["association"]["motion_time"]:
+        for r in mt["reasons"]:
+            print(f"  motion time: {r}")
     return 0
 
 

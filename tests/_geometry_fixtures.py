@@ -163,7 +163,9 @@ FPS = 240.0
 CLUB_NAMES = ("clubhead_center", "clubhead_heel", "clubhead_toe", "shaft_hosel", "shaft_butt")
 
 
-def _source(cat, source_id, golfer_id, view, n_frames, ts_status="verified"):
+def _source(cat, source_id, golfer_id, view, n_frames, ts_status="verified",
+            timing=None, fps=None):
+    fps = fps or FPS
     import hashlib
     sha = hashlib.sha256(source_id.encode()).hexdigest()
     cat.sources[source_id] = {
@@ -175,13 +177,13 @@ def _source(cat, source_id, golfer_id, view, n_frames, ts_status="verified"):
         "recording": {"date": "2026-11-01", "date_basis": "capture", "camera_view": view,
                       "notes": None},
         "video": {"frame_count": n_frames, "width": W, "height": H, "codec": "mp4v",
-                  "nominal_fps": FPS, "average_fps": FPS, "variable_frame_rate": False,
-                  "duration_ms": (n_frames - 1) * 1000 / FPS, "start_offset_ms": 0.0,
+                  "nominal_fps": fps, "average_fps": fps, "variable_frame_rate": False,
+                  "duration_ms": (n_frames - 1) * 1000 / fps, "start_offset_ms": 0.0,
                   "reported_frame_count": n_frames, "decoder": "synthetic",
                   "timestamps": {"status": ts_status, "estimated_frames": 0,
                                  "ffprobe_max_deviation_ms": 0.0, "detail": ""}},
-        "timing": {"motion_time": "real_time", "capture_fps": FPS,
-                   "basis": "synthetic 240fps capture"}}
+        "timing": timing or {"motion_time": "real_time", "capture_fps": FPS,
+                             "basis": "synthetic 240fps capture"}}
     return sha
 
 
@@ -195,16 +197,27 @@ class Capture:
 
     fo_shift_frames: the face-on camera started this many frames earlier.
     fo_phase_ms: extra sub-frame delay of face-on exposures (0 = genlocked).
-    The true offset (t_ref = t_fo + offset_ms) is phase - shift * 1000/fps.
+    The true offset (t_ref = t_fo + offset_ms) is phase - shift * 1000/fps,
+    on the files' timestamp clock (divided by the motion scale when slowed).
     same_swing_status: "verified", or "asserted" (as add_stream leaves it).
+    Timing defaults describe a hardware-triggered pair (the synthetic exposures
+    are exactly simultaneous): sync uncertainty 0.05 ms, exposure alignment
+    bounded at 0.02 ms. exposure_alignment="unknown" leaves it unknown.
+    timing: the sources' catalog timing record (default real time);
+    playback_fps: the files' presented rate when it differs from the 240 fps
+    capture (slowed footage).
+    dynamic_body: body points also labelled in the club frames (the synthetic
+    body is still, so they sit at their P1 positions).
     """
 
     def __init__(self, tmp_path, *, noise_px=0.3, fo_shift_frames=9, fo_phase_ms=0.0,
                  same_swing_status="verified", sync_status="verified", sync_offset_ms="true",
-                 sync_uncertainty_ms=0.2,
+                 sync_uncertainty_ms=0.05, exposure_alignment="bounded",
+                 exposure_uncertainty_ms=0.02,
                  calibration_status="verified", ts_status="verified", handedness="right",
                  world_to_rig=None, arc=None, seed=0, n_frames=100, impact_frame=70,
-                 p1_frames=(5, 7), club_frames=range(40, 100), body=None):
+                 p1_frames=(5, 7), club_frames=range(40, 100), body=None, timing=None,
+                 playback_fps=None, dynamic_body=()):
         from utils import catalog as cm
         from utils.calibration import calibration_document, load_calibration
         self.noise_px = noise_px
@@ -212,7 +225,9 @@ class Capture:
         self.arc = arc or Arc()
         self.handedness = handedness
         self.body = body or p1_body(handedness)
-        self.true_offset_ms = fo_phase_ms - fo_shift_frames * 1000.0 / FPS
+        self.playback_fps = playback_fps or FPS
+        self.motion_scale = self.playback_fps / FPS       # real ms per timestamp ms
+        self.true_offset_ms = (fo_phase_ms - fo_shift_frames * 1000.0 / FPS) / self.motion_scale
         self.world_to_rig = (np.eye(4) if world_to_rig is None else np.asarray(world_to_rig))
         cams_world = rig(handedness)
         self.cams_world = cams_world
@@ -224,8 +239,10 @@ class Capture:
 
         cat = cm.Catalog(root=str(tmp_path / "catalog"))
         cm.add_golfer(cat, "Synthetic Golfer", "user", handedness, golfer_id="golfer")
-        _source(cat, "src-dtl", "golfer", "down_the_line", n_frames, ts_status)
-        _source(cat, "src-fo", "golfer", "face_on", n_frames, ts_status)
+        _source(cat, "src-dtl", "golfer", "down_the_line", n_frames, ts_status, timing,
+                self.playback_fps)
+        _source(cat, "src-fo", "golfer", "face_on", n_frames, ts_status, timing,
+                self.playback_fps)
         shot = cm.add_shot(cat, golfer_id="golfer", source_id="src-dtl",
                            camera_view="down_the_line", start_frame=0, end_frame=n_frames - 1,
                            swing_type="full", shot_id="shot-synthetic",
@@ -240,7 +257,11 @@ class Capture:
             offset = self.true_offset_ms if sync_offset_ms == "true" else sync_offset_ms
             cm.set_multi_view(cat, shot["shot_id"], "synchronization", sync_status,
                               "synthetic clocks", "test", offset_ms=offset,
-                              uncertainty_ms=sync_uncertainty_ms)
+                              uncertainty_ms=sync_uncertainty_ms,
+                              exposure_alignment=exposure_alignment,
+                              exposure_uncertainty_ms=(exposure_uncertainty_ms
+                                                       if exposure_alignment == "bounded"
+                                                       else None))
         if calibration_status != "unknown":
             cm.set_multi_view(cat, shot["shot_id"], "calibration", calibration_status,
                               "synthetic board", "test")
@@ -261,7 +282,8 @@ class Capture:
                 if not 0 <= f < n_frames:
                     continue
                 t = self.t0 + k / FPS + phase / 1000.0
-                frames[str(f)] = self._frame(sid, f, cam, club_points(self.arc, t))
+                pts = {**club_points(self.arc, t), **{n: self.body[n] for n in dynamic_body}}
+                frames[str(f)] = self._frame(sid, f, cam, pts)
             entry["positions"]["P7"] = self._position(sid, impact_frame + shift)
             doc["streams"][sid] = entry
         self.annotations = doc
@@ -282,13 +304,14 @@ class Capture:
             out[name] = {"x": float(p[0]), "y": float(p[1]), "visible": True,
                          "origin": "manual", "model": None, "confidence": None,
                          "set_by": "synthetic", "set_at": "2026-11-01T10:00:00Z"}
-        return {"timestamp_ms": round(f * 1000.0 / FPS, 3), "timestamp_basis": "container",
+        return {"timestamp_ms": round(f * 1000.0 / self.playback_fps, 3),
+                "timestamp_basis": "container",
                 "image_sha1": _digest(sid, f), "points": out, "unavailable": unavailable,
                 "review": {"status": "reviewed", "by": "synthetic",
                            "at": "2026-11-01T10:00:00Z", "notes": None}}
 
     def _position(self, sid, f):
-        return {"frame": f, "timestamp_ms": round(f * 1000.0 / FPS, 3),
+        return {"frame": f, "timestamp_ms": round(f * 1000.0 / self.playback_fps, 3),
                 "timestamp_basis": "container", "image_sha1": _digest(sid, f),
                 "origin": "manual", "set_by": "synthetic", "set_at": "2026-11-01T10:00:00Z"}
 

@@ -202,6 +202,17 @@
           "items": {
             "type": "string"
           }
+        },
+        "timing_uncertainty": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Worst-case bound from timing (impact-time and exposure-timing uncertainty), in the value's unit; null when not applicable or not propagated. Kept apart from uncertainty (1-sigma from image localization)."
         }
       },
       "required": [
@@ -210,7 +221,8 @@
         "unit",
         "uncertainty",
         "method",
-        "reasons"
+        "reasons",
+        "timing_uncertainty"
       ],
       "description": "measured: from observed points meeting every quality gate; inferred: depends on a point a person placed as hidden; unavailable: value is null and reasons say why. Never a guessed number."
     },
@@ -282,6 +294,17 @@
               "type": "null"
             }
           ]
+        },
+        "timing_uncertainty": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Worst-case bound from timing (impact-time and exposure-timing uncertainty), in the value's unit; null when not applicable or not propagated. Kept apart from uncertainty (1-sigma from image localization)."
         }
       },
       "required": [
@@ -290,7 +313,8 @@
         "unit",
         "uncertainty",
         "method",
-        "reasons"
+        "reasons",
+        "timing_uncertainty"
       ]
     },
     "camera_calibration": {
@@ -895,6 +919,23 @@
                 },
                 "convention": {
                   "const": "t_reference = t_stream + offset_ms for every non-reference stream"
+                },
+                "exposure_alignment": {
+                  "enum": [
+                    "unknown",
+                    "included",
+                    "bounded"
+                  ]
+                },
+                "exposure_uncertainty_ms": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
@@ -902,7 +943,9 @@
                 "method",
                 "offset_ms",
                 "uncertainty_ms",
-                "convention"
+                "convention",
+                "exposure_alignment",
+                "exposure_uncertainty_ms"
               ]
             },
             "catalog_calibration": {
@@ -933,6 +976,75 @@
               "items": {
                 "type": "string"
               }
+            },
+            "motion_time": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "stream_id": {
+                    "$ref": "#/$defs/identifier"
+                  },
+                  "motion_time": {
+                    "enum": [
+                      "real_time",
+                      "slowed",
+                      "retimed",
+                      "unknown"
+                    ]
+                  },
+                  "capture_fps": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "scale": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "real ms per timestamp ms; null = unknown"
+                  },
+                  "basis": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "stream_id",
+                  "motion_time",
+                  "capture_fps",
+                  "scale",
+                  "basis",
+                  "reasons"
+                ]
+              },
+              "description": "Each stream's motion clock (catalog timing). Without a known scale, no time-dependent physical quantity is measured."
+            },
+            "timing_convention": {
+              "type": "string"
             }
           },
           "required": [
@@ -940,7 +1052,9 @@
             "same_swing",
             "synchronization",
             "catalog_calibration",
-            "notes"
+            "notes",
+            "motion_time",
+            "timing_convention"
           ]
         },
         "world_frame": {
@@ -1149,6 +1263,102 @@
                   ],
                   "description": "One camera's own frame: source-frame id, its timestamp on that source's clock, and the decoded image's digest."
                 }
+              },
+              "motion_time_ms": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "time_ms in the swing's real time (time_ms x the reference stream's motion-clock scale); null when the motion time is unknown"
+              },
+              "timing": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "bound_ms": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "worst-case timing error between the views' exposures, real ms; null when a component is unknown"
+                      },
+                      "pair_gap_ms": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sync_uncertainty_ms": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "exposure_ms": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "exposure-midpoint term not already in sync_uncertainty_ms (0 when included); null when unknown"
+                      },
+                      "exposure": {
+                        "type": "string"
+                      },
+                      "motion_scale": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "unknown": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "timing components that are unknown (never taken as zero)"
+                      }
+                    },
+                    "required": [
+                      "bound_ms",
+                      "pair_gap_ms",
+                      "sync_uncertainty_ms",
+                      "exposure_ms",
+                      "exposure",
+                      "motion_scale",
+                      "unknown"
+                    ]
+                  }
+                ],
+                "description": "Dynamic frames only (null for static_address): bound_ms = motion_scale * (pair_gap_ms + sync_uncertainty_ms) + exposure_ms."
               }
             },
             "required": [
@@ -1158,7 +1368,9 @@
               "status",
               "reasons",
               "pair_gap_ms",
-              "views"
+              "views",
+              "motion_time_ms",
+              "timing"
             ],
             "description": "time_ms is on the reference stream's clock (its frame-0-relative timestamps); another stream's time maps as t_ref = t_stream + synchronization.offset_ms. static_address pairs each stream's own P1 frame (the golfer is still), so synchronization doesn't bear on it; dynamic frames are paired by synchronized time."
           }
@@ -1205,7 +1417,21 @@
                   "sha256"
                 ]
               },
-              "description": "time_ms (F), xyz (F,P,3) metres, cov (F,P,3,3) m^2, state (F,P) int8 0=missing 1=observed 2=inferred, n_views (F,P), reprojection_px (F,P,V), parallax_deg (F,P). sha256 of each array's C-order bytes, so the content is checkable whatever the zip container's metadata."
+              "description": "time_ms (F), xyz (F,P,3) metres, cov (F,P,3,3) m^2, state (F,P) int8 0=missing 1=observed 2=inferred, n_views (F,P), reprojection_px (F,P,V), parallax_deg (F,P); timing: motion_time_ms (F) real ms, timing_bound_ms (F) real ms, speed_bound_m_s (P), timing_error_m (F,P) worst-case displacement between exposures (kept apart from cov), timing_status (F,P) int8 0=not applicable 1=within 2=exceeds 3=unknown. sha256 of each array's C-order bytes, so the content is checkable whatever the zip container's metadata.",
+              "required": [
+                "time_ms",
+                "xyz",
+                "cov",
+                "state",
+                "n_views",
+                "reprojection_px",
+                "parallax_deg",
+                "motion_time_ms",
+                "timing_bound_ms",
+                "speed_bound_m_s",
+                "timing_error_m",
+                "timing_status"
+              ]
             }
           },
           "required": [
@@ -1353,6 +1579,17 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "timing_uncertainty": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Worst-case bound from timing (impact-time and exposure-timing uncertainty), in the value's unit; null when not applicable or not propagated. Kept apart from uncertainty (1-sigma from image localization)."
               }
             },
             "required": [
@@ -1361,7 +1598,8 @@
               "unit",
               "uncertainty",
               "method",
-              "reasons"
+              "reasons",
+              "timing_uncertainty"
             ],
             "description": "measured: from observed points meeting every quality gate; inferred: depends on a point a person placed as hidden; unavailable: value is null and reasons say why. Never a guessed number."
           }
@@ -1424,6 +1662,17 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "timing_uncertainty": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Worst-case bound from timing (impact-time and exposure-timing uncertainty), in the value's unit; null when not applicable or not propagated. Kept apart from uncertainty (1-sigma from image localization)."
                   }
                 },
                 "required": [
@@ -1432,7 +1681,8 @@
                   "unit",
                   "uncertainty",
                   "method",
-                  "reasons"
+                  "reasons",
+                  "timing_uncertainty"
                 ],
                 "description": "measured: from observed points meeting every quality gate; inferred: depends on a point a person placed as hidden; unavailable: value is null and reasons say why. Never a guessed number."
               }
@@ -1507,6 +1757,17 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "timing_uncertainty": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Worst-case bound from timing (impact-time and exposure-timing uncertainty), in the value's unit; null when not applicable or not propagated. Kept apart from uncertainty (1-sigma from image localization)."
                   }
                 },
                 "required": [
@@ -1515,7 +1776,8 @@
                   "unit",
                   "uncertainty",
                   "method",
-                  "reasons"
+                  "reasons",
+                  "timing_uncertainty"
                 ]
               }
             },
@@ -1555,13 +1817,47 @@
                   }
                 }
               }
+            },
+            "impact_time_uncertainty_ms": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Real ms. P7 marks the frame containing or nearest impact, so impact lies within one frame interval of it; nothing finer is claimed."
+            },
+            "impact_time_basis": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "motion_scale": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
             "impact_time_ms",
             "values",
             "points",
-            "series"
+            "series",
+            "impact_time_uncertainty_ms",
+            "impact_time_basis",
+            "motion_scale"
           ]
         }
       },

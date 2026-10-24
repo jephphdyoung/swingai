@@ -199,6 +199,84 @@ def test_unverified_moving_frames_publish_no_trajectory(tmp_path):
     assert any("estimated timestamp" in r for r in out["values"]["clubhead_speed_m_s"]["reasons"])
 
 
+TIME_DEPENDENT = ("clubhead_speed_m_s", "clubhead_speed_mph", "club_path_deg", "path_yaw_deg",
+                  "attack_angle_deg", "swing_direction_deg", "swing_plane_inclination_deg",
+                  "low_point_ahead_of_ball_m", "low_point_height_m", "low_point_time_ms",
+                  "fitted_arc_low_point_ahead_of_ball_m")
+
+
+def test_samples_failing_the_timing_gate_give_no_club_values(tmp_path):
+    # Verified sync, but 0.3 ms uncertainty: the clubhead may move ~22 mm between
+    # exposures. Every frame is otherwise measured and every point triangulates.
+    out, rec = _club(Capture(tmp_path, sync_uncertainty_ms=0.3))
+    assert all(f["status"] == "measured" for f in rec.frames)
+    for k in TIME_DEPENDENT:
+        m = out["values"][k]
+        assert m["status"] == "unavailable" and m["value"] is None, k
+        assert any("timing: clubhead_center may move" in r for r in m["reasons"]), k
+    assert out["points"]["observed_low_point"]["value"] is None
+    assert out["series"]["time_ms"] == []
+    # Exposure alignment unknown: refused too, saying why.
+    out, _ = _club(Capture(tmp_path, exposure_alignment="unknown"))
+    for k in TIME_DEPENDENT:
+        assert out["values"][k]["status"] == "unavailable", k
+    assert any("exposure alignment between the cameras is unknown" in r
+               for r in out["values"]["clubhead_speed_m_s"]["reasons"])
+
+
+def test_footage_without_real_motion_time_gives_no_physical_rates(tmp_path):
+    for timing in ({"motion_time": "unknown", "capture_fps": None, "basis": None},
+                   {"motion_time": "retimed", "capture_fps": None, "basis": "edited"}):
+        cap = Capture(tmp_path, timing=timing)
+        out, rec = _club(cap)
+        assert rec.motion_scale is None and out["motion_scale"] is None
+        assert out["impact_time_uncertainty_ms"] is None
+        for k in TIME_DEPENDENT:
+            m = out["values"][k]
+            assert m["status"] == "unavailable" and m["value"] is None
+            assert "motion time is unknown" in m["reasons"][0]
+        # Static alignment doesn't depend on time and is unaffected.
+        assert p1_alignment(rec, "right")["shoulder_open_deg"]["status"] == "measured"
+
+
+def test_slowed_footage_measures_real_speed_from_its_capture_rate(tmp_path):
+    slowed = {"motion_time": "slowed", "capture_fps": 240.0,
+              "basis": "FOX 240 fps export at 30 fps, frame for frame"}
+    cap = Capture(tmp_path, timing=slowed, playback_fps=30.0)
+    out, rec = _club(cap)
+    v = out["values"]
+    exp = cap.arc.expected(cap.t0 + 70 / FPS)                 # the P7 frame's real time
+    assert v["clubhead_speed_m_s"]["status"] == "measured"
+    assert v["clubhead_speed_m_s"]["value"] == pytest.approx(exp["speed"], rel=0.02)
+    assert v["path_yaw_deg"]["value"] == pytest.approx(exp["path_yaw_deg"], abs=0.75)
+    assert out["impact_time_uncertainty_ms"] == pytest.approx(1000 / 240)
+    # Playback time would have made it 8x slower.
+    assert v["clubhead_speed_m_s"]["value"] > 30
+
+
+def test_impact_time_uncertainty_is_reported_and_covers_the_true_impact(tmp_path):
+    cap = Capture(tmp_path)
+    out, _ = _club(cap)
+    assert out["impact_time_uncertainty_ms"] == pytest.approx(1000 / 240)
+    assert "within one frame interval" in out["impact_time_basis"]
+    v = out["values"]
+    # The ball is actually passed 1.25 ms after the P7 frame; the path there differs by
+    # more than the image-noise uncertainty, but within the timing uncertainty.
+    true = cap.arc.expected()
+    for key, truth in (("path_yaw_deg", true["path_yaw_deg"]),
+                       ("attack_angle_deg", true["attack_deg"]),
+                       ("clubhead_speed_m_s", true["speed"])):
+        m = v[key]
+        assert m["timing_uncertainty"] > 0, key
+        assert abs(m["value"] - truth) <= m["timing_uncertainty"] + 2 * m["uncertainty"], key
+    m = v["path_yaw_deg"]
+    at_p7 = cap.arc.expected(cap.arc_time(out["impact_time_ms"]))
+    assert abs(at_p7["path_yaw_deg"] - true["path_yaw_deg"]) > 2 * m["uncertainty"]
+    assert "impact time ±4.17 ms" in m["method"]
+    assert v["low_point_time_ms"]["timing_uncertainty"] == pytest.approx(1000 / 240)
+    assert v["swing_direction_deg"]["timing_uncertainty"] is None
+
+
 def test_low_point_must_be_bracketed(tmp_path):
     cap = Capture(tmp_path, club_frames=range(40, 70))     # observations stop before it
     out, _ = _club(cap)

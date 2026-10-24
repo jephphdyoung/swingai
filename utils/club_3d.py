@@ -24,10 +24,28 @@ are fixed for a real club. A frame whose lengths deviate from the shot's
 median by more than max(10 mm, 5 %) has inconsistent observations
 (mislabelled point, wrong frame pairing) and is excluded from trajectories.
 
-**Trajectory values** (world frame, metres, seconds; impact = the reference
-stream's P7 time). A frame is usable only if it is a measured dynamic frame,
-the tracking centre is *observed* (not inferred), its 1-sigma position
-uncertainty is <= `max_sigma_m`, and the club geometry is consistent.
+**Trajectory values** (world frame, metres, seconds of the swing's *real*
+time -- the frames' `motion_time_ms`; impact = the reference stream's P7
+time). A frame is usable only if it is a measured dynamic frame, the tracking
+centre is *observed* (not inferred), its 1-sigma position uncertainty is <=
+`max_sigma_m`, every point it comes from passes the timing gate (the motion
+between the cameras' exposures, `utils/timing_3d.py`), and the club geometry
+is consistent. With the reference stream's motion time unknown (retimed or
+undocumented footage) nothing time-dependent is reported.
+
+**Impact time.** P7 marks the frame containing or nearest impact, so the
+true impact lies within one frame interval of the P7 time; that interval (in
+real ms) is reported as `impact_time_uncertainty_ms`, and nothing finer is
+claimed.
+
+**Timing uncertainty** of a value (`timing_uncertainty`, a worst-case bound,
+kept apart from the 1-sigma `uncertainty`): for speed, path and attack angle
+it is the first-order change of the value over the impact-time uncertainty
+(from the fit's acceleration) plus the effect of the samples' timing
+position-error bounds on the fitted velocity (sum of |fit weight| x bound);
+for the observed low point, that sample's timing bound (and the impact-time
+uncertainty for its time). Swing direction and the fitted arc don't propagate
+it (null); their samples each pass the timing gate.
 
 - velocity at impact: per-axis quadratic least-squares fit of usable frames
   within +/- `fit_window_ms` of impact, needing at least two on each side and
@@ -61,7 +79,7 @@ import numpy as np
 from utils.alignment_3d import measurement, unavailable
 from utils.reconstruct_3d import STATE_OBSERVED
 
-ALGORITHM = {"name": "swingai-club-trajectory", "version": "1.0.0"}
+ALGORITHM = {"name": "swingai-club-trajectory", "version": "1.1.0"}
 MPS_TO_MPH = 2.2369362920544
 SEGMENTS = (("shaft_butt", "shaft_hosel"), ("clubhead_heel", "clubhead_toe"),
             ("shaft_hosel", "clubhead_center"))
@@ -97,13 +115,14 @@ def club_structure(rec, i):
 
 
 def tracking_center(rec, i):
-    """(xyz, cov, basis) of the clubhead tracking centre at frame i, or None."""
+    """(xyz, cov, basis, point names) of the clubhead tracking centre at frame i, or None."""
     c = _pt(rec, i, "clubhead_center")
     if c is not None:
-        return c[0], c[1], "clubhead_center"
+        return c[0], c[1], "clubhead_center", ("clubhead_center",)
     h, t = _pt(rec, i, "clubhead_heel"), _pt(rec, i, "clubhead_toe")
     if h is not None and t is not None:
-        return (h[0] + t[0]) / 2, (h[1] + t[1]) / 4, "heel-toe midpoint"
+        return ((h[0] + t[0]) / 2, (h[1] + t[1]) / 4, "heel-toe midpoint",
+                ("clubhead_heel", "clubhead_toe"))
     return None
 
 
@@ -130,8 +149,9 @@ def rigidity(rec, frames, rel=0.05, abs_m=0.010):
 class _Samples:
     """Usable tracking-centre samples, with the reasons others were dropped."""
 
-    def __init__(self, rec, impact_ms, max_sigma_m):
-        self.t, self.x, self.sig, self.dropped = [], [], [], []
+    def __init__(self, rec, impact_motion_ms, max_sigma_m):
+        """impact_motion_ms: impact in real ms (the frames' motion_time_ms clock)."""
+        self.t, self.x, self.sig, self.err, self.dropped = [], [], [], [], []
         dyn = [i for i, f in enumerate(rec.frames) if f["kind"] == "dynamic"]
         bad = rigidity(rec, dyn)
         for i in dyn:
@@ -148,22 +168,30 @@ class _Samples:
                 s = math.sqrt(max(np.linalg.eigvalsh(tc[1]).max(), 0.0))
                 if s > max_sigma_m:
                     why = f"tracking-centre uncertainty {s * 1000:.1f} mm"
+                else:
+                    why = next((p for p in (rec.problem(i, rec.point_index(n))
+                                            for n in tc[3]) if p), None)
+            t_ms = (f["time_ms"] if f["motion_time_ms"] is None
+                    else f["motion_time_ms"]) - impact_motion_ms
             if why:
-                self.dropped.append((f["time_ms"] - impact_ms, why))
+                self.dropped.append((t_ms, why))
                 continue
-            self.t.append((f["time_ms"] - impact_ms) / 1000.0)
+            self.t.append(t_ms / 1000.0)
             self.x.append(tc[0])
-            self.sig.append(math.sqrt(max(np.linalg.eigvalsh(tc[1]).max(), 0.0)))
+            self.sig.append(s)
+            self.err.append(max(float(rec.timing_error_m[i, rec.point_index(n)])
+                                for n in tc[3]))
         order = np.argsort(self.t)
         self.t = np.asarray(self.t, float)[order]
         self.x = np.asarray(self.x, float).reshape(-1, 3)[order]
         self.sig = np.asarray(self.sig, float)[order]
+        self.err = np.asarray(self.err, float)[order]
         d = np.diff(self.t)
         self.dt = float(np.median(d)) if len(d) else None
 
-    def window(self, lo_s, hi_s):
+    def window(self, lo_s, hi_s, with_err=False):
         m = (self.t >= lo_s) & (self.t <= hi_s)
-        return self.t[m], self.x[m], self.sig[m]
+        return (self.t[m], self.x[m], self.sig[m]) + ((self.err[m],) if with_err else ())
 
     def dropped_near(self, lo_s, hi_s):
         return [why for t, why in self.dropped if lo_s * 1000 <= t <= hi_s * 1000]
@@ -174,7 +202,8 @@ def _gap_ok(t, dt):
 
 
 def _velocity(samples, window_s):
-    t, x, sig = samples.window(-window_s, window_s)
+    """(velocity, its 1-sigma, acceleration, velocity timing bound, reasons)."""
+    t, x, sig, err = samples.window(-window_s, window_s, with_err=True)
     reasons = []
     if (t < 0).sum() < 2 or (t > 0).sum() < 2:
         reasons.append(f"needs two usable samples each side of impact within "
@@ -183,13 +212,18 @@ def _velocity(samples, window_s):
     elif not _gap_ok(t, samples.dt):
         reasons.append("a gap in the samples around impact")
     if reasons:
-        return None, None, reasons + samples.dropped_near(-window_s, window_s)
+        return None, None, None, None, reasons + samples.dropped_near(-window_s, window_s)
     A = np.column_stack([np.ones_like(t), t, t ** 2])
     coef, *_ = np.linalg.lstsq(A, x, rcond=None)
     v = coef[1]
     s = float(np.max(sig))
-    cov_coef = s ** 2 * np.linalg.inv(A.T @ A)
-    return v, math.sqrt(cov_coef[1, 1]), []
+    AtA_inv = np.linalg.inv(A.T @ A)
+    cov_coef = s ** 2 * AtA_inv
+    # Each sample may be displaced by up to err[k] in any direction by the
+    # exposure timing; the fitted velocity is linear in the samples.
+    w = (AtA_inv @ A.T)[1]
+    v_timing = float(np.abs(w) @ err)
+    return v, math.sqrt(cov_coef[1, 1]), 2 * coef[2], v_timing, []
 
 
 def _fit_plane(x):
@@ -230,20 +264,35 @@ def club_metrics(rec, impact_ms, handedness, *, max_sigma_m=0.01, fit_window_ms=
              "low_point_height_m": "m", "low_point_time_ms": "ms",
              "fitted_arc_low_point_ahead_of_ball_m": "m"}
     gate = None
+    scale = rec.motion_scale
+    ref = rec.streams[0]
+    impact_unc = (None if scale is None or ref.frame_interval_ms is None
+                  else ref.frame_interval_ms * scale)
+    timing = {"impact_time_uncertainty_ms": impact_unc,
+              "impact_time_basis": (None if impact_unc is None else
+                                    "P7 marks the frame containing or nearest impact: true "
+                                    "impact within one frame interval of its time"),
+              "motion_scale": scale}
     if rec.world["status"] != "defined":
         gate = "the world frame is undefined: " + "; ".join(rec.world["reasons"])
     elif impact_ms is None:
         gate = "no impact (P7) time on the reference stream"
+    elif scale is None:
+        gate = (f"the reference stream's motion time is unknown, so its timestamps aren't the "
+                f"swing's real time: " + "; ".join(ref.motion["reasons"]))
+    elif impact_unc is None:
+        gate = "the reference stream has no frame rate, so impact time can't be bounded"
     if gate:
         out = {k: unavailable(u, "", gate) for k, u in names.items()}
         pts = {k: {**unavailable("m", "", gate), "value": None, "time_ms": None, "frame": None}
                for k in ("observed_low_point", "fitted_free_arc_low_point")}
-        return {"impact_time_ms": impact_ms, "values": out, "points": pts,
+        return {"impact_time_ms": impact_ms, **timing, "values": out, "points": pts,
                 "series": {"time_ms": [], "speed_m_s": [], "displacement_m": []}}
-    s = _Samples(rec, impact_ms, max_sigma_m)
+    s = _Samples(rec, impact_ms * scale, max_sigma_m)
+    dt_imp = impact_unc / 1000.0
 
     # velocity-derived values
-    v, sv, why = _velocity(s, fit_window_ms / 1000.0)
+    v, sv, acc, v_timing, why = _velocity(s, fit_window_ms / 1000.0)
     vm = (f"quadratic least-squares fit of the tracking centre over ±{fit_window_ms:g} ms of "
           "impact; derivative at impact")
     if v is None:
@@ -255,16 +304,33 @@ def club_metrics(rec, impact_ms, handedness, *, max_sigma_m=0.01, fit_window_ms=
         horiz = math.hypot(v[0], v[1])
         yaw = math.degrees(math.atan2(v[1], v[0]))
         ang_sigma = math.degrees(sv / speed)
-        values["clubhead_speed_m_s"] = measurement(speed, "m/s", vm, sv)
-        values["clubhead_speed_mph"] = measurement(speed * MPS_TO_MPH, "mph", vm,
-                                                   sv * MPS_TO_MPH)
-        values["path_yaw_deg"] = measurement(yaw, "deg", vm + "; ground direction, +Y positive",
-                                             ang_sigma)
+        # worst-case timing terms: impact anywhere within dt_imp of P7 (first order,
+        # from the fitted acceleration), plus the samples' exposure-timing bounds
+        speed_rate = abs(float(v @ acc)) / speed
+        h = max(horiz, 1e-9)                    # a vertical velocity has no path direction
+        yaw_rate = abs(v[0] * acc[1] - v[1] * acc[0]) / h ** 2
+        horiz_rate = (v[0] * acc[0] + v[1] * acc[1]) / h
+        elev_rate = abs(acc[2] * horiz - v[2] * horiz_rate) / (horiz ** 2 + v[2] ** 2)
+        t_speed = speed_rate * dt_imp + v_timing
+        t_ang = math.degrees(v_timing / speed)
+        t_yaw = math.degrees(yaw_rate * dt_imp) + t_ang
+        t_elev = math.degrees(elev_rate * dt_imp) + t_ang
+        vm_t = (vm + f"; impact time ±{impact_unc:.2f} ms (P7 frame), so timing_uncertainty "
+                "includes the change over that interval")
+        values["clubhead_speed_m_s"] = measurement(speed, "m/s", vm_t, sv,
+                                                   timing_uncertainty=t_speed)
+        values["clubhead_speed_mph"] = measurement(speed * MPS_TO_MPH, "mph", vm_t,
+                                                   sv * MPS_TO_MPH,
+                                                   timing_uncertainty=t_speed * MPS_TO_MPH)
+        values["path_yaw_deg"] = measurement(yaw, "deg",
+                                             vm_t + "; ground direction, +Y positive",
+                                             ang_sigma, timing_uncertainty=t_yaw)
         values["club_path_deg"] = measurement(-sign * yaw, "deg",
-                                              vm + "; positive = in-to-out", ang_sigma)
+                                              vm_t + "; positive = in-to-out", ang_sigma,
+                                              timing_uncertainty=t_yaw)
         values["attack_angle_deg"] = measurement(math.degrees(math.atan2(v[2], horiz)), "deg",
-                                                 vm + "; elevation, negative = descending",
-                                                 ang_sigma)
+                                                 vm_t + "; elevation, negative = descending",
+                                                 ang_sigma, timing_uncertainty=t_elev)
 
     # swing direction from the fitted plane
     pm = (f"total-least-squares plane through the tracking centre over ±{plane_window_ms:g} ms "
@@ -300,7 +366,7 @@ def club_metrics(rec, impact_ms, handedness, *, max_sigma_m=0.01, fit_window_ms=
     lo, hi = low_window_ms
     lm = (f"lowest usable tracking-centre sample in [{lo:g}, {hi:g}] ms of impact, bracketed "
           "by samples on both sides; uncertainty includes half the sample spacing")
-    t, x, sig = s.window(lo / 1000, hi / 1000)
+    t, x, sig, err = s.window(lo / 1000, hi / 1000, with_err=True)
     why = []
     if len(t) < 3:
         why.append(f"fewer than 3 usable samples in [{lo:g}, {hi:g}] ms")
@@ -320,13 +386,17 @@ def club_metrics(rec, impact_ms, handedness, *, max_sigma_m=0.01, fit_window_ms=
     else:
         spacing = 0.5 * max(np.linalg.norm(x[k] - x[k - 1]), np.linalg.norm(x[k + 1] - x[k]))
         unc = math.hypot(float(sig[k]), spacing)
-        p = {**measurement(None, "m", lm, unc), "value": [float(c) for c in x[k]],
-             "time_ms": float(t[k] * 1000), "frame": None}
-        values["low_point_ahead_of_ball_m"] = measurement(x[k, 0], "m", lm, unc)
+        e = float(err[k])
+        p = {**measurement(None, "m", lm, unc, timing_uncertainty=e),
+             "value": [float(c) for c in x[k]], "time_ms": float(t[k] * 1000), "frame": None}
+        values["low_point_ahead_of_ball_m"] = measurement(x[k, 0], "m", lm, unc,
+                                                          timing_uncertainty=e)
         values["low_point_height_m"] = measurement(x[k, 2], "m", lm + " (tracking centre, "
-                                                   "not the sole)", float(sig[k]))
-        values["low_point_time_ms"] = measurement(t[k] * 1000, "ms", lm,
-                                                  (s.dt or 0) * 1000)
+                                                   "not the sole)", float(sig[k]),
+                                                   timing_uncertainty=e)
+        values["low_point_time_ms"] = measurement(t[k] * 1000, "ms", lm + "; relative to the "
+                                                  "P7 time", (s.dt or 0) * 1000,
+                                                  timing_uncertainty=impact_unc)
     points["observed_low_point"] = p
 
     # fitted free-arc low point (optional, inferred)
@@ -366,7 +436,8 @@ def club_metrics(rec, impact_ms, handedness, *, max_sigma_m=0.01, fit_window_ms=
     disp = ([float(np.linalg.norm(p - s.x[0])) for p in s.x] if len(s.x) else [])
     series = {"time_ms": [float(v * 1000) for v in s.t], "speed_m_s": speed,
               "displacement_m": disp}
-    return {"impact_time_ms": impact_ms, "values": values, "points": points, "series": series}
+    return {"impact_time_ms": impact_ms, **timing, "values": values, "points": points,
+            "series": series}
 
 
 def impact_time_ms(annotations, reference_stream):
@@ -386,5 +457,8 @@ def measurements_document(rec, manifest_sha256, reconstruction_id, handedness, i
                           "version": f"{ALIGN['version']}+{ALGORITHM['version']}",
                           "parameters": {}},
             "handedness": handedness, "alignment_p1": alignment,
-            "club": {"impact_time_ms": impact_ms, "values": club["values"],
-                     "points": club["points"], "series": club["series"]}}
+            "club": {"impact_time_ms": impact_ms,
+                     **{k: club[k] for k in ("impact_time_uncertainty_ms", "impact_time_basis",
+                                             "motion_scale")},
+                     "values": club["values"], "points": club["points"],
+                     "series": club["series"]}}

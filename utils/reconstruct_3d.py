@@ -39,8 +39,20 @@ frame: "measured" only when the calibration is verified (document and
 catalog) and the same-swing association is verified with its provenance
 (method, by, at) -- views of different swings make even a still address pose
 meaningless in 3D; for dynamic frames also the synchronization is verified
-with a small enough uncertainty and every view's timestamp is a verified
-container time; otherwise "unverified" with the reasons.
+with an offset and uncertainty, every view's timestamp is a verified
+container time, every stream's motion time is known (`catalog.motion_clock`)
+and the frame's timing-error bound is known; otherwise "unverified" with the
+reasons.
+
+**Timing** (`utils/timing_3d.py`). Each dynamic frame records its timing-error
+bound in real ms (pair gap, synchronization uncertainty, exposure alignment)
+and each triangulated point the position error that bound allows at the
+point's a-priori speed bound, with a per-point timing status (within /
+exceeds `max_timing_position_error_m` / unknown). This is orthogonal to the
+observed/inferred/missing state and to the covariance: a fast clubhead can
+fail it in a frame whose slow shoulders pass. `Reconstruction.problem()`
+combines the gates for consumers. Static address frames are not timed (the
+golfer is still).
 
 **World frame.** Points are triangulated in the calibration's rig frame, then
 moved to the shot's world frame (`utils/world_frame.py`) when the ground,
@@ -55,12 +67,13 @@ from typing import Optional
 
 import numpy as np
 
+from utils import timing_3d as tm
 from utils import world_frame as wf
 from utils.camera_model import apply_transform
 from utils.catalog import canonical_sha256
 from utils.triangulation import check_point, triangulate
 
-ALGORITHM = {"name": "swingai-label-triangulation", "version": "1.0.0"}
+ALGORITHM = {"name": "swingai-label-triangulation", "version": "1.1.0"}
 STATE_MISSING, STATE_OBSERVED, STATE_INFERRED = 0, 1, 2
 STATE_NAMES = {STATE_MISSING: "missing", STATE_OBSERVED: "observed",
                STATE_INFERRED: "inferred"}
@@ -78,10 +91,15 @@ class Requirements:
     min_parallax_deg: float = 5.0
     max_point_sigma_m: float = 0.02
     max_pair_gap_ms: float = 0.5
-    max_sync_uncertainty_ms: float = 1.0
+    max_timing_position_error_m: float = 0.010
+    speed_bounds_m_s: tuple = tuple(sorted(tm.SPEED_BOUNDS_M_S.items()))
+
+    @property
+    def speed_bounds(self):
+        return dict(self.speed_bounds_m_s)
 
     def as_dict(self):
-        return dict(self.__dict__)
+        return {**self.__dict__, "speed_bounds_m_s": self.speed_bounds}
 
 
 @dataclass
@@ -94,6 +112,13 @@ class StreamInput:
     camera: object                      # Camera in the rig frame
     labels: dict                        # the stream's shot-annotation entry
     offset_ms: Optional[float] = 0.0    # t_ref = t_stream + offset_ms; None: unknown
+    motion: dict = field(default_factory=lambda: {"scale": None, "reasons": ["not given"]})
+    frame_interval_ms: Optional[float] = None   # timestamp ms per frame (1000 / nominal fps)
+
+    @property
+    def motion_scale(self):
+        """Real ms per timestamp ms (catalog.motion_clock), None when unknown."""
+        return self.motion.get("scale")
 
 
 @dataclass
@@ -113,10 +138,50 @@ class Reconstruction:
     requirements: Requirements
     missing: list = field(default_factory=list)
     inputs: dict = field(default_factory=dict)
+    timing_error_m: np.ndarray = None   # (F,P) worst-case displacement between exposures
+    timing_status: np.ndarray = None    # (F,P) int8, timing_3d.TIMING_*
 
     @property
     def time_ms(self):
         return np.array([f["time_ms"] for f in self.frames], float)
+
+    @property
+    def motion_scale(self):
+        """Real ms per reference-clock ms; None when the motion time is unknown."""
+        return self.streams[0].motion_scale
+
+    @property
+    def motion_time_ms(self):
+        """(F,) real swing time on the reference clock's origin; NaN when unknown."""
+        return np.array([np.nan if f["motion_time_ms"] is None else f["motion_time_ms"]
+                         for f in self.frames], float)
+
+    @property
+    def timing_bound_ms(self):
+        """(F,) each dynamic frame's timing-error bound (real ms); NaN static/unknown."""
+        return np.array([np.nan if not f["timing"] or f["timing"]["bound_ms"] is None
+                         else f["timing"]["bound_ms"] for f in self.frames], float)
+
+    @property
+    def speed_bound_m_s(self):
+        return np.array([tm.speed_bound(n, self.requirements.speed_bounds)
+                         for n in self.point_names], float)
+
+    def problem(self, i, j, allow_inferred=False):
+        """Why point j at frame i isn't a trustworthy measured input (None if it is):
+        frame not measured, point not observed, or (dynamic) timing gate failed."""
+        fr = self.frames[i]
+        if fr["status"] != "measured":
+            return "frame not measured: " + "; ".join(fr["reasons"])
+        ok = (STATE_OBSERVED, STATE_INFERRED) if allow_inferred else (STATE_OBSERVED,)
+        if self.state[i, j] not in ok:
+            return f"{self.point_names[j]} is {STATE_NAMES[int(self.state[i, j])]}"
+        if fr["kind"] == "dynamic":
+            return tm.describe(self.point_names[j], fr["timing"], self.timing_error_m[i, j],
+                               self.timing_status[i, j],
+                               self.requirements.max_timing_position_error_m,
+                               self.requirements.speed_bounds)
+        return None
 
     def point_index(self, name):
         return self.point_names.index(name)
@@ -147,6 +212,7 @@ def stereo_inputs(cat, shot_id, annotations, calibration, indexes=None):
                                f"{same['status']} without a documented method")
     if annotations.get("shot_id") != shot_id:
         raise StereoInputError("labels are for a different shot")
+    from utils.catalog import motion_clock
     doc, cams, _ = calibration
     sync = shot["multi_view"]["synchronization"]
     offset = sync.get("offset_ms") if sync["status"] in ("estimated", "verified") else None
@@ -171,10 +237,12 @@ def stereo_inputs(cat, shot_id, annotations, calibration, indexes=None):
             problems = sa.identity_problems(annotations, st["stream_id"], indexes[st["stream_id"]])
             if problems:
                 raise StereoInputError(f"stream {st['stream_id']}: " + "; ".join(problems))
+        fps = src["video"].get("nominal_fps")
         streams.append(StreamInput(
             st["stream_id"], st["source_id"], src["sha256"], st["camera_view"],
             src["video"]["timestamps"]["status"], cam, labels,
-            0.0 if i == 0 else (None if offset is None else float(offset))))
+            0.0 if i == 0 else (None if offset is None else float(offset)),
+            motion_clock(src, st["stream_id"]), 1000.0 / fps if fps else None))
     return shot, streams
 
 
@@ -216,9 +284,11 @@ def _associate(streams, req):
                 gap = max(gap, g)
         if len(views) >= 2:
             frames.append({"kind": "dynamic", "pair_gap_ms": round(gap, 4), "views": views})
+    scale = ref.motion_scale
     for fr in frames:
         v0 = fr["views"][0]
         fr["time_ms"] = v0["timestamp_ms"]
+        fr["motion_time_ms"] = None if scale is None else round(fr["time_ms"] * scale, 6)
     frames.sort(key=lambda fr: fr["time_ms"])
     for i, fr in enumerate(frames):
         fr["index"] = i
@@ -247,15 +317,15 @@ def _frame_status(fr, streams, shot, calibration_doc, req):
             reasons.append(f"synchronization is {sync['status']}, not verified")
         elif sync.get("offset_ms") is None or sync.get("uncertainty_ms") is None:
             reasons.append("synchronization has no offset / uncertainty")
-        elif sync["uncertainty_ms"] > req.max_sync_uncertainty_ms:
-            reasons.append(f"synchronization uncertainty {sync['uncertainty_ms']} ms > "
-                           f"{req.max_sync_uncertainty_ms} ms")
         for v in fr["views"]:
             s = by_id[v["stream_id"]]
             if v["timestamp_basis"] != "container":
                 reasons.append(f"{s.stream_id} frame {v['source_frame']}: estimated timestamp")
             if s.timestamp_status != "verified":
                 reasons.append(f"{s.stream_id}: source timestamps are {s.timestamp_status}")
+            reasons += s.motion["reasons"]
+        reasons += [f"timing-error bound unknown: {u}" for u in fr["timing"]["unknown"]
+                    if u != tm.MOTION_UNKNOWN]
     return ("measured" if not reasons else "unverified"), reasons
 
 
@@ -285,6 +355,12 @@ def reconstruct(shot, streams, calibration, annotations, requirements=None):
     parallax = np.full((F, P), np.nan)
     missing = []
     col = {s.stream_id: i for i, s in enumerate(streams)}
+    sync = shot["multi_view"]["synchronization"]
+    for fr in frames:
+        fr["timing"] = (tm.frame_timing(fr["pair_gap_ms"], sync,
+                                        [by_id[v["stream_id"]].motion_scale
+                                         for v in fr["views"]])
+                        if fr["kind"] == "dynamic" else None)
     for i, fr in enumerate(frames):
         fr["status"], fr["reasons"] = _frame_status(fr, streams, shot, cal_doc, req)
         for j, name in enumerate(names):
@@ -314,6 +390,13 @@ def reconstruct(shot, streams, calibration, annotations, requirements=None):
                 continue
             xyz[i, j], cov[i, j] = p.xyz, p.cov
             state[i, j] = STATE_INFERRED if inferred else STATE_OBSERVED
+    timing_err = np.full((F, P), np.nan)
+    timing_status = np.zeros((F, P), np.int8)
+    for i, fr in enumerate(frames):
+        if fr["kind"] == "dynamic":
+            timing_err[i], timing_status[i] = tm.point_timing(
+                fr["timing"]["bound_ms"], names, state[i] > 0,
+                req.max_timing_position_error_m, req.speed_bounds)
     association = {
         "reference_stream": streams[0].stream_id,
         "same_swing": {k: shot["multi_view"]["same_swing"].get(k)
@@ -323,13 +406,21 @@ def reconstruct(shot, streams, calibration, annotations, requirements=None):
                             "offset_ms": shot["multi_view"]["synchronization"].get("offset_ms"),
                             "uncertainty_ms":
                                 shot["multi_view"]["synchronization"].get("uncertainty_ms"),
+                            "exposure_alignment": sync.get("exposure_alignment", "unknown"),
+                            "exposure_uncertainty_ms": sync.get("exposure_uncertainty_ms"),
                             "convention": SYNC_CONVENTION},
+        "motion_time": [{"stream_id": s.stream_id,
+                         **{k: s.motion.get(k) for k in ("motion_time", "capture_fps",
+                                                         "scale", "basis", "reasons")}}
+                        for s in streams],
+        "timing_convention": tm.BOUND_FORMULA,
         "catalog_calibration": {k: shot["multi_view"]["calibration"].get(k)
                                 for k in ("status", "method")}}
     association["notes"] = [f"{s.stream_id}: synchronization unknown, so no moving frames were "
                             "paired with it" for s in streams[1:] if s.offset_ms is None]
     rec = Reconstruction(shot["shot_id"], streams, names, frames, xyz, cov, state, n_views,
-                         reproj, parallax, {}, association, req, missing)
+                         reproj, parallax, {}, association, req, missing,
+                         timing_error_m=timing_err, timing_status=timing_status)
     rec.world = _world_frame(rec, cal_doc)
     if rec.world["status"] == "defined":
         T = np.asarray(rec.world["rig_to_world"])
