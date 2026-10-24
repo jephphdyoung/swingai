@@ -11,7 +11,9 @@ calibration recordings.
 
 - **Measured stereo 3D** needs one swing recorded by two (or more) calibrated,
   synchronized cameras: a catalog shot with several streams and a documented
-  same-swing association. That is what this PR reconstructs.
+  same-swing association. That is what this PR reconstructs. An *asserted*
+  association is enough to reconstruct experimentally; nothing is `measured` until
+  it is *verified*, with its provenance (method, by, at).
 - **Inferred 3D** from independent recordings — e.g. Grant Waite DTL and face-on
   clips of *different* swings, which the catalog keeps as separate single-stream
   shots — can only feed a later statistical fit with stated uncertainty.
@@ -66,7 +68,7 @@ Each camera is stored with `camera_to_rig` and, when defined, `camera_to_world`.
 | point | `observed` | triangulated from visible labels in ≥ 2 views, passing reprojection (≤ 3 px), parallax (≥ 5°) and uncertainty (≤ 20 mm) checks |
 | | `inferred` | as observed, but a contributing label was placed as hidden, or is an unreviewed model proposal |
 | | `missing` | labelled in one view only, or rejected — with the reason |
-| frame | `measured` | calibration verified (document **and** catalog); for dynamic frames also synchronization verified with uncertainty ≤ 1 ms and every view's timestamp a verified container time |
+| frame | `measured` | calibration verified (document **and** catalog) and same swing verified with method, by and at — for the static address too, since views of different swings don't share a pose; for dynamic frames also synchronization verified with uncertainty ≤ 1 ms and every view's timestamp a verified container time |
 | | `unverified` | anything short of that, with reasons |
 | value | `measured` / `inferred` / `unavailable` | unavailable values are `null` with reasons, never a guess |
 
@@ -149,12 +151,19 @@ Nothing below has been run yet. Until it has, all accuracy statements are synthe
    in the hitting area): read both ends' pixels in each camera's frame and run
    `check-distance ... --known-m 1.000 --tolerance-mm 5 --by <name> --out fox-v2.json`.
    Repeat at several positions and heights; only a pass writes a `verified` version.
+   A pass needs the length within tolerance **and** both ends valid triangulations
+   (`triangulation.check_point`): in front of both cameras, reprojection ≤ 3 px,
+   rays ≥ 5° apart and 1-sigma position uncertainty no larger than the tolerance
+   (`--max-reprojection-px`, `--min-parallax-deg`, `--max-sigma-mm`). A matching
+   length from bad geometry proves nothing about the calibration.
 6. **Scene evidence per shot:** lay an alignment stick on the ground parallel to the
    target line; in the Reference Editor label `target_line_back`/`front`, and
    `ball_center` at P1 (plus `floor_a/b/c` if the board wasn't on the ground).
 7. **Catalog:** in the editor, the DTL/FO streams of the swing are one shot
-   (*Add another camera view of this same swing*); record synchronization (method,
-   `offset_ms` with t_ref = t_FO + offset, uncertainty) and calibration as verified.
+   (*Add another camera view of this same swing*); once confirmed (e.g. the shared
+   trigger and the same ball strike in both files), set same swing to verified with
+   the method and your name; record synchronization (method, `offset_ms` with
+   t_ref = t_FO + offset, uncertainty) and calibration as verified.
 8. **Reconstruct:** `scripts/geometry_3d.py reconstruct --shot <id> --calibration
    fox-v2.json`; check the summary's measured frames, max reprojection error and the
    world-frame evidence, then compare P1 angles with a physical check (e.g. an

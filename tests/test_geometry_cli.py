@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+from dataclasses import replace
 
 import cv2
 import numpy as np
@@ -123,6 +124,72 @@ def test_calibrate_check_and_verify_from_rendered_boards(tmp_path):
     assert v2["status"]["status"] == "verified" and v2["version"] == 2
     assert cli.main(["check-distance", "--calibration", str(cal_path), "--a", *pa, "--b", *pb,
                      "--known-m", "0.55", "--tolerance-mm", "5"]) == 1
+
+
+def _exact_calibration(tmp_path, a, b, name="exact.json"):
+    """An estimated calibration holding exactly these cameras (no fitting error)."""
+    from utils.calibration import calibration_document
+    doc = calibration_document("exact-rig", 1, [a, b], "estimated", "synthetic", "tester",
+                               "2026-11-01T09:00:00Z", created_at="2026-11-01T09:00:00Z")
+    path = tmp_path / name
+    json.dump(doc, open(path, "w"))
+    return str(path)
+
+
+def _pixels(cam, pts):
+    return [f"{x:.4f},{y:.4f}" for x, y in cam.project(np.asarray(pts, float))[0]]
+
+
+def _check(cli, cal_path, pa, pb, out, *extra, known="0.5"):
+    return cli.main(["check-distance", "--calibration", cal_path, "--a", *pa, "--b", *pb,
+                     "--known-m", known, "--by", "tester", "--out", str(out), *extra])
+
+
+def test_check_distance_verifies_only_with_valid_endpoint_geometry(tmp_path, capsys):
+    cli = _cli()
+    a, b = _cams()
+    a, b = replace(a, dist=(0.0,) * 5), replace(b, dist=(0.0,) * 5)
+    cal_path = _exact_calibration(tmp_path, a, b)
+    ends = np.array([[0.0, 0.3, 0.0], [0.5, 0.3, 0.0]])
+    # Valid geometry and the right length: verified, with the gates recorded.
+    out = tmp_path / "v2.json"
+    assert _check(cli, cal_path, _pixels(a, ends), _pixels(b, ends), out) == 0
+    v2 = json.load(open(out))
+    assert v2["status"]["status"] == "verified"
+    assert "both ends reprojection <= 3.0 px, parallax >= 5.0°, 1-sigma <= 5.0 mm" in \
+        v2["status"]["method"]
+    capsys.readouterr()
+
+    # Each case below reproduces the known length (within tolerance) from geometry
+    # that check_point rejects: no verified calibration is written.
+    def refused(pa, pb, why, *extra, cal=cal_path, known="0.5"):
+        bad = tmp_path / "bad.json"
+        assert _check(cli, cal, pa, pb, bad, *extra, known=known) == 1, why
+        text = capsys.readouterr().out
+        assert "within" in text and "OUTSIDE" not in text, text
+        assert why in text and "INVALID" in text and "not a pass" in text, text
+        assert not bad.exists()
+
+    # Behind both cameras: the lines (not the rays) meet there, exactly 0.5 m apart.
+    behind = np.array([[-2.4, -2.2, 1.8], [-1.9, -2.2, 1.8]])
+    for cam in (a, b):
+        assert (cam.to_camera(behind)[:, 2] < 0).all()
+    refused(_pixels(a, 2 * a.center - behind), _pixels(b, 2 * b.center - behind),
+            "behind a camera")
+    # Views that disagree by ~12 px at both ends; a loose length tolerance passes.
+    pb = [f"{x:.4f},{y + 12:.4f}" for x, y in b.project(ends)[0]]
+    refused(_pixels(a, ends), pb, "reprojection error", "--tolerance-mm", "100")
+    # Uncertainty bound tighter than this rig can reach.
+    refused(_pixels(a, ends), _pixels(b, ends), "position uncertainty",
+            "--max-sigma-mm", "0.5")
+    # Two cameras 3 cm apart looking at a stick 2.5 m away: rays nearly parallel.
+    n1 = replace(a, camera_id="down_the_line").with_pose(*look_at((-2.5, 0.25, 1.0),
+                                                                  (0.25, 0.3, 0.0)))
+    n2 = replace(b, camera_id="face_on", fx=a.fx, fy=a.fy, cx=a.cx, cy=a.cy).with_pose(
+        *look_at((-2.5, 0.28, 1.0), (0.25, 0.3, 0.0)))
+    narrow = _exact_calibration(tmp_path, n1, n2, "narrow.json")
+    refused(_pixels(n1, ends), _pixels(n2, ends), "rays only", "--max-sigma-mm", "1000",
+            cal=narrow)
 
 
 def cv2_board():

@@ -22,7 +22,8 @@ Real-world validation workflow for the two FOX cameras (docs/geometry-3d.md):
     python scripts/geometry_3d.py reconstruct --shot <shot_id> --calibration fox.json
 
 A calibration is written "estimated". Only check-distance with --by and a
-passing result writes a "verified" version (version + 1) -- and the shot's
+passing result -- the length within tolerance *and* both ends valid
+triangulations -- writes a "verified" version (version + 1) -- and the shot's
 catalog calibration status must be verified separately in the editor.
 Nothing here claims real-world accuracy that hasn't been checked this way.
 """
@@ -141,30 +142,46 @@ def calibrate_extrinsics(args):
 
 
 def check_distance(args):
-    from utils.triangulation import triangulate
+    """Both ends must be valid triangulations (triangulation.check_point:
+    reprojection, parallax, in front of both cameras, bounded uncertainty)
+    before their distance counts; a length that happens to match from bad
+    geometry never verifies a calibration."""
+    from utils.triangulation import check_point, triangulate
     doc, cams, _ = cal.load_calibration(args.calibration)
     ids = list(cams)
     if len(ids) != 2:
         raise SystemExit("check-distance needs a two-camera calibration")
+    max_sigma_mm = args.tolerance_mm if args.max_sigma_mm is None else args.max_sigma_mm
     pa = [tuple(float(v) for v in p.split(",")) for p in args.a]
     pb = [tuple(float(v) for v in p.split(",")) for p in args.b]
-    ends = []
+    ends, geometry_ok = [], True
     for k in range(2):
         p = triangulate([cams[ids[0]], cams[ids[1]]], [pa[k], pb[k]])
         ends.append(p)
         print(f"end {k + 1}: reprojection {p.reprojection_px.round(2).tolist()} px, "
-              f"1-sigma {p.sigma * 1000:.1f} mm")
+              f"parallax {p.parallax_deg:.1f}°, 1-sigma {p.sigma * 1000:.1f} mm")
+        problems = check_point(p, args.max_reprojection_px, args.min_parallax_deg,
+                               max_sigma_mm / 1000)
+        if problems:
+            geometry_ok = False
+            print(f"end {k + 1} INVALID: " + "; ".join(problems))
     d = float(np.linalg.norm(ends[0].xyz - ends[1].xyz))
     err_mm = (d - args.known_m) * 1000
-    ok = abs(err_mm) <= args.tolerance_mm
+    within = abs(err_mm) <= args.tolerance_mm
     print(f"measured {d:.4f} m vs known {args.known_m:.4f} m: error {err_mm:+.1f} mm "
-          f"({'within' if ok else 'OUTSIDE'} ±{args.tolerance_mm} mm)")
+          f"({'within' if within else 'OUTSIDE'} ±{args.tolerance_mm} mm)")
+    ok = within and geometry_ok
+    if within and not geometry_ok:
+        print("not a pass: an endpoint's geometry is invalid, so the length proves nothing")
     if ok and args.by and args.out:
         from utils.catalog import now_iso
         doc = {**doc, "version": doc["version"] + 1,
                "status": {"status": "verified", "by": args.by, "at": now_iso(),
                           "method": f"known distance {args.known_m} m measured as {d:.4f} m "
-                                    f"({err_mm:+.1f} mm, tolerance {args.tolerance_mm} mm)",
+                                    f"({err_mm:+.1f} mm, tolerance {args.tolerance_mm} mm); "
+                                    f"both ends reprojection <= {args.max_reprojection_px} px, "
+                                    f"parallax >= {args.min_parallax_deg}°, "
+                                    f"1-sigma <= {max_sigma_mm} mm",
                           "notes": None}}
         with open(args.out, "w") as f:
             json.dump(doc, f, indent=2)
@@ -262,6 +279,12 @@ def main(argv=None):
     c.add_argument("--b", nargs=2, required=True, help="x,y of both ends in camera B")
     c.add_argument("--known-m", type=float, required=True)
     c.add_argument("--tolerance-mm", type=float, default=5.0)
+    c.add_argument("--max-reprojection-px", type=float, default=3.0,
+                   help="per end and view (as in reconstruction)")
+    c.add_argument("--min-parallax-deg", type=float, default=5.0,
+                   help="angle between the two rays at each end")
+    c.add_argument("--max-sigma-mm", type=float,
+                   help="1-sigma position uncertainty per end (default: the tolerance)")
     c.add_argument("--by", help="with --out: write a verified version if within tolerance")
     c.add_argument("--out")
     r = sub.add_parser("reconstruct")

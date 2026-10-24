@@ -44,12 +44,12 @@ Branch `feat/geometry-3d-foundation`. Details: [geometry-3d.md](geometry-3d.md).
 
 - **Contract** `schemas/geometry-3d.schema.json`: `camera_calibration`, `reconstruction_3d` (manifest + `trajectory.npz`), `measurements_3d`; shares the capture contract's id/time/path/view definitions.
 - **World frame**: +X toward target, +Y left of the target line, +Z up, origin at the ball's ground projection at address; ground, target line and origin each need explicit evidence.
-- **Reconstruction** from the PR #5 catalog shot and labels; refuses non-same-swing inputs; per-point observed/inferred/missing and per-frame measured/unverified with reasons; camera-specific source frames and timestamps preserved.
+- **Reconstruction** from the PR #5 catalog shot and labels; refuses non-same-swing inputs; per-point observed/inferred/missing and per-frame measured/unverified with reasons; camera-specific source frames and timestamps preserved. An asserted same-swing association reconstructs experimentally, but no frame is measured until it is verified with its provenance (method, by, at).
 - **Measurements**: P1 alignment (shoulder, pelvis, knee-centre line, stance, feet, differences) and clubhead trajectory (speed, path, attack, swing direction, observed and fitted low point), each `measured` / `inferred` / `unavailable`.
-- **CLI** `scripts/geometry_3d.py`: calibrate-intrinsics, calibrate-extrinsics, check-distance (the only way to a verified calibration), reconstruct.
+- **CLI** `scripts/geometry_3d.py`: calibrate-intrinsics, calibrate-extrinsics, check-distance (the only way to a verified calibration; both endpoints must pass `check_point` — in front, reprojection, parallax, bounded uncertainty — as well as the length), reconstruct.
 - New shot-label points: `clubhead_center`, `floor_c`, `target_line_back`, `target_line_front`.
 
-Tests run 2026-10-24, CPU image: Python **908 passed, 7 skipped** (PR #5 baseline on main: 856 / 7). Rust **227 passed, 0 failed** (unchanged code). **GPU image not run** (PR #6 adds no GPU code). Accuracy figures are synthetic only; the real FOX validation procedure is in geometry-3d.md and has not been run.
+Tests run 2026-10-24, CPU image: Python **912 passed, 7 skipped** (PR #5 baseline on main: 856 / 7). Rust **227 passed, 0 failed** at `9b87f75`; no Rust code changed since. **GPU image not run** (PR #6 adds no GPU code). Accuracy figures are synthetic only; the real FOX validation procedure is in geometry-3d.md and has not been run.
 
 ## PR #5 — swing dataset catalog and Reference Editor (merged)
 

@@ -125,6 +125,18 @@ def test_small_baseline_is_ill_conditioned():
     assert any("uncertainty" in r for r in reasons)
 
 
+def test_a_point_behind_the_cameras_is_rejected():
+    # Pixels of the point mirrored through each camera centre: the viewing lines
+    # meet behind both cameras, where nothing projects (NaN covariance).
+    cams = rig()
+    X = np.array([-6.0, -6.0, 3.0])
+    assert all(c.to_camera(X[None])[0, 2] < 0 for c in cams)
+    p = triangulate(cams, [c.project((2 * c.center - X)[None])[0][0] for c in cams])
+    assert not p.in_front and p.sigma == np.inf
+    reasons = check_point(p, max_sigma_m=0.02)
+    assert "behind a camera" in reasons and any("uncertainty" in r for r in reasons)
+
+
 def test_triangulation_needs_two_views():
     with pytest.raises(ValueError):
         triangulate([rig()[0]], [[10.0, 10.0]])

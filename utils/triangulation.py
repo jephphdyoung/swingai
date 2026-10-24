@@ -37,7 +37,10 @@ class TriangulatedPoint:
 
     @property
     def sigma(self):
-        """1-sigma position uncertainty: sqrt of the largest covariance eigenvalue."""
+        """1-sigma position uncertainty: sqrt of the largest covariance eigenvalue
+        (inf when the covariance isn't finite, e.g. a point behind a camera)."""
+        if not np.all(np.isfinite(self.cov)):
+            return float("inf")
         return float(np.sqrt(max(np.linalg.eigvalsh(self.cov).max(), 0.0)))
 
 
@@ -121,8 +124,11 @@ def check_point(p: TriangulatedPoint, max_reprojection_px=MAX_REPROJECTION_PX,
         return ["triangulation failed (rays don't meet)"]
     if not p.in_front:
         reasons.append("behind a camera")
-    worst = float(np.nanmax(p.reprojection_px))
-    if not worst <= max_reprojection_px:
+    errors = np.asarray(p.reprojection_px, float)
+    worst = float(errors.max()) if np.all(np.isfinite(errors)) else None
+    if worst is None:
+        reasons.append("doesn't reproject into every view")
+    elif not worst <= max_reprojection_px:
         reasons.append(f"reprojection error {worst:.1f} px > {max_reprojection_px} px "
                        "(views disagree: mislabelled point, wrong frame pairing or "
                        "calibration)")
