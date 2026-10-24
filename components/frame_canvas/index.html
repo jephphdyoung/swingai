@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  #wrap { position: relative; line-height: 0; user-select: none; }
+  canvas { width: 100%; display: block; border-radius: 6px; background: #000; touch-action: none; }
+  canvas.point { cursor: crosshair; }
+  canvas.crop { cursor: cell; }
+  #hint { font-size: 12px; color: #777; margin-top: 4px; line-height: 1.3; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="hint"></div>
+<script>
+// ---- Streamlit static component protocol (no build step) ----
+function _post(type, data) {
+  window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data), "*");
+}
+const Streamlit = {
+  ready: () => _post("streamlit:componentReady", { apiVersion: 1 }),
+  setHeight: (h) => _post("streamlit:setFrameHeight", { height: h }),
+  setValue: (v) => _post("streamlit:setComponentValue", { value: v, dataType: "json" }),
+};
+
+// Everything is in SOURCE pixels. `view` is the source rectangle shown (zoom);
+// a click maps back through it, so stored coordinates never depend on the
+// display size. The image is the full decoded source frame, never resized
+// server-side.
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const hint = document.getElementById("hint");
+const img = new Image();
+let args = null, imgSrc = null, drag = null;
+
+function view() { return args.view || { x: 0, y: 0, width: args.width, height: args.height }; }
+function nonce() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function toSource(ev) {
+  const r = canvas.getBoundingClientRect(), v = view();
+  const sx = v.x + (ev.clientX - r.left) / r.width * v.width;
+  const sy = v.y + (ev.clientY - r.top) / r.height * v.height;
+  return { x: Math.max(0, Math.min(args.width, sx)), y: Math.max(0, Math.min(args.height, sy)) };
+}
+
+function toCanvas(x, y) {
+  const v = view();
+  return [(x - v.x) / v.width * canvas.width, (y - v.y) / v.height * canvas.height];
+}
+
+function draw() {
+  if (!args || !img.complete) return;
+  const v = view();
+  const cssW = canvas.parentElement.clientWidth || 640;
+  const scale = window.devicePixelRatio || 1;
+  canvas.width = Math.round(cssW * scale);
+  canvas.height = Math.round(cssW * v.height / v.width * scale);
+  canvas.style.height = (cssW * v.height / v.width) + "px";
+  ctx.imageSmoothingEnabled = false;      // show real pixels when zoomed in
+  ctx.drawImage(img, v.x, v.y, v.width, v.height, 0, 0, canvas.width, canvas.height);
+  const unit = canvas.width / 600;
+
+  const c = drag ? drag.rect : args.crop;
+  if (c) {
+    const [x0, y0] = toCanvas(c.x, c.y), [x1, y1] = toCanvas(c.x + c.width, c.y + c.height);
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.beginPath();
+    ctx.rect(0, 0, canvas.width, canvas.height);
+    ctx.rect(x0, y0, x1 - x0, y1 - y0);
+    ctx.fill("evenodd");
+    ctx.setLineDash([6 * unit, 4 * unit]);
+    ctx.strokeStyle = drag ? "#ffd166" : "#f8f9fa";
+    ctx.lineWidth = 1.5 * unit;
+    ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.restore();
+  }
+  for (const p of (args.points || [])) {
+    const [px, py] = toCanvas(p.x, p.y);
+    const active = p.name === args.active;
+    const r = (active ? 6 : 4) * unit;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, 2 * Math.PI);
+    ctx.lineWidth = 2 * unit;
+    ctx.strokeStyle = active ? "#ff4d6d" : (p.origin === "model_proposed" ? "#4cc9f0" : "#ffd166");
+    if (p.visible) { ctx.fillStyle = ctx.strokeStyle; ctx.fill(); }
+    ctx.stroke();
+    if (args.show_names || active) {
+      ctx.font = `${11 * unit}px sans-serif`;
+      ctx.lineWidth = 3 * unit;
+      ctx.strokeStyle = "rgba(0,0,0,0.8)";
+      ctx.strokeText(p.name, px + r + 2 * unit, py - r);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(p.name, px + r + 2 * unit, py - r);
+    }
+  }
+  hint.textContent = args.mode === "crop"
+    ? "Drag a rectangle around the golfer to set the crop (source pixels)."
+    : (args.active ? `Click to place ${args.active}. Hollow = placed as hidden (not visible).`
+                   : "Choose a point to place, then click on the frame.");
+  Streamlit.setHeight(document.body.scrollHeight);
+}
+
+img.onload = draw;
+window.addEventListener("resize", draw);
+
+canvas.addEventListener("pointerdown", (ev) => {
+  if (!args) return;
+  const p = toSource(ev);
+  if (args.mode === "crop") {
+    drag = { start: p, rect: { x: p.x, y: p.y, width: 0, height: 0 } };
+    canvas.setPointerCapture(ev.pointerId);
+  } else if (args.active) {
+    Streamlit.setValue({ kind: "point", name: args.active, x: Math.round(p.x * 10) / 10,
+                         y: Math.round(p.y * 10) / 10, frame: args.frame, nonce: nonce() });
+  }
+});
+canvas.addEventListener("pointermove", (ev) => {
+  if (!drag) return;
+  const p = toSource(ev);
+  drag.rect = { x: Math.min(p.x, drag.start.x), y: Math.min(p.y, drag.start.y),
+                width: Math.abs(p.x - drag.start.x), height: Math.abs(p.y - drag.start.y) };
+  draw();
+});
+canvas.addEventListener("pointerup", () => {
+  if (!drag) return;
+  const r = drag.rect;
+  drag = null;
+  if (r.width >= 4 && r.height >= 4) {
+    const x = Math.floor(r.x), y = Math.floor(r.y);
+    Streamlit.setValue({ kind: "crop", x: x, y: y,
+                         width: Math.min(args.width - x, Math.ceil(r.width)),
+                         height: Math.min(args.height - y, Math.ceil(r.height)),
+                         frame: args.frame, nonce: nonce() });
+  }
+  draw();
+});
+
+window.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== "streamlit:render") return;
+  args = data.args || {};
+  canvas.className = args.mode === "crop" ? "crop" : "point";
+  if (args.image !== imgSrc) { imgSrc = args.image; img.src = imgSrc; } else { draw(); }
+});
+
+Streamlit.ready();
+</script>
+</body>
+</html>

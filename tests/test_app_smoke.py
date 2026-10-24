@@ -30,6 +30,7 @@ def app_env(tmp_path, monkeypatch):
     monkeypatch.setenv("SWINGAI_USER_DIR", str(user))
     monkeypatch.setenv("SWINGAI_REFERENCE_DIR", str(ref))
     monkeypatch.setenv("SWINGAI_OUTPUT_DIR", str(out))
+    monkeypatch.setenv("SWINGAI_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(ann, "ANNOTATIONS_PATH", str(tmp_path / "annotations.json"))
 
     videos = {
@@ -54,7 +55,8 @@ def test_all_tabs_render_and_dual_view_shows_four_panels(app_env):
     at.run()
     assert not at.exception, [e.value for e in at.exception]
 
-    assert [t.label for t in at.tabs] == ["Analyze", "Annotate", "Dual-View Comparison"]
+    assert [t.label for t in at.tabs][:4] == ["Analyze", "Annotate", "Dual-View Comparison",
+                                              "Reference Editor"]
     # Analyze and Annotate still build their widgets.
     assert at.selectbox(key="analyze_user") is not None
     assert at.selectbox(key="annot_video") is not None
