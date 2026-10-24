@@ -145,7 +145,7 @@ move/rewrite sources; never convert legacy
 ## Running things
 There is no local pytest — the container has the deps.
 ```bash
-podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 853 pass, 7 GPU/ORT-only skip (2026-10-24)
+podman run --rm --security-opt label=disable -v "$PWD":/app swingai python -m pytest tests/ -q   # CPU image: 856 pass, 7 GPU/ORT-only skip (2026-10-24)
 ./run.sh                                                             # app on :8501
 SWINGAI_GPU=1 ./run.sh             # + RTMPose on the GPU; `verify-gpu` to prove it
 ```

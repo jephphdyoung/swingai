@@ -58,7 +58,8 @@ Camera views use the contract's spelling (`down_the_line`), not the Python `dtl`
   that document's SHA-256. The snapshot is content-addressed and write-once; the
   collection records its path and hash, and a save that alters a frozen collection
   record is refused. Freezing is refused if a member's source bytes can't be found
-  and checked or its labels don't validate. The working shots **stay editable**:
+  and checked, its labels don't validate, or any label's saved image digest differs
+  from the exact decoded source frame it names (checked against the frame index). The working shots **stay editable**:
   `load_snapshot` always returns the frozen inputs (after re-checking the hash),
   and `frozen_drift` lists what has changed in the working shots since — the editor
   shows it, and `scripts/catalog.py verify` checks every snapshot.

@@ -825,11 +825,15 @@ def canonical_sha256(doc):
 def freeze_collection(cat, collection_id, by, annotations_dir=None):
     """Freeze a draft: snapshot every member's complete inputs.
 
-    Refused when a member's source bytes can't be found and checked, or its
-    labels don't validate against the catalog -- a frozen input has to be
-    reproducible. The snapshot is written by the next `save_catalog`.
+    Refused when a member's source bytes can't be found and checked, its
+    labels don't validate against the catalog, or any label's saved image
+    digest differs from the exact decoded source frame it names
+    (`shot_annotations.identity_problems` against the source's frame index)
+    -- a frozen input has to be reproducible. Nothing is changed on refusal.
+    The snapshot is written by the next `save_catalog`.
     """
     from utils import shot_annotations as sa
+    from utils.frame_access import FrameAccessError, get_frame_index
     c = _draft(cat, collection_id)
     if not str(by or "").strip():
         raise CatalogError("freezing needs the name of who froze it")
@@ -839,16 +843,34 @@ def freeze_collection(cat, collection_id, by, annotations_dir=None):
     for shot_id in c["shot_ids"]:
         shot = cat.shot(shot_id)
         source_ids = list(dict.fromkeys(st["source_id"] for st in shot["streams"]))
+        found = {}
         for sid in source_ids:
             status = resolve_source(cat, sid)
             if not status.usable:
                 problems.append(f"shot {shot_id}: source {sid} is {status.state} "
                                 f"({status.detail})")
+            else:
+                found[sid] = status.path
         doc = None
         if os.path.exists(sa.annotations_path(shot_id, annotations_dir)):
             doc = sa.load(shot_id, annotations_dir)
             doc = {k: v for k, v in doc.items() if not k.startswith("_")}
             problems += sa.check(doc, cat)
+            for stream_id, labels in doc["streams"].items():
+                path = found.get(labels["source_id"])
+                if path is None:
+                    continue        # already reported: unknown or unusable source
+                try:
+                    index = get_frame_index(path)
+                except FrameAccessError as e:
+                    problems.append(f"shot {shot_id} {stream_id}: {e}")
+                    continue
+                if index.file_sha256 != cat.source(labels["source_id"])["sha256"]:
+                    problems.append(f"shot {shot_id} {stream_id}: the frame index is for "
+                                    "different bytes than the registered source")
+                    continue
+                problems += [f"shot {shot_id} {stream_id}: {p}"
+                             for p in sa.identity_problems(doc, stream_id, index)]
         shots.append({"shot": copy.deepcopy(shot),
                       "sources": [copy.deepcopy(cat.source(s)) for s in source_ids],
                       "annotations": doc,

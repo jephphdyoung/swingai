@@ -507,3 +507,63 @@ def test_motion_timing_needs_verified_timestamps_and_a_basis(dataset, monkeypatc
     gate = cm.eligibility(cat, _shot(cat, "bob", est, "face_on"))["motion_timing"]
     assert not gate["eligible"] and "estimated" in gate["reasons"][0]
     cm.save_catalog(cat)
+
+
+# --- freezing checks each label's image against its exact source frame ---------
+
+def _tamper_digest(shot_id, mutate):
+    """Rewrite a saved label's image_sha1 behind the API, as a stale or
+    hand-edited file would have it."""
+    from utils import shot_annotations as sa
+    path = sa.annotations_path(shot_id)
+    doc = json.load(open(path))
+    mutate(doc)
+    json.dump(doc, open(path, "w"), indent=2)
+
+
+def _assert_still_draft(cat_root):
+    cat = cm.load_catalog()
+    c = cat.collection("gw-v1")
+    assert c["status"] == "draft" and c["snapshot"] is None and c["frozen_at"] is None
+    snaps = os.path.join(cat_root, "snapshots")
+    assert not os.path.isdir(snaps) or not os.listdir(snaps)
+
+
+def test_freezing_accepts_labels_on_their_exact_source_frames(dataset):
+    cat, s1, s2, sid, shot, src, index = _labelled_collection(dataset)
+    doc = json.load(open(os.path.join(str(dataset.data), "annotations", f"{s1}.json")))
+    assert doc["streams"][sid]["positions"]["P1"]["image_sha1"] == index.digests[5]
+    assert doc["streams"][sid]["frames"]["5"]["image_sha1"] == index.digests[5]
+    cm.freeze_collection(cat, "gw-v1", by="tester")
+    cm.save_catalog(cat)
+    assert cm.load_catalog().collection("gw-v1")["status"] == "frozen"
+
+
+@pytest.mark.parametrize("which", ["p_position", "landmark_frame"])
+def test_freezing_refuses_a_label_whose_image_is_not_its_source_frame(dataset, which):
+    cat, s1, s2, sid, shot, src, index = _labelled_collection(dataset)
+    wrong = index.digests[4]                      # the neighbouring frame's image
+
+    def mutate(doc):
+        if which == "p_position":
+            doc["streams"][sid]["positions"]["P1"]["image_sha1"] = wrong
+        else:
+            doc["streams"][sid]["frames"]["5"]["image_sha1"] = wrong
+    _tamper_digest(s1, mutate)
+    labels_before = open(os.path.join(str(dataset.data), "annotations", f"{s1}.json")).read()
+
+    cat = cm.load_catalog()
+    with pytest.raises(cm.CatalogError) as e:
+        cm.freeze_collection(cat, "gw-v1", by="tester")
+    expected = ("P1 at frame 5: placed on a different image" if which == "p_position"
+                else "labels at frame 5: placed on a different image")
+    assert any(expected in p and s1 in p for p in e.value.problems), e.value.problems
+
+    # A failed freeze changes nothing in memory, so a later save publishes nothing.
+    assert cat.collection("gw-v1")["status"] == "draft"
+    assert not cat._pending_snapshots
+    cm.save_catalog(cat)
+    _assert_still_draft(cat.root)
+    # The label file is reported, never repaired or re-pointed.
+    assert open(os.path.join(str(dataset.data), "annotations",
+                             f"{s1}.json")).read() == labels_before
