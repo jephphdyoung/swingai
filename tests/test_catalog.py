@@ -175,6 +175,38 @@ def test_same_swing_views_are_explicit_and_statuses_stay_unknown_until_set(datas
         cm.set_multi_view(cat, single, "same_swing", "asserted", "x", "alice")
 
 
+def test_exposure_alignment_is_explicit_and_never_assumed(dataset):
+    cat = _fresh(dataset)
+    dtl = register(cat, dataset, "alice_dtl", "alice", "down_the_line")
+    fo = register(cat, dataset, "alice_fo", "alice", "face_on")
+    shot = _shot(cat, "alice", dtl, "down_the_line", 0, 59)
+    cm.add_stream(cat, shot, source_id=fo, camera_view="face_on", start_frame=0, end_frame=59,
+                  same_swing_method="co-triggered pair", asserted_by="alice")
+    cm.set_multi_view(cat, shot, "same_swing", "verified", "same impact sound", "alice")
+    # Equal frame rates and a measured offset say nothing about the exposures.
+    sync = cm.set_multi_view(cat, shot, "synchronization", "verified", "audio clap", "alice",
+                             offset_ms=2.1, uncertainty_ms=0.4)["multi_view"]["synchronization"]
+    assert sync["exposure_alignment"] == "unknown" and sync["exposure_uncertainty_ms"] is None
+    for bad, match in (({"exposure_alignment": "bounded"}, "no exposure_uncertainty_ms"),
+                       ({"exposure_alignment": "included", "exposure_uncertainty_ms": 0.1},
+                        "only for a bounded"),
+                       ({"exposure_alignment": "bounded", "exposure_uncertainty_ms": -1},
+                        "must be >= 0"),
+                       ({"exposure_alignment": "sometimes"}, "must be one of")):
+        with pytest.raises(cm.CatalogError, match=match):
+            cm.set_multi_view(cat, shot, "synchronization", "verified", "audio clap", "alice",
+                              offset_ms=2.1, uncertainty_ms=0.4, **bad)
+    with pytest.raises(cm.CatalogError, match="needs a measured synchronization"):
+        cm.set_multi_view(cat, shot, "synchronization", "unknown",
+                          exposure_alignment="included")
+    cm.set_multi_view(cat, shot, "synchronization", "verified", "LED flash", "alice",
+                      offset_ms=2.1, uncertainty_ms=0.05, exposure_alignment="bounded",
+                      exposure_uncertainty_ms=0.02)
+    cm.save_catalog(cat)
+    sync = cm.load_catalog().shot(shot)["multi_view"]["synchronization"]
+    assert (sync["exposure_alignment"], sync["exposure_uncertainty_ms"]) == ("bounded", 0.02)
+
+
 def test_motion_timing_needs_known_real_time(dataset):
     cat = _fresh(dataset)
     yt = register(cat, dataset, "gw_dtl", "grant-waite", "down_the_line", source_type="youtube")
@@ -188,8 +220,20 @@ def test_motion_timing_needs_known_real_time(dataset):
         "eligible"]
     s_slow = _shot(cat, "grant-waite", slow, "face_on")
     assert not cm.eligibility(cat, s_slow)["motion_timing"]["eligible"]
+    assert cm.motion_clock(cat.source(slow))["scale"] is None
     cm.update_source(cat, slow, timing={"capture_fps": 480, "basis": "broadcast 480fps"})
     assert cm.eligibility(cat, s_slow)["motion_timing"]["eligible"]
+    # Real time per timestamp ms: presented at 30 fps, captured at 480 fps.
+    clock = cm.motion_clock(cat.source(slow))
+    assert clock["scale"] == pytest.approx(30.0 / 480)
+    assert "one presented frame per captured frame" in clock["basis"]
+    assert cm.motion_clock(cat.source(cap))["scale"] == 1.0
+    assert cm.motion_clock(cat.source(yt))["scale"] is None
+    # A variable-rate file can't be rescaled by a single capture rate.
+    vfr = {**cat.source(slow), "video": {**cat.source(slow)["video"],
+                                         "variable_frame_rate": True}}
+    assert cm.motion_clock(vfr)["scale"] is None
+    assert "variable frame rate" in cm.motion_clock(vfr)["reasons"][0]
     # Playback rate is recorded separately from capture timing.
     src = cat.source(yt)
     assert src["video"]["nominal_fps"] == pytest.approx(30.0)

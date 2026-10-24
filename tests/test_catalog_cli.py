@@ -72,3 +72,31 @@ def test_verify_reports_a_tampered_frozen_snapshot(dataset, capsys):
     json.dump(doc, open(path, "w"))
     assert cli.main(["verify"]) == 1
     assert "BROKEN" in capsys.readouterr().out
+
+
+def test_set_sync_records_the_exposure_alignment(dataset, capsys):
+    cli = _cli()
+    cat = cm.load_catalog()
+    cm.add_golfer(cat, "Alice", "user", "right", golfer_id="alice")
+    dtl, _ = cm.register_source(cat, dataset.videos["alice_dtl"], golfer_id="alice")
+    fo, _ = cm.register_source(cat, dataset.videos["alice_fo"], golfer_id="alice")
+    shot = cm.add_shot(cat, golfer_id="alice", source_id=dtl["source_id"],
+                       camera_view="down_the_line", start_frame=0, end_frame=20,
+                       swing_type="full")["shot_id"]
+    cm.add_stream(cat, shot, source_id=fo["source_id"], camera_view="face_on", start_frame=0,
+                  end_frame=20, same_swing_method="co-triggered pair", asserted_by="alice")
+    cm.set_multi_view(cat, shot, "same_swing", "verified", "same impact sound", "alice")
+    cm.save_catalog(cat)
+    assert cli.main(["set-sync", shot, "--status", "verified", "--method", "LED flash",
+                     "--by", "alice", "--offset-ms", "-37.5", "--uncertainty-ms", "0.05",
+                     "--exposure", "bounded", "--exposure-uncertainty-ms", "0.02"]) == 0
+    sync = cm.load_catalog().shot(shot)["multi_view"]["synchronization"]
+    assert (sync["offset_ms"], sync["uncertainty_ms"], sync["exposure_alignment"],
+            sync["exposure_uncertainty_ms"]) == (-37.5, 0.05, "bounded", 0.02)
+    assert "exposure alignment bounded ± 0.02 ms" in capsys.readouterr().out
+    # Bounded without a number is refused and nothing is saved.
+    assert cli.main(["set-sync", shot, "--status", "verified", "--method", "LED flash",
+                     "--by", "alice", "--offset-ms", "-37.5", "--uncertainty-ms", "0.05",
+                     "--exposure", "bounded"]) == 2
+    assert cm.load_catalog().shot(shot)["multi_view"]["synchronization"][
+        "exposure_uncertainty_ms"] == 0.02

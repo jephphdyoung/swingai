@@ -1572,6 +1572,26 @@
               "type": "null"
             }
           ]
+        },
+        "exposure_alignment": {
+          "enum": [
+            "unknown",
+            "included",
+            "bounded"
+          ],
+          "description": "How the cameras' exposure midpoints line up beyond what offset_ms/uncertainty_ms already capture: unknown (default; equal nominal frame rates never imply aligned exposures), included (uncertainty_ms already bounds it), bounded (add exposure_uncertainty_ms)."
+        },
+        "exposure_uncertainty_ms": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Extra bound on exposure-midpoint misalignment in real milliseconds; only with exposure_alignment bounded."
         }
       },
       "additionalProperties": false,
